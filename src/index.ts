@@ -16,3 +16,14 @@ export type {
   PendingMessageType,
   SessionSummary,
 } from './adapter/types.js';
+export {
+  currentBranch,
+  isDetached,
+  DETACHED_PREFIX,
+  NO_GIT,
+} from './git/resolver.js';
+export type { ResolverOptions } from './git/resolver.js';
+export { GitWatcher } from './git/watcher.js';
+export type { WatcherOptions } from './git/watcher.js';
+export { TreMemRepo } from './store/repo.js';
+export type { BranchState, RepoOptions } from './store/repo.js';
