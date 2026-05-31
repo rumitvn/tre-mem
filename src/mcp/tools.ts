@@ -152,15 +152,19 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   },
   {
     name: 'get_branch_timeline',
-    description:
-      'Chronological list of observations tagged on a specific branch (newest first).',
+    description: 'Chronological list of observations tagged on a specific branch (newest first).',
     inputSchema: {
       type: 'object',
       properties: {
         branch: { type: 'string', description: 'Branch name' },
         project: { type: 'string', description: 'Project slug (defaults to basename of cwd)' },
         cwd: { type: 'string', description: 'Working directory used to derive project' },
-        limit: { type: 'integer', minimum: 1, maximum: 200, description: 'Max entries (default 50)' },
+        limit: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 200,
+          description: 'Max entries (default 50)',
+        },
       },
       required: ['branch'],
     },

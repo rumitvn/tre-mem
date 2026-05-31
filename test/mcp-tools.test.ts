@@ -97,9 +97,7 @@ describe('MCP tools', () => {
       limit: 10,
     });
     expect(result.entries.map((e) => e.observation_id)).toEqual([3, 1]);
-    expect(result.entries[0]!.tagged_at_epoch).toBeGreaterThan(
-      result.entries[1]!.tagged_at_epoch,
-    );
+    expect(result.entries[0]!.tagged_at_epoch).toBeGreaterThan(result.entries[1]!.tagged_at_epoch);
   });
 
   it('list_branches: groups tag counts per branch', () => {
@@ -118,16 +116,14 @@ describe('MCP tools', () => {
     expect(result.branch).toBe(FEATURE);
     expect(result.note).toBe('stripe primary fact');
     const pins = repo.listPinsForBranch(PROJECT, FEATURE);
-    expect(pins.some((p) => p.observation_id === 3 && p.note === 'stripe primary fact')).toBe(
-      true,
-    );
+    expect(pins.some((p) => p.observation_id === 3 && p.note === 'stripe primary fact')).toBe(true);
   });
 
   it('pin_fact: rejects bad observation ids', async () => {
     await expect(pinFact(deps, { observation_id: 0 })).rejects.toThrow(/invalid observation_id/);
-    await expect(
-      pinFact(deps, { observation_id: 1.5 as unknown as number }),
-    ).rejects.toThrow(/invalid observation_id/);
+    await expect(pinFact(deps, { observation_id: 1.5 as unknown as number })).rejects.toThrow(
+      /invalid observation_id/,
+    );
   });
 
   it('graduate_fact: writes graduated row and is idempotent on conflict', async () => {
@@ -220,8 +216,30 @@ function seedClaudeMem(dbPath: string, now: number): void {
         (id, memory_session_id, project, text, type, title, subtitle, narrative, concepts, created_at, created_at_epoch)
        VALUES (?, ?, ?, ?, 'observation', ?, ?, ?, ?, ?, ?)`,
     );
-    insert.run(1, 's', PROJECT, 'stripe checkout', 'stripe', null, 'wire stripe', 'stripe', 't', now - 86400 * 5);
-    insert.run(2, 's', PROJECT, 'jwt expiry fix', 'jwt', null, 'fix auth', 'jwt', 't', now - 86400 * 4);
+    insert.run(
+      1,
+      's',
+      PROJECT,
+      'stripe checkout',
+      'stripe',
+      null,
+      'wire stripe',
+      'stripe',
+      't',
+      now - 86400 * 5,
+    );
+    insert.run(
+      2,
+      's',
+      PROJECT,
+      'jwt expiry fix',
+      'jwt',
+      null,
+      'fix auth',
+      'jwt',
+      't',
+      now - 86400 * 4,
+    );
     insert.run(
       3,
       's',
