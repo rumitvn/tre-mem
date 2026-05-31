@@ -61,3 +61,28 @@ export type {
   SessionStartResult,
   SessionStartSource,
 } from './hooks/session-start.js';
+export {
+  TOOL_DEFINITIONS,
+  callTool,
+  getBranchContext,
+  getBranchTimeline,
+  graduateFact,
+  listBranches,
+  pinFact,
+} from './mcp/tools.js';
+export type {
+  GetBranchContextInput,
+  GetBranchContextResult,
+  GetBranchTimelineInput,
+  GetBranchTimelineResult,
+  GraduateFactInput,
+  GraduateFactResult,
+  ListBranchesInput,
+  ListBranchesResult,
+  PinFactInput,
+  PinFactResult,
+  ToolDefinition,
+  ToolDeps,
+} from './mcp/tools.js';
+export { createMcpServer, runMcpServer } from './mcp/server.js';
+export type { CreateServerOptions } from './mcp/server.js';

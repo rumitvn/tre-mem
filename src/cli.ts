@@ -6,6 +6,7 @@ import { ClaudeMemAdapter } from './adapter/claude-mem.js';
 import { backfill } from './git/backfill.js';
 import { NO_GIT, currentBranch, isDetached } from './git/resolver.js';
 import { type SessionStartInput, runSessionStartHook } from './hooks/session-start.js';
+import { runMcpServer } from './mcp/server.js';
 import { searchBranchContext, type SearchHit } from './retrieval/search.js';
 import { migrate } from './store/migrate.js';
 import { TRE_MEM_DB_PATH, TRE_MEM_HOME } from './store/paths.js';
@@ -294,6 +295,10 @@ cli
       repo.close();
     }
   });
+
+cli.command('mcp', 'Start the tre-mem MCP server on stdio').action(async () => {
+  await runMcpServer();
+});
 
 cli.help();
 cli.version(getPackageVersion());
