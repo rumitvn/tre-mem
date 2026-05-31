@@ -261,7 +261,7 @@ Parser: `cac` (nhẹ, đủ).
 - [x] **T0D0.2** Tạo `CLAUDE.md` — codebase guide cho Claude Code
 - [x] **T0D0.3** Tạo `.gitignore` (node_modules, dist, .env, *.db, .DS_Store)
 - [x] **T0D0.4** `git init` + first commit `chore: initial PLAN.md + CLAUDE.md`
-- [ ] **T0D0.5** Tạo GitHub repo `tre-mem` (private trước), `git remote add origin`, push
+- [x] **T0D0.5** GitHub repo `rumitvn/tre-mem` (private) + push: https://github.com/rumitvn/tre-mem
 - [ ] **T0D0.6** Reserve npm package name `tre-mem` — defer cho cuối T2
 
 ### Tuần 1 — Adapter + branch tagging + backfill
@@ -351,3 +351,4 @@ Parser: `cac` (nhẹ, đủ).
 ## Changelog (decisions & pivots)
 
 - **2026-05-31** — Plan v1 approved. Stack: TypeScript. Scope: 2-tuần MVP. Strategy: sidecar adapter trên claude-mem.
+- **2026-05-31** — T0 bootstrap done. Repo: `rumitvn/tre-mem` private (SSH). gh CLI v2.93.0 installed as primary GitHub workflow tool.
