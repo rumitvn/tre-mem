@@ -1,10 +1,38 @@
-# tre-mem
+# tre-mem 🎋
 
 > *Tre — bộ rễ chung cho codebase của bạn.*
-> Tầng memory **branch-aware** đặt trên [claude-mem](https://github.com/thedotmack/claude-mem),
-> giúp AI assistant hiểu đúng **feature bạn đang làm**, không chỉ *repo bạn đang ở*.
 
 > 🇬🇧 English version: [README.md](./README.md)
+
+Tre là hình ảnh thân thuộc của làng quê Việt Nam — biểu tượng của sự **bền
+bỉ, gắn bó, và gốc rễ**. Lũy tre xanh là nhiều thân tre vươn lên từ chung một
+bộ rễ, đung đưa riêng trong gió nhưng đứng vững cùng nhau qua mọi cơn bão.
+Các branch của một codebase cũng lớn lên như vậy: mỗi branch là một feature
+riêng, nhưng tất cả đều từ một dòng history chung.
+
+```
+                  ╲╱           ╲╱           ╲╱
+                  ╱╲           ╱╲           ╱╲
+                 ╱  ╲         ╱  ╲         ╱  ╲
+                 │  │         │  │         │  │
+                 ├──┤         ├──┤         ├──┤    ← đốt tre
+                 │  │         │  │         │  │
+                 ├──┤         ├──┤         ├──┤
+                 │  │         │  │         │  │
+                 ├──┤         ├──┤         ├──┤
+                 │  │         │  │         │  │
+              ═══╧══╧═════════╧══╧═════════╧══╧═══
+                  ╲      ╲    │    ╱      ╱
+                   ╲______╲___│___╱______╱
+                      gốc chung · shared roots
+                      các branch của một codebase
+```
+
+Đó cũng là điều `tre-mem` mang đến cho AI assistant của bạn: mỗi branch có
+tiếng nói riêng, nhưng gốc rễ chung của codebase vẫn vẹn nguyên. Một tầng
+memory branch-aware đặt trên [claude-mem](https://github.com/thedotmack/claude-mem),
+để Claude Code / Cursor / Gemini CLI hiểu đúng **feature bạn đang làm**,
+không chỉ *repo bạn đang ở*.
 
 `tre-mem` là sidecar của claude-mem. Nó **không** fork hay chỉnh sửa claude-mem —
 chỉ thêm một adapter read-only, tag mọi observation theo git branch nó được sinh
@@ -169,3 +197,7 @@ Out of scope cho MVP (defer V2):
 ## License
 
 MIT. Xem [LICENSE](./LICENSE).
+
+---
+
+🎋 *Làm với tình thương, từ một bụi tre nhỏ. Cảm ơn bạn đã ghé thăm.*

@@ -1,11 +1,38 @@
-# tre-mem
+# tre-mem 🎋
 
 > *Tre — shared roots for your codebase.*
-> Branch-aware memory for [claude-mem](https://github.com/thedotmack/claude-mem),
-> so your AI assistant understands the **feature you're working on**, not just
-> the repo you're in.
 
 > 🇻🇳 Phiên bản tiếng Việt: [README.vi.md](./README.vi.md)
+
+In Vietnamese, **tre** means *bamboo* — an enduring symbol of resilience,
+kinship, and shared roots. A bamboo grove is many stalks rising from one root
+system, swaying separately in the wind but standing together through every
+storm. The many branches of a codebase grow the same way: each its own
+feature, all from one shared history.
+
+```
+                  ╲╱           ╲╱           ╲╱
+                  ╱╲           ╱╲           ╱╲
+                 ╱  ╲         ╱  ╲         ╱  ╲
+                 │  │         │  │         │  │
+                 ├──┤         ├──┤         ├──┤    ← đốt tre (node)
+                 │  │         │  │         │  │
+                 ├──┤         ├──┤         ├──┤
+                 │  │         │  │         │  │
+                 ├──┤         ├──┤         ├──┤
+                 │  │         │  │         │  │
+              ═══╧══╧═════════╧══╧═════════╧══╧═══
+                  ╲      ╲    │    ╱      ╱
+                   ╲______╲___│___╱______╱
+                      gốc chung · shared roots
+                      branches of one codebase
+```
+
+That's what `tre-mem` gives your AI assistant: every branch gets its own
+voice, while the shared roots of the codebase stay intact. Branch-aware
+memory layered on [claude-mem](https://github.com/thedotmack/claude-mem) — so
+Claude Code / Cursor / Gemini CLI understand the **feature you're working
+on**, not just the repo you're in.
 
 `tre-mem` is a sidecar to claude-mem. It does **not** fork or modify claude-mem —
 it adds a read-only adapter, tags every observation with the git branch it was
@@ -173,3 +200,7 @@ Out of scope for MVP (deferred to V2):
 ## License
 
 MIT. See [LICENSE](./LICENSE).
+
+---
+
+🎋 *Made with care, from the bamboo grove. Cảm ơn bạn đã ghé thăm.*
