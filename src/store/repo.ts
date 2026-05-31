@@ -9,6 +9,16 @@ export interface BranchState {
   updated_at_epoch: number;
 }
 
+export type BranchTagSource = 'live' | 'reflog-backfill' | 'manual';
+
+export interface BranchTag {
+  observation_id: number;
+  project: string;
+  branch: string;
+  tagged_at_epoch: number;
+  source: BranchTagSource;
+}
+
 export interface RepoOptions {
   dbPath?: string;
 }
@@ -63,5 +73,65 @@ export class TreMemRepo {
           ORDER BY project, cwd`,
       )
       .all() as BranchState[];
+  }
+
+  upsertBranchTag(tag: BranchTag): void {
+    this.db
+      .prepare(
+        `INSERT INTO branch_tag (observation_id, project, branch, tagged_at_epoch, source)
+         VALUES (@observation_id, @project, @branch, @tagged_at_epoch, @source)
+         ON CONFLICT(observation_id) DO UPDATE SET
+           project          = excluded.project,
+           branch           = excluded.branch,
+           tagged_at_epoch  = excluded.tagged_at_epoch,
+           source           = excluded.source`,
+      )
+      .run(tag);
+  }
+
+  hasBranchTag(observationId: number): boolean {
+    return (
+      this.db
+        .prepare('SELECT 1 AS x FROM branch_tag WHERE observation_id = ?')
+        .get(observationId) !== undefined
+    );
+  }
+
+  getBranchTag(observationId: number): BranchTag | null {
+    const row = this.db
+      .prepare(
+        `SELECT observation_id, project, branch, tagged_at_epoch, source
+           FROM branch_tag
+          WHERE observation_id = ?`,
+      )
+      .get(observationId) as BranchTag | undefined;
+    return row ?? null;
+  }
+
+  countBranchTags(project: string, branch?: string): number {
+    if (branch !== undefined) {
+      const row = this.db
+        .prepare(
+          'SELECT COUNT(*) AS n FROM branch_tag WHERE project = ? AND branch = ?',
+        )
+        .get(project, branch) as { n: number };
+      return row.n;
+    }
+    const row = this.db
+      .prepare('SELECT COUNT(*) AS n FROM branch_tag WHERE project = ?')
+      .get(project) as { n: number };
+    return row.n;
+  }
+
+  listBranchesForProject(project: string): Array<{ branch: string; count: number }> {
+    return this.db
+      .prepare(
+        `SELECT branch, COUNT(*) AS count
+           FROM branch_tag
+          WHERE project = ?
+          GROUP BY branch
+          ORDER BY count DESC, branch ASC`,
+      )
+      .all(project) as Array<{ branch: string; count: number }>;
   }
 }

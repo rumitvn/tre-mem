@@ -25,5 +25,18 @@ export {
 export type { ResolverOptions } from './git/resolver.js';
 export { GitWatcher } from './git/watcher.js';
 export type { WatcherOptions } from './git/watcher.js';
+export {
+  parseHeadReflog,
+  readHeadReflog,
+  resolveBranchAt,
+} from './git/reflog.js';
+export type { BranchTransition } from './git/reflog.js';
+export { backfill } from './git/backfill.js';
+export type { BackfillOptions, BackfillResult } from './git/backfill.js';
 export { TreMemRepo } from './store/repo.js';
-export type { BranchState, RepoOptions } from './store/repo.js';
+export type {
+  BranchState,
+  BranchTag,
+  BranchTagSource,
+  RepoOptions,
+} from './store/repo.js';

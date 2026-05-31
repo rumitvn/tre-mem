@@ -271,9 +271,9 @@ Parser: `cac` (nhẹ, đủ).
 - [x] **T1D2** Unit test adapter với fixture DB
 - [x] **T1D3** Git resolver: `currentBranch(cwd)` via simple-git, handle detached HEAD / no-git
 - [x] **T1D3** Watcher: chokidar trên `.git/HEAD`, upsert `branch_state`
-- [ ] **T1D4** Reflog parser: `git reflog --date=iso --all`, map (epoch → branch transition)
-- [ ] **T1D4** Backfill engine: resolve branch cho obs cũ, insert `branch_tag` source='reflog-backfill'
-- [ ] **T1D4** CLI `tre backfill [--project PATH]` + `tre status`
+- [x] **T1D4** Reflog parser: `git reflog show HEAD --date=unix`, map (epoch → branch transition)
+- [x] **T1D4** Backfill engine: resolve branch cho obs cũ, insert `branch_tag` source='reflog-backfill'
+- [x] **T1D4** CLI `tre backfill [--project PATH]` + `tre status`
 - [ ] **T1D5** Hook `session-start.ts`: ghi branch hiện tại vào `branch_state`
 - [ ] **T1D5** Doc cách register hook vào `.claude/settings.json`
 - [ ] **T1D5** **Checkpoint T1**: `tre status` trên 1 repo thật trả đúng project + branch + tagged count > 0
@@ -355,3 +355,4 @@ Parser: `cac` (nhẹ, đủ).
 - **2026-05-31** — T1D1 done. Scaffolding (pnpm workspace, TS 6 NodeNext strict, ESLint 10 flat config, Prettier 3, Vitest 4) + `tre init` migration v1 with 4-test vitest suite green. Native build of better-sqlite3 12 enabled via `pnpm-workspace.yaml`. Schema assets copied to dist via `scripts/copy-assets.mjs` post-tsc.
 - **2026-05-31** — T1D2 done. `ClaudeMemAdapter` (readonly + `PRAGMA query_only`) exposes `listProjects`, `getObservations`, `getSessionSummaries`, `getPendingMessages` with `sinceEpoch`/`untilEpoch`/`limit` filters and join to `sdk_sessions` for project scoping on `pending_messages`. Schema sanity check fails fast if the 4 upstream tables are missing. 9 new adapter tests against an in-tree fixture DB; total suite 13/13 green.
 - **2026-05-31** — T1D3 done. `currentBranch(cwd)` via simple-git: returns `(no-git)` for missing dir / non-repo, `(detached:<sha12>)` when HEAD is detached, raw branch name (including `feature/payment`) otherwise. `TreMemRepo` adds `upsertBranchState` / `getBranchState` / `listBranchStates` (writable handle, FK on). `GitWatcher` does an initial `sync()` on `start()` and then chokidar-watches `.git/HEAD` (awaitWriteFinish 50ms) for change/add events. 9 new tests across resolver + watcher with ephemeral git repos; suite 22/22 green.
+- **2026-05-31** — T1D4 done. `readHeadReflog(cwd)` runs `git reflog show HEAD --date=unix --pretty=format:%gd|%gs`, parses checkout transitions oldest-first (avoids same-second tie reversal), exposes `parseHeadReflog()` for pure-fn testing. `resolveBranchAt(transitions, epoch)` walks chronologically, falls back to the earliest transition's `from_branch` for pre-history queries. `backfill()` joins adapter observations with the resolver, idempotent via `branch_tag.observation_id` PK, reports `scanned/tagged/skippedAlreadyTagged/skippedNoBranch/transitions`. Extension beyond strict PLAN scope: optional `fallbackBranch` for single-branch repos (CLI fills it from `currentBranch(cwd)` skipping `(no-git)` / detached); validated on the tre-mem repo itself (22 observations tagged `main`). `tre status [path]` and `tre backfill [path]` CLI commands auto-run `migrate()` for first-touch UX. 13 new tests (reflog, backfill, repo CRUD); suite 41/41 green.
