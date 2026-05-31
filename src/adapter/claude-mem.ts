@@ -3,12 +3,7 @@ import { existsSync } from 'node:fs';
 
 import { CLAUDE_MEM_DB_PATH } from '../store/paths.js';
 
-import type {
-  ListQuery,
-  Observation,
-  PendingMessage,
-  SessionSummary,
-} from './types.js';
+import type { ListQuery, Observation, PendingMessage, SessionSummary } from './types.js';
 
 const REQUIRED_TABLES = [
   'observations',
@@ -60,9 +55,9 @@ export class ClaudeMemAdapter {
 
   listProjects(): string[] {
     return (
-      this.db
-        .prepare('SELECT DISTINCT project FROM observations ORDER BY project')
-        .all() as Array<{ project: string }>
+      this.db.prepare('SELECT DISTINCT project FROM observations ORDER BY project').all() as Array<{
+        project: string;
+      }>
     ).map((r) => r.project);
   }
 
@@ -86,6 +81,27 @@ export class ClaudeMemAdapter {
       query,
     );
     return this.db.prepare(sql).all(params) as SessionSummary[];
+  }
+
+  fts5SearchObservations(opts: {
+    match: string;
+    project: string;
+    k: number;
+  }): Array<{ id: number; rank: number }> {
+    const sql = `
+      SELECT o.id AS id, bm25(observations_fts) AS rank
+        FROM observations_fts
+        JOIN observations o ON o.id = observations_fts.rowid
+       WHERE observations_fts MATCH @match
+         AND o.project = @project
+       ORDER BY rank ASC
+       LIMIT @k
+    `;
+    return this.db.prepare(sql).all({
+      match: opts.match,
+      project: opts.project,
+      k: opts.k,
+    }) as Array<{ id: number; rank: number }>;
   }
 
   getPendingMessages(query: ListQuery): PendingMessage[] {
