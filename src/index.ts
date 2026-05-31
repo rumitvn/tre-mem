@@ -40,3 +40,10 @@ export type {
   BranchTagSource,
   RepoOptions,
 } from './store/repo.js';
+export { runSessionStartHook } from './hooks/session-start.js';
+export type {
+  SessionStartInput,
+  SessionStartOptions,
+  SessionStartResult,
+  SessionStartSource,
+} from './hooks/session-start.js';

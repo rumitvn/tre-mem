@@ -5,6 +5,10 @@ import { basename, resolve } from 'node:path';
 import { ClaudeMemAdapter } from './adapter/claude-mem.js';
 import { backfill } from './git/backfill.js';
 import { NO_GIT, currentBranch, isDetached } from './git/resolver.js';
+import {
+  type SessionStartInput,
+  runSessionStartHook,
+} from './hooks/session-start.js';
 import { migrate } from './store/migrate.js';
 import { TRE_MEM_DB_PATH, TRE_MEM_HOME } from './store/paths.js';
 import { TreMemRepo } from './store/repo.js';
@@ -125,6 +129,41 @@ cli
     }
   });
 
+cli
+  .command(
+    'hook <event>',
+    'Run a Claude Code hook (event=session-start). Reads JSON from stdin.',
+  )
+  .action(async (event: string) => {
+    if (event !== 'session-start') {
+      process.stderr.write(`tre hook: unknown event "${event}" (supported: session-start)\n`);
+      process.exit(2);
+    }
+    try {
+      const input = await readSessionStartInput();
+      migrate();
+      const repo = new TreMemRepo();
+      try {
+        const result = await runSessionStartHook(input, { repo });
+        const payload = {
+          continue: true,
+          hookSpecificOutput: {
+            hookEventName: 'SessionStart',
+            additionalContext: result.message,
+          },
+          systemMessage: result.message,
+        };
+        process.stdout.write(`${JSON.stringify(payload)}\n`);
+      } finally {
+        repo.close();
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`tre hook session-start: ${msg}\n`);
+      process.stdout.write(`${JSON.stringify({ continue: true })}\n`);
+    }
+  });
+
 cli.help();
 cli.version(getPackageVersion());
 
@@ -138,4 +177,23 @@ try {
 
 function getPackageVersion(): string {
   return '0.0.0';
+}
+
+async function readSessionStartInput(): Promise<SessionStartInput> {
+  if (process.stdin.isTTY) return {};
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  const raw = Buffer.concat(chunks).toString('utf8').trim();
+  if (raw.length === 0) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === 'object') {
+      return parsed as SessionStartInput;
+    }
+    return {};
+  } catch {
+    return {};
+  }
 }
