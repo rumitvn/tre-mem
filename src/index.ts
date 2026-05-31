@@ -25,7 +25,16 @@ export type { BranchTransition } from './git/reflog.js';
 export { backfill } from './git/backfill.js';
 export type { BackfillOptions, BackfillResult } from './git/backfill.js';
 export { TreMemRepo } from './store/repo.js';
-export type { BranchState, BranchTag, BranchTagSource, RepoOptions } from './store/repo.js';
+export type {
+  BranchState,
+  BranchTag,
+  BranchTagSource,
+  BranchPin,
+  BranchPinInsert,
+  Graduated,
+  GraduatedInsert,
+  RepoOptions,
+} from './store/repo.js';
 export { Fts5SemanticSearcher, buildFtsMatchExpression } from './retrieval/semantic.js';
 export type { SemanticHit, SemanticSearcher, SemanticSearchQuery } from './retrieval/semantic.js';
 export { semanticSignal, branchSignal, recencySignal } from './retrieval/signals.js';
@@ -34,6 +43,17 @@ export type {
   BranchSignalInput,
   RecencySignalInput,
 } from './retrieval/signals.js';
+export { rerank, DEFAULT_RERANK_WEIGHTS } from './retrieval/rerank.js';
+export type {
+  RerankInput,
+  RerankWeights,
+  RerankOptions,
+  RerankResult,
+  RerankBreakdown,
+} from './retrieval/rerank.js';
+export { searchBranchContext } from './retrieval/search.js';
+export type { SearchHit, SearchOptions, SearchDeps } from './retrieval/search.js';
+export { toSecondsEpoch } from './adapter/types.js';
 export { runSessionStartHook } from './hooks/session-start.js';
 export type {
   SessionStartInput,

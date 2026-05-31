@@ -54,3 +54,10 @@ export interface ListQuery {
   untilEpoch?: number;
   limit?: number;
 }
+
+const MS_THRESHOLD = 10_000_000_000;
+
+export function toSecondsEpoch(epoch: number): number {
+  if (!Number.isFinite(epoch)) return 0;
+  return epoch >= MS_THRESHOLD ? Math.floor(epoch / 1000) : epoch;
+}

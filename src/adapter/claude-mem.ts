@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { CLAUDE_MEM_DB_PATH } from '../store/paths.js';
 
 import type { ListQuery, Observation, PendingMessage, SessionSummary } from './types.js';
+import { toSecondsEpoch } from './types.js';
 
 const REQUIRED_TABLES = [
   'observations',
@@ -12,12 +13,15 @@ const REQUIRED_TABLES = [
   'pending_messages',
 ] as const;
 
+type EpochUnit = 'seconds' | 'milliseconds';
+
 export interface AdapterOptions {
   dbPath?: string;
 }
 
 export class ClaudeMemAdapter {
   readonly dbPath: string;
+  readonly upstreamEpochUnit: EpochUnit;
   private readonly db: Database.Database;
   private closed = false;
 
@@ -29,6 +33,7 @@ export class ClaudeMemAdapter {
     this.db = new Database(this.dbPath, { readonly: true, fileMustExist: true });
     this.db.pragma('query_only = ON');
     this.assertSchema();
+    this.upstreamEpochUnit = detectEpochUnit(this.db);
   }
 
   close(): void {
@@ -62,25 +67,42 @@ export class ClaudeMemAdapter {
   }
 
   getObservations(query: ListQuery): Observation[] {
-    const { sql, params } = buildRangeQuery(
+    const { sql, params } = this.buildRangeQuery(
       `SELECT id, memory_session_id, project, text, type, title, subtitle,
               facts, narrative, concepts, files_read, files_modified,
               prompt_number, created_at, created_at_epoch
          FROM observations`,
       query,
     );
-    return this.db.prepare(sql).all(params) as Observation[];
+    const rows = this.db.prepare(sql).all(params) as Observation[];
+    return rows.map((r) => ({ ...r, created_at_epoch: toSecondsEpoch(r.created_at_epoch) }));
   }
 
   getSessionSummaries(query: ListQuery): SessionSummary[] {
-    const { sql, params } = buildRangeQuery(
+    const { sql, params } = this.buildRangeQuery(
       `SELECT id, memory_session_id, project, request, investigated, learned,
               completed, next_steps, files_read, files_edited, notes,
               prompt_number, created_at, created_at_epoch
          FROM session_summaries`,
       query,
     );
-    return this.db.prepare(sql).all(params) as SessionSummary[];
+    const rows = this.db.prepare(sql).all(params) as SessionSummary[];
+    return rows.map((r) => ({ ...r, created_at_epoch: toSecondsEpoch(r.created_at_epoch) }));
+  }
+
+  getObservationsByIds(ids: ReadonlyArray<number>): Observation[] {
+    if (ids.length === 0) return [];
+    const placeholders = ids.map(() => '?').join(',');
+    const rows = this.db
+      .prepare(
+        `SELECT id, memory_session_id, project, text, type, title, subtitle,
+                facts, narrative, concepts, files_read, files_modified,
+                prompt_number, created_at, created_at_epoch
+           FROM observations
+          WHERE id IN (${placeholders})`,
+      )
+      .all(...ids) as Observation[];
+    return rows.map((r) => ({ ...r, created_at_epoch: toSecondsEpoch(r.created_at_epoch) }));
   }
 
   fts5SearchObservations(opts: {
@@ -109,11 +131,11 @@ export class ClaudeMemAdapter {
     const params: Record<string, unknown> = { project: query.project };
     if (query.sinceEpoch !== undefined) {
       where.push('p.created_at_epoch >= @sinceEpoch');
-      params.sinceEpoch = query.sinceEpoch;
+      params.sinceEpoch = this.toUpstreamEpoch(query.sinceEpoch);
     }
     if (query.untilEpoch !== undefined) {
       where.push('p.created_at_epoch <= @untilEpoch');
-      params.untilEpoch = query.untilEpoch;
+      params.untilEpoch = this.toUpstreamEpoch(query.untilEpoch);
     }
     let sql = `
       SELECT p.id, p.session_db_id, p.content_session_id, p.message_type,
@@ -128,28 +150,41 @@ export class ClaudeMemAdapter {
       sql += ' LIMIT @limit';
       params.limit = query.limit;
     }
-    return this.db.prepare(sql).all(params) as PendingMessage[];
+    const rows = this.db.prepare(sql).all(params) as PendingMessage[];
+    return rows.map((r) => ({ ...r, created_at_epoch: toSecondsEpoch(r.created_at_epoch) }));
+  }
+
+  private buildRangeQuery(
+    selectClause: string,
+    query: ListQuery,
+  ): { sql: string; params: Record<string, unknown> } {
+    const where: string[] = ['project = @project'];
+    const params: Record<string, unknown> = { project: query.project };
+    if (query.sinceEpoch !== undefined) {
+      where.push('created_at_epoch >= @sinceEpoch');
+      params.sinceEpoch = this.toUpstreamEpoch(query.sinceEpoch);
+    }
+    if (query.untilEpoch !== undefined) {
+      where.push('created_at_epoch <= @untilEpoch');
+      params.untilEpoch = this.toUpstreamEpoch(query.untilEpoch);
+    }
+    let sql = `${selectClause}\n       WHERE ${where.join(' AND ')}\n       ORDER BY created_at_epoch DESC`;
+    if (query.limit !== undefined) {
+      sql += '\n       LIMIT @limit';
+      params.limit = query.limit;
+    }
+    return { sql, params };
+  }
+
+  private toUpstreamEpoch(secondsEpoch: number): number {
+    return this.upstreamEpochUnit === 'milliseconds' ? secondsEpoch * 1000 : secondsEpoch;
   }
 }
 
-function buildRangeQuery(
-  selectClause: string,
-  query: ListQuery,
-): { sql: string; params: Record<string, unknown> } {
-  const where: string[] = ['project = @project'];
-  const params: Record<string, unknown> = { project: query.project };
-  if (query.sinceEpoch !== undefined) {
-    where.push('created_at_epoch >= @sinceEpoch');
-    params.sinceEpoch = query.sinceEpoch;
-  }
-  if (query.untilEpoch !== undefined) {
-    where.push('created_at_epoch <= @untilEpoch');
-    params.untilEpoch = query.untilEpoch;
-  }
-  let sql = `${selectClause}\n       WHERE ${where.join(' AND ')}\n       ORDER BY created_at_epoch DESC`;
-  if (query.limit !== undefined) {
-    sql += '\n       LIMIT @limit';
-    params.limit = query.limit;
-  }
-  return { sql, params };
+function detectEpochUnit(db: Database.Database): EpochUnit {
+  const row = db
+    .prepare('SELECT created_at_epoch AS e FROM observations ORDER BY id DESC LIMIT 1')
+    .get() as { e: number } | undefined;
+  if (row === undefined) return 'seconds';
+  return row.e >= 10_000_000_000 ? 'milliseconds' : 'seconds';
 }

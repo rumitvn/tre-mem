@@ -19,6 +19,38 @@ export interface BranchTag {
   source: BranchTagSource;
 }
 
+export interface BranchPin {
+  id: number;
+  project: string;
+  branch: string;
+  observation_id: number | null;
+  note: string | null;
+  created_at_epoch: number;
+}
+
+export interface BranchPinInsert {
+  project: string;
+  branch: string;
+  observation_id?: number | null;
+  note?: string | null;
+  created_at_epoch: number;
+}
+
+export interface Graduated {
+  id: number;
+  project: string;
+  observation_id: number;
+  graduated_from_branch: string;
+  graduated_at_epoch: number;
+}
+
+export interface GraduatedInsert {
+  project: string;
+  observation_id: number;
+  graduated_from_branch: string;
+  graduated_at_epoch: number;
+}
+
 export interface RepoOptions {
   dbPath?: string;
 }
@@ -111,9 +143,7 @@ export class TreMemRepo {
   countBranchTags(project: string, branch?: string): number {
     if (branch !== undefined) {
       const row = this.db
-        .prepare(
-          'SELECT COUNT(*) AS n FROM branch_tag WHERE project = ? AND branch = ?',
-        )
+        .prepare('SELECT COUNT(*) AS n FROM branch_tag WHERE project = ? AND branch = ?')
         .get(project, branch) as { n: number };
       return row.n;
     }
@@ -121,6 +151,103 @@ export class TreMemRepo {
       .prepare('SELECT COUNT(*) AS n FROM branch_tag WHERE project = ?')
       .get(project) as { n: number };
     return row.n;
+  }
+
+  listBranchTagsForBranch(project: string, branch: string, limit?: number): BranchTag[] {
+    let sql = `SELECT observation_id, project, branch, tagged_at_epoch, source
+                 FROM branch_tag
+                WHERE project = ? AND branch = ?
+                ORDER BY tagged_at_epoch DESC`;
+    const params: unknown[] = [project, branch];
+    if (limit !== undefined) {
+      sql += ' LIMIT ?';
+      params.push(limit);
+    }
+    return this.db.prepare(sql).all(...params) as BranchTag[];
+  }
+
+  addPin(pin: BranchPinInsert): BranchPin {
+    const info = this.db
+      .prepare(
+        `INSERT INTO branch_pin (project, branch, observation_id, note, created_at_epoch)
+         VALUES (@project, @branch, @observation_id, @note, @created_at_epoch)`,
+      )
+      .run({
+        project: pin.project,
+        branch: pin.branch,
+        observation_id: pin.observation_id ?? null,
+        note: pin.note ?? null,
+        created_at_epoch: pin.created_at_epoch,
+      });
+    return this.getPinById(Number(info.lastInsertRowid)) as BranchPin;
+  }
+
+  getPinById(id: number): BranchPin | null {
+    const row = this.db
+      .prepare(
+        `SELECT id, project, branch, observation_id, note, created_at_epoch
+           FROM branch_pin
+          WHERE id = ?`,
+      )
+      .get(id) as BranchPin | undefined;
+    return row ?? null;
+  }
+
+  listPinsForBranch(project: string, branch: string): BranchPin[] {
+    return this.db
+      .prepare(
+        `SELECT id, project, branch, observation_id, note, created_at_epoch
+           FROM branch_pin
+          WHERE project = ? AND branch = ?
+          ORDER BY created_at_epoch DESC, id DESC`,
+      )
+      .all(project, branch) as BranchPin[];
+  }
+
+  listPinsForProject(project: string): BranchPin[] {
+    return this.db
+      .prepare(
+        `SELECT id, project, branch, observation_id, note, created_at_epoch
+           FROM branch_pin
+          WHERE project = ?
+          ORDER BY created_at_epoch DESC, id DESC`,
+      )
+      .all(project) as BranchPin[];
+  }
+
+  graduateFact(input: GraduatedInsert): Graduated {
+    this.db
+      .prepare(
+        `INSERT INTO graduated (project, observation_id, graduated_from_branch, graduated_at_epoch)
+         VALUES (@project, @observation_id, @graduated_from_branch, @graduated_at_epoch)
+         ON CONFLICT(project, observation_id) DO UPDATE SET
+           graduated_from_branch = excluded.graduated_from_branch,
+           graduated_at_epoch    = excluded.graduated_at_epoch`,
+      )
+      .run(input);
+    return this.getGraduated(input.project, input.observation_id) as Graduated;
+  }
+
+  getGraduated(project: string, observationId: number): Graduated | null {
+    const row = this.db
+      .prepare(
+        `SELECT id, project, observation_id, graduated_from_branch, graduated_at_epoch
+           FROM graduated
+          WHERE project = ? AND observation_id = ?`,
+      )
+      .get(project, observationId) as Graduated | undefined;
+    return row ?? null;
+  }
+
+  listGraduated(project: string): Graduated[] {
+    return this.db
+      .prepare(
+        `SELECT id, project, observation_id, graduated_from_branch, graduated_at_epoch
+           FROM graduated
+          WHERE project = ?
+          ORDER BY graduated_at_epoch DESC, id DESC`,
+      )
+      .all(project) as Graduated[];
   }
 
   listBranchesForProject(project: string): Array<{ branch: string; count: number }> {

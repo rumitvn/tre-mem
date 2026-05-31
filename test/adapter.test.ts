@@ -114,6 +114,26 @@ describe('ClaudeMemAdapter', () => {
       }
     });
 
+    it('getObservationsByIds fetches the requested ids only', () => {
+      const adapter = new ClaudeMemAdapter({ dbPath });
+      try {
+        const rows = adapter.getObservationsByIds([1, 3, 999]);
+        const ids = rows.map((r) => r.id).sort((a, b) => a - b);
+        expect(ids).toEqual([1, 3]);
+      } finally {
+        adapter.close();
+      }
+    });
+
+    it('getObservationsByIds returns [] for an empty input', () => {
+      const adapter = new ClaudeMemAdapter({ dbPath });
+      try {
+        expect(adapter.getObservationsByIds([])).toEqual([]);
+      } finally {
+        adapter.close();
+      }
+    });
+
     it('refuses writes via PRAGMA query_only', () => {
       const adapter = new ClaudeMemAdapter({ dbPath });
       try {
