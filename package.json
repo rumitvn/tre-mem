@@ -1,0 +1,66 @@
+{
+  "name": "tre-mem",
+  "version": "0.0.0",
+  "description": "Branch-aware shared memory layer for AI coding tools. Sidecar on top of claude-mem.",
+  "keywords": [
+    "claude-code",
+    "mcp",
+    "memory",
+    "branch-aware",
+    "claude-mem"
+  ],
+  "license": "MIT",
+  "author": "rumitvn",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rumitvn/tre-mem.git"
+  },
+  "homepage": "https://github.com/rumitvn/tre-mem#readme",
+  "bugs": {
+    "url": "https://github.com/rumitvn/tre-mem/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "tre": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src/store/schema.sql",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-assets.mjs",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "better-sqlite3": "^12.10.0",
+    "cac": "^7.0.0",
+    "chokidar": "^4.0.3",
+    "chromadb": "^3.4.3",
+    "simple-git": "^3.36.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.10.0",
+    "eslint": "^10.4.1",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.60.0",
+    "vitest": "^4.1.7"
+  }
+}

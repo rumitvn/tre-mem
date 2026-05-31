@@ -43,3 +43,6 @@ yarn-error.log*
 # Misc
 .cache/
 .tmp/
+
+# Claude Code local settings
+.claude/settings.local.json
