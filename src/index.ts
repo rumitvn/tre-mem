@@ -7,3 +7,12 @@ export {
   CLAUDE_MEM_DB_PATH,
   CLAUDE_MEM_CHROMA_DIR,
 } from './store/paths.js';
+export { ClaudeMemAdapter } from './adapter/claude-mem.js';
+export type { AdapterOptions } from './adapter/claude-mem.js';
+export type {
+  ListQuery,
+  Observation,
+  PendingMessage,
+  PendingMessageType,
+  SessionSummary,
+} from './adapter/types.js';

@@ -267,8 +267,8 @@ Parser: `cac` (nhẹ, đủ).
 ### Tuần 1 — Adapter + branch tagging + backfill
 - [x] **T1D1** Scaffolding: `package.json` (bin `tre`), tsconfig (NodeNext, strict), ESLint, Prettier, Vitest
 - [x] **T1D1** `tre init` tạo `~/.tre-mem/tre-mem.db` + apply schema migration v1
-- [ ] **T1D2** Adapter `claude-mem.ts`: better-sqlite3 readonly, `getObservations({project, sinceEpoch})`, `getSessionSummaries({project})`, `getPendingMessages({project})`
-- [ ] **T1D2** Unit test adapter với fixture DB
+- [x] **T1D2** Adapter `claude-mem.ts`: better-sqlite3 readonly, `getObservations({project, sinceEpoch})`, `getSessionSummaries({project})`, `getPendingMessages({project})`
+- [x] **T1D2** Unit test adapter với fixture DB
 - [ ] **T1D3** Git resolver: `currentBranch(cwd)` via simple-git, handle detached HEAD / no-git
 - [ ] **T1D3** Watcher: chokidar trên `.git/HEAD`, upsert `branch_state`
 - [ ] **T1D4** Reflog parser: `git reflog --date=iso --all`, map (epoch → branch transition)
@@ -353,3 +353,4 @@ Parser: `cac` (nhẹ, đủ).
 - **2026-05-31** — Plan v1 approved. Stack: TypeScript. Scope: 2-tuần MVP. Strategy: sidecar adapter trên claude-mem.
 - **2026-05-31** — T0 bootstrap done. Repo: `rumitvn/tre-mem` private (SSH). gh CLI v2.93.0 installed as primary GitHub workflow tool.
 - **2026-05-31** — T1D1 done. Scaffolding (pnpm workspace, TS 6 NodeNext strict, ESLint 10 flat config, Prettier 3, Vitest 4) + `tre init` migration v1 with 4-test vitest suite green. Native build of better-sqlite3 12 enabled via `pnpm-workspace.yaml`. Schema assets copied to dist via `scripts/copy-assets.mjs` post-tsc.
+- **2026-05-31** — T1D2 done. `ClaudeMemAdapter` (readonly + `PRAGMA query_only`) exposes `listProjects`, `getObservations`, `getSessionSummaries`, `getPendingMessages` with `sinceEpoch`/`untilEpoch`/`limit` filters and join to `sdk_sessions` for project scoping on `pending_messages`. Schema sanity check fails fast if the 4 upstream tables are missing. 9 new adapter tests against an in-tree fixture DB; total suite 13/13 green.
