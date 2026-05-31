@@ -5,6 +5,8 @@
 > so your AI assistant understands the **feature you're working on**, not just
 > the repo you're in.
 
+> 🇻🇳 Phiên bản tiếng Việt: [README.vi.md](./README.vi.md)
+
 `tre-mem` is a sidecar to claude-mem. It does **not** fork or modify claude-mem —
 it adds a read-only adapter, tags every observation with the git branch it was
 authored on, and serves a 3-signal retrieval API (semantic + branch + recency)
