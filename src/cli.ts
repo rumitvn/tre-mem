@@ -10,9 +10,11 @@ import { type SessionStartInput, runSessionStartHook } from './hooks/session-sta
 import { runMcpServer } from './mcp/server.js';
 import { searchBranchContext, type SearchHit } from './retrieval/search.js';
 import { migrate } from './store/migrate.js';
-import { SYNC_DIR_NAME } from './sync/layout.js';
+import { SYNC_DIR_NAME, ensureSyncScaffold } from './sync/layout.js';
 import { exportSync } from './sync/export.js';
 import { importDir } from './sync/import.js';
+import { RedactionError } from './sync/redact.js';
+import { loadShareignore } from './sync/shareignore.js';
 import { AdapterSnapshotProvider } from './sync/snapshot.js';
 import { TRE_MEM_DB_PATH, TRE_MEM_HOME } from './store/paths.js';
 import { TreMemRepo } from './store/repo.js';
@@ -309,6 +311,7 @@ cli
   .option('--all', 'Export every branch that has pins')
   .option('--out <dir>', 'Output directory (defaults to <cwd>/.tre-mem)')
   .option('--author <name>', 'Attribution (defaults to git config user.name)')
+  .option('--force', 'Proceed past detected secrets by replacing them with [REDACTED:*] placeholders')
   .option('--dry-run', 'Compute changes without writing files or marking pins shared')
   .action(
     async (flags: {
@@ -318,6 +321,7 @@ cli
       all?: boolean;
       out?: string;
       author?: string;
+      force?: boolean;
       dryRun?: boolean;
     }) => {
       const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
@@ -339,16 +343,31 @@ cli
           branches = cur === NO_GIT || isDetached(cur) ? repo.listPinBranches(project) : [cur];
         }
 
-        const result = exportSync({
-          repo,
-          snapshots: new AdapterSnapshotProvider(adapter),
-          project,
-          dir,
-          branches,
-          now: Math.floor(Date.now() / 1000),
-          author,
-          dryRun: flags.dryRun ?? false,
-        });
+        let result;
+        try {
+          result = exportSync({
+            repo,
+            snapshots: new AdapterSnapshotProvider(adapter),
+            project,
+            dir,
+            branches,
+            now: Math.floor(Date.now() / 1000),
+            author,
+            shareignore: loadShareignore(dir),
+            redact: flags.force ?? false,
+            dryRun: flags.dryRun ?? false,
+          });
+        } catch (err) {
+          if (err instanceof RedactionError) {
+            process.stderr.write(`tre export blocked: ${err.matches.length} potential secret(s):\n`);
+            for (const m of err.matches) {
+              process.stderr.write(`  - ${m.rule} in ${m.field}: ${m.preview}\n`);
+            }
+            process.stderr.write(`  Fix the source, add a .tre-mem/.shareignore pattern, or re-run with --force.\n`);
+            process.exit(2);
+          }
+          throw err;
+        }
 
         const tag = result.dryRun ? ' (dry-run)' : '';
         console.log(`tre-mem export${tag}: ${project} -> ${result.dir}`);
@@ -359,9 +378,12 @@ cli
         }
         console.log(`  graduated: +${result.graduated.added} (${result.graduated.total} total)`);
         totalAdded += result.graduated.added;
+        if (result.ignored > 0) console.log(`  ignored (.shareignore): ${result.ignored}`);
+        if (result.redacted > 0) console.log(`  redacted secrets: ${result.redacted}`);
         if (result.dryRun) {
           console.log(`  would add ${totalAdded} row(s); run without --dry-run to write.`);
         } else {
+          if (totalAdded > 0) ensureSyncScaffold(result.dir);
           console.log(`  added ${totalAdded} row(s). Commit .tre-mem/ to share with your team.`);
         }
       } finally {

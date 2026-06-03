@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { parseSyncLine } from '../src/sync/format.js';
 import { branchFilePath, graduatedFilePath } from '../src/sync/layout.js';
 import { exportSync, type SnapshotProvider } from '../src/sync/export.js';
+import { parseShareignore } from '../src/sync/shareignore.js';
 import { migrate } from '../src/store/migrate.js';
 import { TreMemRepo } from '../src/store/repo.js';
 
@@ -146,5 +147,68 @@ describe('exportSync', () => {
 
     const rows = readFileSync(branchFilePath(dir, 'main'), 'utf8').trim().split('\n').map(parseSyncLine);
     expect(rows[0]).toMatchObject({ observation_id: null, note: 'free text decision', title: null, body: null });
+  });
+});
+
+describe('exportSync — privacy guard (T3D4)', () => {
+  let tmp: string;
+  let dir: string;
+  let repo: TreMemRepo;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), 'tre-export-priv-'));
+    const dbPath = join(tmp, 'tre-mem.db');
+    migrate(dbPath);
+    repo = new TreMemRepo({ dbPath });
+    dir = join(tmp, '.tre-mem');
+  });
+
+  afterEach(() => {
+    repo.close();
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  test('fail-closed: a secret aborts export and writes nothing', () => {
+    repo.addPin({ project: 'p', branch: 'main', observation_id: 1, note: 'token AKIAIOSFODNN7EXAMPLE', created_at_epoch: 10 });
+    expect(() =>
+      exportSync({ repo, snapshots: fakeSnapshots({ 1: { title: 't', body: 'b' } }), project: 'p', dir, branches: ['main'], now: 1 }),
+    ).toThrow(/blocked/);
+    expect(existsSync(branchFilePath(dir, 'main'))).toBe(false);
+    expect(repo.countUnsharedPins('p')).toBe(1); // not marked shared
+  });
+
+  test('redact mode replaces the secret and exports', () => {
+    repo.addPin({ project: 'p', branch: 'main', observation_id: 1, note: 'token AKIAIOSFODNN7EXAMPLE', created_at_epoch: 10 });
+    const result = exportSync({
+      repo,
+      snapshots: fakeSnapshots({ 1: { title: 't', body: 'b' } }),
+      project: 'p',
+      dir,
+      branches: ['main'],
+      now: 1,
+      redact: true,
+    });
+    expect(result.redacted).toBe(1);
+    const row = readFileSync(branchFilePath(dir, 'main'), 'utf8');
+    expect(row).toContain('[REDACTED:aws-access-key]');
+    expect(row).not.toContain('AKIAIOSFODNN7EXAMPLE');
+  });
+
+  test('shareignore excludes matching records', () => {
+    repo.addPin({ project: 'p', branch: 'main', observation_id: 1, note: 'internal-only secret plan', created_at_epoch: 10 });
+    repo.addPin({ project: 'p', branch: 'main', observation_id: 2, note: 'public decision', created_at_epoch: 11 });
+    const result = exportSync({
+      repo,
+      snapshots: fakeSnapshots({ 1: { title: null, body: null }, 2: { title: null, body: null } }),
+      project: 'p',
+      dir,
+      branches: ['main'],
+      now: 1,
+      shareignore: parseShareignore('internal-only\n'),
+    });
+    expect(result.ignored).toBe(1);
+    const rows = readFileSync(branchFilePath(dir, 'main'), 'utf8').trim().split('\n').map(parseSyncLine);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ observation_id: 2 });
   });
 });

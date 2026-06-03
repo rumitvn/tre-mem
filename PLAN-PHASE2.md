@@ -94,8 +94,8 @@ Each JSONL row carries content_hash (dedupe key), author, branch, tagged_at_epoc
 - [x] **T3D2** `tre export [--branch X] [--all] [--out D] [--dry-run]` CLI, idempotent, marks pins shared; real round-trip verified on tre-mem repo
 - [x] **T3D3** `src/sync/import.ts` — `importDir(path)` reads `.tre-mem/`, upserts pins+graduated via content_hash, malformed lines counted not fatal
 - [x] **T3D3** `tre import [--from .tre-mem] [--force]` CLI; auto-skips unchanged files via `import_state` SHA; alice→bob round-trip verified (unit + CLI)
-- [ ] **T3D4** `src/sync/redact.ts` — regex pack (AWS keys, OpenAI keys, JWTs, private SSH keys); `tre export` blocks + reports any match unless `--force`
-- [ ] **T3D4** `.tre-mem/.shareignore` parser (gitignore syntax, applied to observation title+body)
+- [x] **T3D4** `src/sync/redact.ts` — regex pack (private keys, OpenAI/Anthropic/AWS/GitHub/Google/Slack keys, JWTs); `tre export` is fail-closed (exit 2 + masked report) unless `--force` → `[REDACTED:*]` placeholders
+- [x] **T3D4** `.tre-mem/.shareignore` parser (glob syntax, applied to pin/graduated note+title+body); auto-scaffolds README.md + starter .shareignore on export
 - [ ] **T3D5** Two-dev E2E rehearsal: alice pins → `tre export` → `git commit/push` → bob `git pull` → `tre import` → `tre search` returns alice's pin
 - [ ] **T3D5** **Checkpoint T3**: above E2E passes on real shared repo (use `multigo-android-dev` if your teammate is on it, else `tre-mem` itself)
 
