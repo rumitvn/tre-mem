@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { cac } from 'cac';
+import { existsSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 
 import { ClaudeMemAdapter } from './adapter/claude-mem.js';
@@ -8,7 +9,12 @@ import { prHeadBranch } from './git/github.js';
 import { gitAuthor } from './git/identity.js';
 import { NO_GIT, currentBranch, isDetached } from './git/resolver.js';
 import { type SessionStartInput, runSessionStartHook } from './hooks/session-start.js';
+import {
+  type UserPromptSubmitInput,
+  runUserPromptSubmitHook,
+} from './hooks/user-prompt-submit.js';
 import { runMcpServer } from './mcp/server.js';
+import { setupTool } from './setup.js';
 import { searchBranchContext, type SearchHit } from './retrieval/search.js';
 import { migrate } from './store/migrate.js';
 import { SYNC_DIR_NAME, ensureSyncScaffold } from './sync/layout.js';
@@ -69,6 +75,18 @@ cli
           console.log(`    - ${b.branch} (${b.count})`);
         }
       }
+
+      // Sync (Phase 2) status.
+      const pins = repo.listPinsForProject(project);
+      const sharedPins = pins.filter((p) => p.shared_at_epoch !== null).length;
+      const pendingPins = pins.length - sharedPins;
+      const graduatedCount = repo.listGraduated(project).length;
+      const syncDir = resolve(cwd, SYNC_DIR_NAME);
+      const hasSyncDir = existsSync(syncDir);
+      console.log(
+        `  shared: ${sharedPins} pin(s) exported / ${pendingPins} pending export / ${graduatedCount} graduated`,
+      );
+      console.log(`  .tre-mem/: ${hasSyncDir ? syncDir : '(not present — run `tre export`)'}`);
     } finally {
       repo.close();
     }
@@ -135,35 +153,23 @@ cli
   });
 
 cli
-  .command('hook <event>', 'Run a Claude Code hook (event=session-start). Reads JSON from stdin.')
+  .command(
+    'hook <event>',
+    'Run a Claude Code hook (event=session-start | user-prompt-submit). Reads JSON from stdin.',
+  )
   .action(async (event: string) => {
-    if (event !== 'session-start') {
-      process.stderr.write(`tre hook: unknown event "${event}" (supported: session-start)\n`);
-      process.exit(2);
+    if (event === 'session-start') {
+      await runSessionStartHookCli();
+      return;
     }
-    try {
-      const input = await readSessionStartInput();
-      migrate();
-      const repo = new TreMemRepo();
-      try {
-        const result = await runSessionStartHook(input, { repo });
-        const payload = {
-          continue: true,
-          hookSpecificOutput: {
-            hookEventName: 'SessionStart',
-            additionalContext: result.message,
-          },
-          systemMessage: result.message,
-        };
-        process.stdout.write(`${JSON.stringify(payload)}\n`);
-      } finally {
-        repo.close();
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      process.stderr.write(`tre hook session-start: ${msg}\n`);
-      process.stdout.write(`${JSON.stringify({ continue: true })}\n`);
+    if (event === 'user-prompt-submit') {
+      await runUserPromptSubmitHookCli();
+      return;
     }
+    process.stderr.write(
+      `tre hook: unknown event "${event}" (supported: session-start, user-prompt-submit)\n`,
+    );
+    process.exit(2);
   });
 
 cli
@@ -496,6 +502,23 @@ cli
     },
   );
 
+cli
+  .command('setup <tool>', 'Wire tre-mem into a tool (tool=claude-code; cursor/codex stubbed)')
+  .option('--cwd <path>', 'Repo root to write config into (defaults to current dir)')
+  .option('--with-action', 'Also write the .github graduate-on-merge workflow')
+  .option('--auto-inject', 'Also wire the UserPromptSubmit hook (injects branch memory into prompts)')
+  .action((tool: string, flags: { cwd?: string; withAction?: boolean; autoInject?: boolean }) => {
+    const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
+    const result = setupTool(tool, cwd, {
+      withAction: flags.withAction ?? false,
+      autoInject: flags.autoInject ?? false,
+    });
+    console.log(result.message);
+    if (result.settingsPath) console.log(`  settings: ${result.settingsPath}`);
+    if (result.workflowPath && result.workflowAdded) console.log(`  workflow: ${result.workflowPath}`);
+    if (!result.supported) process.exit(2);
+  });
+
 cli.command('mcp', 'Start the tre-mem MCP server on stdio').action(async () => {
   await runMcpServer();
 });
@@ -540,21 +563,77 @@ function printSearchHit(hit: SearchHit): void {
   console.log(`         ${breakdown}`);
 }
 
-async function readSessionStartInput(): Promise<SessionStartInput> {
-  if (process.stdin.isTTY) return {};
+async function runSessionStartHookCli(): Promise<void> {
+  try {
+    const input = await readStdinJson<SessionStartInput>();
+    migrate();
+    const repo = new TreMemRepo();
+    try {
+      const result = await runSessionStartHook(input, { repo });
+      process.stdout.write(
+        `${JSON.stringify({
+          continue: true,
+          hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: result.message },
+          systemMessage: result.message,
+        })}\n`,
+      );
+    } finally {
+      repo.close();
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`tre hook session-start: ${msg}\n`);
+    process.stdout.write(`${JSON.stringify({ continue: true })}\n`);
+  }
+}
+
+async function runUserPromptSubmitHookCli(): Promise<void> {
+  try {
+    const input = await readStdinJson<UserPromptSubmitInput>();
+    migrate();
+    const adapter = new ClaudeMemAdapter();
+    const repo = new TreMemRepo();
+    try {
+      const result = await runUserPromptSubmitHook(input, {
+        getHits: (args) =>
+          searchBranchContext({ adapter, repo }, { ...args, k: 5 }),
+      });
+      const payload =
+        result.context === ''
+          ? { continue: true }
+          : {
+              continue: true,
+              hookSpecificOutput: {
+                hookEventName: 'UserPromptSubmit',
+                additionalContext: result.context,
+              },
+            };
+      process.stdout.write(`${JSON.stringify(payload)}\n`);
+    } finally {
+      adapter.close();
+      repo.close();
+    }
+  } catch (err) {
+    // Never block a prompt — emit a silent continue on any failure.
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`tre hook user-prompt-submit: ${msg}\n`);
+    process.stdout.write(`${JSON.stringify({ continue: true })}\n`);
+  }
+}
+
+async function readStdinJson<T>(): Promise<T> {
+  if (process.stdin.isTTY) return {} as T;
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) {
     chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
   }
   const raw = Buffer.concat(chunks).toString('utf8').trim();
-  if (raw.length === 0) return {};
+  if (raw.length === 0) return {} as T;
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === 'object') {
-      return parsed as SessionStartInput;
-    }
-    return {};
+    return parsed && typeof parsed === 'object' ? (parsed as T) : ({} as T);
   } catch {
-    return {};
+    return {} as T;
   }
 }
+

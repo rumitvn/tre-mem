@@ -132,6 +132,56 @@ describe('runSessionStartHook', () => {
     expect(result.tagged_count_for_project).toBe(3);
     expect(result.message).toContain('2');
   });
+
+  it('auto-imports a committed .tre-mem/ directory on session start', async () => {
+    const syncBranches = join(repoDir, '.tre-mem', 'branches');
+    mkdirSync(syncBranches, { recursive: true });
+    writeFileSync(
+      join(syncBranches, 'main.jsonl'),
+      JSON.stringify({
+        schema: 1,
+        kind: 'pin',
+        content_hash: 'abc123',
+        project: 'workrepo',
+        branch: 'main',
+        observation_id: 7,
+        note: "alice's pin",
+        title: null,
+        body: null,
+        author: 'alice',
+        tagged_at_epoch: 1,
+      }) + '\n',
+      'utf8',
+    );
+
+    const result = await runSessionStartHook(
+      { hook_event_name: 'SessionStart', cwd: repoDir },
+      { repo, now: () => 100 },
+    );
+
+    expect(result.imported_pins).toBe(1);
+    expect(result.message).toContain('imported=1pin');
+    expect(repo.listPinsForBranch('workrepo', 'main')).toHaveLength(1);
+
+    // idempotent: a second session imports nothing new
+    const second = await runSessionStartHook(
+      { hook_event_name: 'SessionStart', cwd: repoDir },
+      { repo, now: () => 200 },
+    );
+    expect(second.imported_pins).toBe(0);
+  });
+
+  it('skips auto-import when skipImport is set', async () => {
+    const syncBranches = join(repoDir, '.tre-mem', 'branches');
+    mkdirSync(syncBranches, { recursive: true });
+    writeFileSync(join(syncBranches, 'main.jsonl'), '{"bad"\n', 'utf8');
+
+    const result = await runSessionStartHook(
+      { hook_event_name: 'SessionStart', cwd: repoDir },
+      { repo, now: () => 100, skipImport: true },
+    );
+    expect(result.imported_pins).toBe(0);
+  });
 });
 
 async function initGitRepo(cwd: string, branch: string): Promise<void> {

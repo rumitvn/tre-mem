@@ -103,10 +103,10 @@ Each JSONL row carries content_hash (dedupe key), author, branch, tagged_at_epoc
 - [x] **T4D6** GitHub Action `actions/graduate-on-merge/action.yml` (composite, Node 20) — reads merged branch's pins via `tre graduate-pr`, appends to `graduated.jsonl`, commits back to base branch; core logic in testable `src/sync/graduate.ts`
 - [x] **T4D6** Action config: `branch` override, `version`, `commit-message` template, `dry-run` flag, `dir`; README with copy-paste workflow ([pin-filter] deferred — graduate-all is the v0.2 default)
 - [x] **T4D7** `tre graduate-pr <PR#|branch> [--repo] [--branch] [--dir] [--dry-run]` CLI — resolves PR→branch via `gh pr view`, falls back to direct branch; idempotent append, skips free-text pins
-- [ ] **T4D8** SessionStart hook v2 — runs `tre import .tre-mem` (silent, fast) if `.tre-mem/` mtime changed since last session
-- [ ] **T4D8** Optional `UserPromptSubmit` hook (inspired by Lore) — inject top-K relevant pins+graduated into every prompt, scoped to current branch; gated behind `tre setup claude-code --auto-inject` so default behaviour stays conservative
-- [ ] **T4D8** `tre status` v2 — adds "shared: X pins exported / Y pending import / Z redacted" line
-- [ ] **T4D8** `tre setup <tool>` command (borrowed from Lore's `lore setup` UX) — `tre setup claude-code` writes the SessionStart hook to `.claude/settings.json` and (optionally) the GitHub Action workflow; ship `claude-code` first, leave `cursor` / `codex` as stubs returning "coming in V3"
+- [x] **T4D8** SessionStart hook v2 — auto-runs `importDir(.tre-mem)` (silent, fast, idempotent via import_state SHA); reports `imported=Npin/Mgrad` in session context
+- [x] **T4D8** Optional `UserPromptSubmit` hook (inspired by Lore) — injects top-K branch-scoped pins+graduated into prompts; gated behind `tre setup claude-code --auto-inject`; silent on empty prompt / no matches / any error
+- [x] **T4D8** `tre status` v2 — adds "shared: X pins exported / Y pending export / Z graduated" line + `.tre-mem/` presence
+- [x] **T4D8** `tre setup <tool>` (Lore-style UX) — `tre setup claude-code [--auto-inject] [--with-action]` idempotently writes hooks to `.claude/settings.json` + optional workflow; `cursor`/`codex` stubbed "coming in V3"
 - [x] **T4D9** Retrieval v2 — `graduatedSignal` (weight 0.3) + shared pins/graduated **surface from their JSONL snapshot even when the local claude-mem lacks the observation** (schema v2 title/body cols, synthetic ids for free-text pins, `SearchHit.source`); two-dev E2E now proves bob's `tre search` returns alice's pin
 - [ ] **T4D9** Demo screen-record: 2-dev split-screen, "alice pins decision → 30s later bob's Claude Code references it"
 - [ ] **T4D10** Polish: README v0.2 with team workflow + GIF, `docs/MIGRATION-v1-v2.md`, version bump → `0.2.0`, CHANGELOG

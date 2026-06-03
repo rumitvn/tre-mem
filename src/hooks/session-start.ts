@@ -1,7 +1,10 @@
-import { basename } from 'node:path';
+import { existsSync } from 'node:fs';
+import { basename, join } from 'node:path';
 
 import { currentBranch } from '../git/resolver.js';
 import { TreMemRepo } from '../store/repo.js';
+import { importDir } from '../sync/import.js';
+import { SYNC_DIR_NAME } from '../sync/layout.js';
 
 export type SessionStartSource = 'startup' | 'resume' | 'clear' | string;
 
@@ -18,6 +21,8 @@ export interface SessionStartOptions {
   repo?: TreMemRepo;
   /** Override the timestamp source (epoch seconds). */
   now?: () => number;
+  /** Skip the auto-import of the committed `.tre-mem/` directory. */
+  skipImport?: boolean;
 }
 
 export interface SessionStartResult {
@@ -28,6 +33,8 @@ export interface SessionStartResult {
   tagged_at_epoch: number;
   tagged_count_for_branch: number;
   tagged_count_for_project: number;
+  imported_pins: number;
+  imported_graduated: number;
   message: string;
 }
 
@@ -54,11 +61,31 @@ export async function runSessionStartHook(
     });
     const tagged_count_for_branch = repo.countBranchTags(project, branch);
     const tagged_count_for_project = repo.countBranchTags(project);
+
+    // Auto-import teammates' shared memory. Cheap + idempotent: unchanged
+    // files are skipped via import_state SHA tracking. Never blocks a session.
+    let imported_pins = 0;
+    let imported_graduated = 0;
+    if (!opts.skipImport) {
+      const syncDir = join(cwd, SYNC_DIR_NAME);
+      if (existsSync(syncDir)) {
+        try {
+          const result = importDir({ repo, dir: syncDir, now: tagged_at_epoch });
+          imported_pins = result.pins;
+          imported_graduated = result.graduated;
+        } catch {
+          /* a broken .tre-mem/ must never block a session */
+        }
+      }
+    }
+
     const message = formatMessage({
       project,
       branch,
       tagged_count_for_branch,
       tagged_count_for_project,
+      imported_pins,
+      imported_graduated,
       source,
     });
     return {
@@ -69,6 +96,8 @@ export async function runSessionStartHook(
       tagged_at_epoch,
       tagged_count_for_branch,
       tagged_count_for_project,
+      imported_pins,
+      imported_graduated,
       message,
     };
   } finally {
@@ -81,11 +110,17 @@ function formatMessage(parts: {
   branch: string;
   tagged_count_for_branch: number;
   tagged_count_for_project: number;
+  imported_pins: number;
+  imported_graduated: number;
   source: SessionStartSource;
 }): string {
+  const imported =
+    parts.imported_pins + parts.imported_graduated > 0
+      ? ` imported=${parts.imported_pins}pin/${parts.imported_graduated}grad`
+      : '';
   return (
     `tre-mem: project=${parts.project} branch=${parts.branch} ` +
     `tagged_on_branch=${parts.tagged_count_for_branch} ` +
-    `tagged_on_project=${parts.tagged_count_for_project} (source=${parts.source})`
+    `tagged_on_project=${parts.tagged_count_for_project}${imported} (source=${parts.source})`
   );
 }
