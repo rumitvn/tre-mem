@@ -1,0 +1,92 @@
+name: Release
+
+# Triggered when you push a version tag, e.g.:
+#   git tag v0.2.0 && git push origin v0.2.0
+#
+# It builds + tests, creates a GitHub Release with the packed tarball attached,
+# and publishes to npm *only if* you have added an NPM_TOKEN repo secret. No
+# secret → no npm publish, so this is safe to merge before you decide.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # needed to create the GitHub Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Verify tag matches package.json version
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::Tag v$TAG does not match package.json version $PKG"
+            exit 1
+          fi
+          echo "version=$PKG" >> "$GITHUB_OUTPUT"
+        id: version
+
+      - name: Pack tarball
+        run: pnpm pack
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PRERELEASE=""
+          # treat versions with a hyphen (e.g. 0.2.0-alpha.0) as pre-releases
+          case "${{ steps.version.outputs.version }}" in
+            *-*) PRERELEASE="--prerelease" ;;
+          esac
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            $PRERELEASE \
+            ./*.tgz
+
+      - name: Publish to npm
+        if: env.HAS_NPM_TOKEN == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          # versions with a hyphen publish under the "alpha" dist-tag, not "latest",
+          # so an alpha can never become the default `npm i tre-mem`.
+          NPM_TAG="latest"
+          case "${{ steps.version.outputs.version }}" in
+            *-*) NPM_TAG="alpha" ;;
+          esac
+          npm publish --access public --tag "$NPM_TAG"
+
+      - name: npm publish skipped
+        if: env.HAS_NPM_TOKEN != 'true'
+        run: echo "No NPM_TOKEN secret set — GitHub Release created, npm publish skipped."
