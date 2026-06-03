@@ -1,5 +1,10 @@
+# better-sqlite3 ships a native addon and needs its install build script to run.
+# pnpm changed the approval mechanism across versions, so we declare both:
+#   - onlyBuiltDependencies → pnpm 10 (used in CI)
+#   - allowBuilds           → pnpm 11+ (local dev)
+# Do NOT add neverBuiltDependencies — pnpm 10 errors if both it and
+# onlyBuiltDependencies are present.
 onlyBuiltDependencies:
   - better-sqlite3
-neverBuiltDependencies: []
 allowBuilds:
   better-sqlite3: true
