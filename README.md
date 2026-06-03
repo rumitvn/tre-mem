@@ -123,8 +123,14 @@ tre search "<query>" [--branch B] [--k 10]
 tre pin <observation_id> [--note "..."]
 tre graduate <observation_id>           # promote branch fact → project-wide
 tre list-branches [--project SLUG]
-tre hook session-start                  # invoked by Claude Code, reads JSON on stdin
 tre mcp                                 # start MCP server (stdio)
+
+# --- team sync (v0.2) ---
+tre export [--branch B | --all] [--force] [--dry-run]   # write pins → .tre-mem/
+tre import [--from .tre-mem] [--force]                   # pull a teammate's pins
+tre graduate-pr <PR# | branch> [--dry-run]               # graduate a merged branch
+tre setup claude-code [--auto-inject] [--with-action]    # wire hooks + workflow
+tre hook session-start | user-prompt-submit              # invoked by Claude Code
 ```
 
 `tre search` prints top-K with a score breakdown so you can see why each hit
@@ -152,6 +158,52 @@ tre-mem search "stripe webhook"
 | `list_branches` | `project?` | Branches with tag counts |
 | `pin_fact` | `observation_id`, `branch?`, `note?` | Pin a fact to a branch (boost = 1.0) |
 | `graduate_fact` | `observation_id` | Promote a branch fact to project scope |
+
+## Team memory — "git for AI memory" (v0.2)
+
+Phase 1 made memory branch-aware for one developer. **v0.2 makes it team-shared
+through git itself** — no server, no API keys. Pin a decision, `git push`, and
+your teammate's Claude Code inherits it on the next session.
+
+```
+   alice@laptop                          bob@laptop
+   ~/.tre-mem/  (private sidecar)         ~/.tre-mem/  (private sidecar)
+        │ tre export                            ▲ tre import (auto on SessionStart)
+        ▼                                       │
+   repo/.tre-mem/  ── git push ── git pull ── repo/.tre-mem/
+        │ on PR merge → GitHub Action graduates pins to repo-wide facts
+```
+
+One-time setup, then the loop is just your normal git workflow:
+
+```bash
+tre setup claude-code --with-action      # writes the SessionStart hook + graduate workflow
+
+# alice, on feature/payment
+tre pin 1234 --note "use Stripe webhook v3"
+tre export                               # → .tre-mem/branches/feature-payment.jsonl
+git add .tre-mem && git commit -m "share decision" && git push
+
+# bob
+git pull                                 # tre import runs automatically on his next session
+#   → his Claude Code now surfaces alice's pin, tagged [shared]
+```
+
+Key properties:
+
+- **Only pins + graduated facts are shared.** Raw observations stay private in
+  each developer's `~/.claude-mem/`.
+- **Fail-closed redaction.** `tre export` refuses to write detected secrets
+  (private keys, API tokens, JWTs…) unless you pass `--force` (which replaces
+  them with `[REDACTED:*]`). Per-repo `.tre-mem/.shareignore` adds globs.
+- **Auto-lifecycle.** Merge a PR and the
+  [`graduate-on-merge`](./actions/graduate-on-merge) GitHub Action promotes that
+  branch's pins to repo-wide graduated facts.
+- **Conflict-free.** Append-only JSONL + content-hash dedupe → git union-merges
+  cleanly. Format frozen in [docs/SYNC-FORMAT.md](./docs/SYNC-FORMAT.md).
+
+Full guide: [docs/TEAM-WORKFLOW.md](./docs/TEAM-WORKFLOW.md). Upgrading from
+v0.1 is automatic — see [docs/MIGRATION-v1-v2.md](./docs/MIGRATION-v1-v2.md).
 
 ## Architecture
 
@@ -187,15 +239,17 @@ for the full design.
 
 ## Status
 
-MVP — Week 2 retrieval + MCP slice shipped. Live E2E verified on a real
-multi-branch project; same query flips top-1 across branches as expected.
+**v0.2 — team-shared memory via git.** Phase 1 (branch-aware retrieval + MCP)
+and Phase 2 (export/import, redaction, graduate-on-merge, retrieval-v2, hooks)
+are shipped and covered by 165 tests. The two-dev sync path is verified
+end-to-end through a real git remote in `scripts/two-dev-e2e.sh`.
 [CHANGELOG.md](./CHANGELOG.md) tracks releases.
 
-Out of scope for MVP (deferred to V2):
-- Team sync / cloud
-- Dashboard UI
-- Independent ingest from Cursor / Gemini CLI / Codex
-- Auto fact-graduation on PR merge
+Out of scope (deferred to V3):
+- GitLab / Bitbucket equivalents of the graduate Action
+- Dashboard / memory observability UI
+- Full independent ingest from Cursor / Gemini CLI / Codex (`tre setup` stubs exist)
+- Encrypted memory for sensitive repos (BYO-key)
 
 ## License
 

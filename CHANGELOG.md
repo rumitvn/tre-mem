@@ -4,6 +4,55 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-06-04
+
+**"Git for AI memory."** Phase 2 makes tre-mem team-shared: pin a decision on a
+branch, `git push`, and your teammate's Claude Code inherits it. No server, no
+API keys — the git workflow itself is the transport. Branch-awareness (0.1) +
+team-share (0.2) is a combination no competitor has.
+
+### Added
+
+- **Committed `.tre-mem/` sync directory** (JSONL, append-only, human-readable
+  diffs). Format spec frozen in [docs/SYNC-FORMAT.md](./docs/SYNC-FORMAT.md);
+  versioned `schema` field; content-hash dedupe so two devs converge without
+  real conflicts.
+- **`tre export`** — writes pins to `branches/<slug>.jsonl` + graduated facts to
+  `graduated.jsonl`, snapshotting observation title/body so receiving devs are
+  self-contained. Idempotent, merge-safe, marks pins shared.
+- **`tre import`** — pulls a teammate's `.tre-mem/` into the local sidecar,
+  deduped on content-hash, idempotent via `import_state` file-SHA tracking.
+- **Redaction guard** — `tre export` is **fail-closed**: an 8-rule secret pack
+  (private keys, OpenAI/Anthropic/AWS/GitHub/Google/Slack keys, JWTs) blocks the
+  write with a masked report unless `--force` (which replaces matches with
+  `[REDACTED:*]`). Per-repo `.tre-mem/.shareignore` glob blocklist.
+- **Auto-lifecycle** — `tre graduate-pr <PR#|branch>` promotes a merged branch's
+  pins to repo-wide graduated facts; composite GitHub Action
+  [`actions/graduate-on-merge`](./actions/graduate-on-merge) runs it on merge.
+- **Retrieval v2** — graduated facts are a first-class signal (weight 0.3), and
+  **shared pins/graduated surface from their JSONL snapshot even when the local
+  claude-mem lacks the observation**. Free-text pins surface too;
+  `SearchHit.source` distinguishes `observation` / `shared-pin` / `graduated`.
+- **SessionStart hook v2** auto-imports `.tre-mem/` on every session (silent,
+  idempotent). Optional **UserPromptSubmit** hook injects branch-scoped memory
+  into prompts (opt-in via `tre setup claude-code --auto-inject`).
+- **`tre setup <tool>`** — idempotently wires Claude Code hooks (and optionally
+  the graduate workflow); `cursor`/`codex` stubbed for V3.
+- **`tre status` v2** — shared/pending/graduated counts + `.tre-mem/` presence.
+- **Schema v2 migration** — additive `content_hash` / `shared_at_epoch` /
+  `title` / `body` columns + `import_state` table; upgrades populated v0.1 DBs
+  with no data loss. See [docs/MIGRATION-v1-v2.md](./docs/MIGRATION-v1-v2.md).
+- **Two-dev E2E** at `scripts/two-dev-e2e.sh` — drives export → git push → clone
+  → import → search through a real bare remote and two isolated sidecars.
+
+### Notes
+
+- Migration is additive-only and idempotent; v0.1 users upgrade transparently on
+  first `tre` invocation.
+- Raw observations stay private — only pins + graduated facts enter `.tre-mem/`.
+
+[0.2.0]: https://github.com/rumitvn/tre-mem/releases/tag/v0.2.0
+
 ## [0.1.0] — 2026-05-31
 
 First public release. Branch-aware memory layer over claude-mem with 3-signal

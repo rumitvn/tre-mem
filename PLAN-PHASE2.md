@@ -1,7 +1,7 @@
 # tre-mem Phase 2 — "Git for AI Memory"
 
 > Sibling plan to [`PLAN.md`](./PLAN.md) (Phase 1 SSOT, v0.1.0 shipped).
-> This file is the Phase 2 SSOT. Not started yet — kicks off after teammate dogfeeding feedback on v0.1.0 (T2D10 demo).
+> This file is the Phase 2 SSOT. **Engineering complete (v0.2.0)** — all build tasks T3D1–T4D10 done, 165 tests green, two-dev sync verified E2E through real git. The only open items are human-gated: the 2-dev demo screen-record (T4D9) and the real-team adoption checkpoint (T4D10 / Checkpoint T4).
 
 ## Context
 
@@ -109,7 +109,7 @@ Each JSONL row carries content_hash (dedupe key), author, branch, tagged_at_epoc
 - [x] **T4D8** `tre setup <tool>` (Lore-style UX) — `tre setup claude-code [--auto-inject] [--with-action]` idempotently writes hooks to `.claude/settings.json` + optional workflow; `cursor`/`codex` stubbed "coming in V3"
 - [x] **T4D9** Retrieval v2 — `graduatedSignal` (weight 0.3) + shared pins/graduated **surface from their JSONL snapshot even when the local claude-mem lacks the observation** (schema v2 title/body cols, synthetic ids for free-text pins, `SearchHit.source`); two-dev E2E now proves bob's `tre search` returns alice's pin
 - [ ] **T4D9** Demo screen-record: 2-dev split-screen, "alice pins decision → 30s later bob's Claude Code references it"
-- [ ] **T4D10** Polish: README v0.2 with team workflow + GIF, `docs/MIGRATION-v1-v2.md`, version bump → `0.2.0`, CHANGELOG
+- [x] **T4D10** Polish: README v0.2 with team-workflow section, `docs/TEAM-WORKFLOW.md`, `docs/MIGRATION-v1-v2.md`, version bump → `0.2.0`, CHANGELOG `[0.2.0]` (GIF + screen-record deferred to user — needs recording)
 - [ ] **T4D10** **Checkpoint T4 (moment of truth)**: ≥1 real team of 2+ devs uses shared memory for ≥3 days, qualitative win documented
 
 ---
