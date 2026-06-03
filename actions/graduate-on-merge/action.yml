@@ -43,29 +43,39 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
+        # Pass inputs as env vars — never interpolate ${{ }} into the shell
+        # source, or a crafted branch/version string could inject commands.
+        INPUT_BRANCH: ${{ inputs.branch }}
+        INPUT_PR_NUMBER: ${{ inputs.pr-number }}
+        INPUT_DIR: ${{ inputs.dir }}
+        INPUT_DRY_RUN: ${{ inputs.dry-run }}
+        INPUT_VERSION: ${{ inputs.version }}
       run: |
         set -euo pipefail
         ARGS=(graduate-pr)
-        if [ -n "${{ inputs.branch }}" ]; then
-          ARGS+=("${{ inputs.branch }}" --branch "${{ inputs.branch }}")
+        if [ -n "$INPUT_BRANCH" ]; then
+          ARGS+=("$INPUT_BRANCH" --branch "$INPUT_BRANCH")
         else
-          ARGS+=("${{ inputs.pr-number }}")
+          ARGS+=("$INPUT_PR_NUMBER")
         fi
-        ARGS+=(--dir "${{ inputs.dir }}")
-        if [ "${{ inputs.dry-run }}" = "true" ]; then ARGS+=(--dry-run); fi
-        npx --yes "tre-mem@${{ inputs.version }}" "${ARGS[@]}"
+        ARGS+=(--dir "$INPUT_DIR")
+        if [ "$INPUT_DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
+        npx --yes "tre-mem@$INPUT_VERSION" "${ARGS[@]}"
 
     - name: Commit graduated facts
       if: ${{ inputs.dry-run != 'true' }}
       shell: bash
+      env:
+        INPUT_DIR: ${{ inputs.dir }}
+        INPUT_COMMIT_MESSAGE: ${{ inputs.commit-message }}
       run: |
         set -euo pipefail
-        if [ -z "$(git status --porcelain "${{ inputs.dir }}")" ]; then
+        if [ -z "$(git status --porcelain "$INPUT_DIR")" ]; then
           echo "tre-mem: no new graduated facts."
           exit 0
         fi
         git config user.name  "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add "${{ inputs.dir }}"
-        git commit -m "${{ inputs.commit-message }}"
+        git add "$INPUT_DIR"
+        git commit -m "$INPUT_COMMIT_MESSAGE"
         git push

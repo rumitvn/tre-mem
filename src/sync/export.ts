@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import type { TreMemRepo } from '../store/repo.js';
@@ -12,7 +12,7 @@ import {
   type GraduatedRecord,
   type PinRecord,
 } from './format.js';
-import { branchFilePath, graduatedFilePath } from './layout.js';
+import { branchFilePath, graduatedFilePath, writeFileAtomic } from './layout.js';
 import { RedactionError, redactText, scanForSecrets, type SecretMatch } from './redact.js';
 import { type ShareignoreMatcher } from './shareignore.js';
 
@@ -219,7 +219,7 @@ function appendNew(
   }
   if (!dryRun && newLines.length > 0) {
     mkdirSync(dirname(filePath), { recursive: true });
-    writeFileSync(filePath, [...existing.lines, ...newLines].join('\n') + '\n', 'utf8');
+    writeFileAtomic(filePath, [...existing.lines, ...newLines].join('\n') + '\n');
   }
   return { file: filePath, total: existing.lines.length + newLines.length, added: newLines.length };
 }

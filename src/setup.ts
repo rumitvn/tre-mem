@@ -58,7 +58,12 @@ function readSettings(path: string): ClaudeSettings {
   if (!existsSync(path)) return {};
   const raw = readFileSync(path, 'utf8').trim();
   if (raw === '') return {};
-  const parsed = JSON.parse(raw) as unknown;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(`tre setup: ${path} contains invalid JSON — fix it before running setup`);
+  }
   if (parsed === null || typeof parsed !== 'object') {
     throw new Error(`tre setup: ${path} is not a JSON object`);
   }

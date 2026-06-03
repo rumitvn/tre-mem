@@ -77,6 +77,13 @@ describe('content hashing', () => {
     expect(alice.content_hash).toBe(bob.content_hash);
   });
 
+  test('null note and a single-space note hash differently (no sentinel collision)', () => {
+    const base = { project: 'p', branch: 'b', observation_id: 1, title: 't', body: 'x' };
+    const nullNote = pinContentHash({ ...base, note: null });
+    const spaceNote = pinContentHash({ ...base, note: ' ' });
+    expect(nullNote).not.toBe(spaceNote);
+  });
+
   test('pin hash changes when note changes', () => {
     const a = samplePin();
     const b = samplePin({ note: 'different note' });

@@ -62,6 +62,12 @@ describe('redactText', () => {
     expect(count).toBe(0);
     expect(redacted).toBe('nothing to see here');
   });
+
+  test('labels an Anthropic key as anthropic-key, not openai-key', () => {
+    const { redacted } = redactText('key sk-ant-api03-abcdefghijklmnopqrstuvwxyz here');
+    expect(redacted).toContain('[REDACTED:anthropic-key]');
+    expect(redacted).not.toContain('openai-key');
+  });
 });
 
 describe('RedactionError', () => {

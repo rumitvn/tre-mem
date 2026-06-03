@@ -104,7 +104,10 @@ export function searchBranchContext(deps: SearchDeps, opts: SearchOptions): Sear
   const pinEntries = pins.map((pin) => ({ id: pin.observation_id ?? -pin.id, pin }));
   const pinById = new Map(pinEntries.map((e) => [e.id, e.pin]));
 
-  const graduated = deps.repo.listGraduated(opts.project);
+  // Cap the always-on graduated boost to the most-recent fetchK (listGraduated
+  // is ordered newest-first) so a repo with many merged PRs can't crowd out
+  // query-relevant observations from the k result slots.
+  const graduated = deps.repo.listGraduated(opts.project).slice(0, fetchK);
   const gradByObsId = new Map(graduated.map((g) => [g.observation_id, g]));
 
   const ranked = rerank(

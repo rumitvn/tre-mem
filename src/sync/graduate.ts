@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import {
@@ -9,7 +9,7 @@ import {
   type GraduatedRecord,
   type PinRecord,
 } from './format.js';
-import { branchFilePath, graduatedFilePath } from './layout.js';
+import { branchFilePath, graduatedFilePath, writeFileAtomic } from './layout.js';
 
 export interface GraduateOptions {
   /** Path to the committed `.tre-mem/` directory. */
@@ -111,7 +111,7 @@ export function graduateBranch(opts: GraduateOptions): GraduateResult {
 
   if (!dryRun && newLines.length > 0) {
     mkdirSync(dirname(gradFile), { recursive: true });
-    writeFileSync(gradFile, [...lines, ...newLines].join('\n') + '\n', 'utf8');
+    writeFileAtomic(gradFile, [...lines, ...newLines].join('\n') + '\n');
   }
 
   return {

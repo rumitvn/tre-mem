@@ -1,8 +1,18 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** Directory committed to the repo that carries shared pins + graduated facts. */
 export const SYNC_DIR_NAME = '.tre-mem';
+
+/**
+ * Write a file atomically (temp file + rename) so a crash mid-write can never
+ * leave a truncated JSONL file in the git working tree.
+ */
+export function writeFileAtomic(filePath: string, content: string): void {
+  const tmp = `${filePath}.tmp`;
+  writeFileSync(tmp, content, 'utf8');
+  renameSync(tmp, filePath);
+}
 
 const README = `# .tre-mem/ — shared AI memory (tre-mem)
 

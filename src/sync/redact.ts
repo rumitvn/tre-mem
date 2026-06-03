@@ -19,8 +19,10 @@ export interface SecretMatch {
 // Each pattern carries the global flag so we can find every occurrence.
 export const SECRET_RULES: ReadonlyArray<SecretRule> = [
   { name: 'private-key', pattern: /-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----/g },
-  { name: 'openai-key', pattern: /sk-(?:proj-)?[A-Za-z0-9_-]{20,}/g },
+  // anthropic before openai, and openai excludes the sk-ant- prefix, so an
+  // Anthropic key is labeled correctly instead of being caught as openai.
   { name: 'anthropic-key', pattern: /sk-ant-[A-Za-z0-9_-]{20,}/g },
+  { name: 'openai-key', pattern: /sk-(?!ant-)(?:proj-)?[A-Za-z0-9_-]{20,}/g },
   { name: 'aws-access-key', pattern: /AKIA[0-9A-Z]{16}/g },
   { name: 'github-token', pattern: /gh[pousr]_[A-Za-z0-9]{36,}/g },
   { name: 'google-api-key', pattern: /AIza[0-9A-Za-z_-]{35}/g },
