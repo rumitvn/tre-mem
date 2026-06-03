@@ -59,7 +59,7 @@ jobs:
       - name: Pack tarball
         run: pnpm pack
 
-      - name: Create GitHub Release
+      - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -69,11 +69,17 @@ jobs:
           case "${{ steps.version.outputs.version }}" in
             *-*) PRERELEASE="--prerelease" ;;
           esac
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
-            --generate-notes \
-            $PRERELEASE \
-            ./*.tgz
+          # Idempotent: if the release already exists (e.g. a re-tag), just
+          # refresh its tarball instead of failing.
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" ./*.tgz --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes \
+              $PRERELEASE \
+              ./*.tgz
+          fi
 
       - name: Publish to npm
         if: env.HAS_NPM_TOKEN == 'true'
