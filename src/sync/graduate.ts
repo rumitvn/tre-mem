@@ -48,7 +48,9 @@ function readPins(file: string): PinRecord[] {
 
 function existingHashes(file: string): { lines: string[]; hashes: Set<string> } {
   if (!existsSync(file)) return { lines: [], hashes: new Set() };
-  const lines = readFileSync(file, 'utf8').split('\n').filter((l) => l.trim() !== '');
+  const lines = readFileSync(file, 'utf8')
+    .split('\n')
+    .filter((l) => l.trim() !== '');
   const hashes = new Set<string>();
   for (const line of lines) {
     try {

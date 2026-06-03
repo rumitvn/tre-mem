@@ -234,7 +234,13 @@ export function exportSync(opts: ExportOptions): ExportResult {
   const branchBundles = opts.branches.map((branch) => ({
     branch,
     file: branchFilePath(dir, branch),
-    items: buildPinItems(repo.listPinsForBranch(project, branch), snapshots, project, branch, author),
+    items: buildPinItems(
+      repo.listPinsForBranch(project, branch),
+      snapshots,
+      project,
+      branch,
+      author,
+    ),
   }));
   const gradItems = buildGradItems(repo.listGraduated(project), snapshots, project, author);
 
@@ -299,7 +305,10 @@ export function exportSync(opts: ExportOptions): ExportResult {
   for (const bundle of branchBundles) {
     const result = appendNew(
       bundle.file,
-      bundle.items.map((it) => ({ line: serializeSyncRecord(it.record), hash: it.record.content_hash })),
+      bundle.items.map((it) => ({
+        line: serializeSyncRecord(it.record),
+        hash: it.record.content_hash,
+      })),
       dryRun,
     );
     if (!dryRun) {

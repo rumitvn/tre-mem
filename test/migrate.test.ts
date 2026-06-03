@@ -51,9 +51,9 @@ describe('migrate', () => {
         ]),
       );
 
-      const version = db
-        .prepare('SELECT MAX(version) AS v FROM schema_versions')
-        .get() as { v: number };
+      const version = db.prepare('SELECT MAX(version) AS v FROM schema_versions').get() as {
+        v: number;
+      };
       expect(version.v).toBe(CURRENT_SCHEMA_VERSION);
     } finally {
       db.close();
@@ -136,7 +136,9 @@ describe('migrate', () => {
     const verify = new Database(dbPath, { readonly: true });
     try {
       const pin = verify
-        .prepare('SELECT note, content_hash, shared_at_epoch FROM branch_pin WHERE observation_id = 7')
+        .prepare(
+          'SELECT note, content_hash, shared_at_epoch FROM branch_pin WHERE observation_id = 7',
+        )
         .get() as { note: string; content_hash: string | null; shared_at_epoch: number | null };
       expect(pin.note).toBe('keep me');
       expect(pin.content_hash).toBeNull();

@@ -96,7 +96,11 @@ export function searchBranchContext(deps: SearchDeps, opts: SearchOptions): Sear
 
   const semHits = searcher.search({ query: opts.query, project: opts.project, k: fetchK });
   const branchTags = deps.repo.listBranchTagsForBranch(opts.project, opts.branch, fetchK);
-  const recentObs = deps.adapter.getObservations({ project: opts.project, sinceEpoch, limit: fetchK });
+  const recentObs = deps.adapter.getObservations({
+    project: opts.project,
+    sinceEpoch,
+    limit: fetchK,
+  });
 
   // Pins: a free-text pin (no observation) still surfaces, via a stable
   // negative synthetic id so it flows through the id-keyed reranker.
@@ -130,7 +134,12 @@ export function searchBranchContext(deps: SearchDeps, opts: SearchOptions): Sear
   for (const r of ranked) {
     const real = r.observationId > 0 ? byId.get(r.observationId) : undefined;
     if (real !== undefined) {
-      out.push({ observation: real, total: r.total, breakdown: r.breakdown, source: 'observation' });
+      out.push({
+        observation: real,
+        total: r.total,
+        breakdown: r.breakdown,
+        source: 'observation',
+      });
       continue;
     }
     // No local observation — fall back to the shared pin / graduated snapshot.

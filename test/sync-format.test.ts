@@ -133,7 +133,9 @@ describe('serialize / parse round-trip', () => {
   });
 
   test('serialized keys are in a stable order', () => {
-    const line = serializeSyncRecord(samplePin({ content_hash: 'x', author: 'a', tagged_at_epoch: 1 }));
+    const line = serializeSyncRecord(
+      samplePin({ content_hash: 'x', author: 'a', tagged_at_epoch: 1 }),
+    );
     expect(line.indexOf('"schema"')).toBeLessThan(line.indexOf('"kind"'));
     expect(line.indexOf('"kind"')).toBeLessThan(line.indexOf('"content_hash"'));
   });

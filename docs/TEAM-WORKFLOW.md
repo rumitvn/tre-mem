@@ -94,7 +94,7 @@ flow across feature branches.
 ## Conflicts
 
 Files are append-only and rows dedupe on `content_hash`, so git union-merges
-"just work". The one genuine edge case — two devs editing the *same* pin's note
+"just work". The one genuine edge case — two devs editing the _same_ pin's note
 — produces two rows; import resolves by latest `tagged_at_epoch`. Unparseable
 lines (e.g. a teammate on a newer schema) are preserved verbatim, never dropped.
 

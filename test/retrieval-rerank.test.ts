@@ -134,7 +134,13 @@ describe('rerank', () => {
       {
         observationId: 42,
         total: DEFAULT_RERANK_WEIGHTS.pin,
-        breakdown: { semantic: 0, branch: 0, recency: 0, graduated: 0, pin: DEFAULT_RERANK_WEIGHTS.pin },
+        breakdown: {
+          semantic: 0,
+          branch: 0,
+          recency: 0,
+          graduated: 0,
+          pin: DEFAULT_RERANK_WEIGHTS.pin,
+        },
       },
     ]);
   });

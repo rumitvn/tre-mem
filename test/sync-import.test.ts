@@ -32,8 +32,22 @@ describe('importDir', () => {
 
   test('round-trips alice export -> bob import', () => {
     const alice = freshRepo(tmp, 'alice');
-    alice.addPin({ project: 'p', branch: 'feature/payment', observation_id: 42, note: 'webhook v3', created_at_epoch: 100 });
-    exportSync({ repo: alice, snapshots: noSnapshots, project: 'p', dir, branches: ['feature/payment'], now: 1, author: 'alice' });
+    alice.addPin({
+      project: 'p',
+      branch: 'feature/payment',
+      observation_id: 42,
+      note: 'webhook v3',
+      created_at_epoch: 100,
+    });
+    exportSync({
+      repo: alice,
+      snapshots: noSnapshots,
+      project: 'p',
+      dir,
+      branches: ['feature/payment'],
+      now: 1,
+      author: 'alice',
+    });
     alice.close();
 
     const bob = freshRepo(tmp, 'bob');
@@ -52,8 +66,21 @@ describe('importDir', () => {
 
   test('is idempotent: re-import of unchanged files skips via SHA', () => {
     const alice = freshRepo(tmp, 'alice');
-    alice.addPin({ project: 'p', branch: 'main', observation_id: 1, note: 'n', created_at_epoch: 10 });
-    exportSync({ repo: alice, snapshots: noSnapshots, project: 'p', dir, branches: ['main'], now: 1 });
+    alice.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: 1,
+      note: 'n',
+      created_at_epoch: 10,
+    });
+    exportSync({
+      repo: alice,
+      snapshots: noSnapshots,
+      project: 'p',
+      dir,
+      branches: ['main'],
+      now: 1,
+    });
     alice.close();
 
     const bob = freshRepo(tmp, 'bob');
@@ -72,16 +99,42 @@ describe('importDir', () => {
 
   test('content-hash dedupe: a changed file re-imports without duplicating known rows', () => {
     const alice = freshRepo(tmp, 'alice');
-    alice.addPin({ project: 'p', branch: 'main', observation_id: 1, note: 'first', created_at_epoch: 10 });
-    exportSync({ repo: alice, snapshots: noSnapshots, project: 'p', dir, branches: ['main'], now: 1 });
+    alice.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: 1,
+      note: 'first',
+      created_at_epoch: 10,
+    });
+    exportSync({
+      repo: alice,
+      snapshots: noSnapshots,
+      project: 'p',
+      dir,
+      branches: ['main'],
+      now: 1,
+    });
 
     const bob = freshRepo(tmp, 'bob');
     try {
       importDir({ repo: bob, dir, now: 2 });
 
       // Alice adds a second pin → file changes (SHA differs) but row 1 is a dup.
-      alice.addPin({ project: 'p', branch: 'main', observation_id: 2, note: 'second', created_at_epoch: 20 });
-      exportSync({ repo: alice, snapshots: noSnapshots, project: 'p', dir, branches: ['main'], now: 3 });
+      alice.addPin({
+        project: 'p',
+        branch: 'main',
+        observation_id: 2,
+        note: 'second',
+        created_at_epoch: 20,
+      });
+      exportSync({
+        repo: alice,
+        snapshots: noSnapshots,
+        project: 'p',
+        dir,
+        branches: ['main'],
+        now: 3,
+      });
       alice.close();
 
       const result = importDir({ repo: bob, dir, now: 4 });
@@ -96,8 +149,21 @@ describe('importDir', () => {
 
   test('force re-imports even when SHA is unchanged', () => {
     const alice = freshRepo(tmp, 'alice');
-    alice.addPin({ project: 'p', branch: 'main', observation_id: 1, note: 'n', created_at_epoch: 10 });
-    exportSync({ repo: alice, snapshots: noSnapshots, project: 'p', dir, branches: ['main'], now: 1 });
+    alice.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: 1,
+      note: 'n',
+      created_at_epoch: 10,
+    });
+    exportSync({
+      repo: alice,
+      snapshots: noSnapshots,
+      project: 'p',
+      dir,
+      branches: ['main'],
+      now: 1,
+    });
     alice.close();
 
     const bob = freshRepo(tmp, 'bob');
@@ -116,8 +182,21 @@ describe('importDir', () => {
   test('counts malformed lines as errors and imports the rest', () => {
     mkdirSync(join(dir, 'branches'), { recursive: true });
     const alice = freshRepo(tmp, 'alice');
-    alice.addPin({ project: 'p', branch: 'main', observation_id: 1, note: 'good', created_at_epoch: 10 });
-    exportSync({ repo: alice, snapshots: noSnapshots, project: 'p', dir, branches: ['main'], now: 1 });
+    alice.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: 1,
+      note: 'good',
+      created_at_epoch: 10,
+    });
+    exportSync({
+      repo: alice,
+      snapshots: noSnapshots,
+      project: 'p',
+      dir,
+      branches: ['main'],
+      now: 1,
+    });
     alice.close();
     appendFileSync(branchFilePath(dir, 'main'), '{garbage not json\n', 'utf8');
 
@@ -134,7 +213,12 @@ describe('importDir', () => {
 
   test('imports graduated facts', () => {
     const alice = freshRepo(tmp, 'alice');
-    alice.graduateFact({ project: 'p', observation_id: 7, graduated_from_branch: 'feature/x', graduated_at_epoch: 200 });
+    alice.graduateFact({
+      project: 'p',
+      observation_id: 7,
+      graduated_from_branch: 'feature/x',
+      graduated_at_epoch: 200,
+    });
     exportSync({ repo: alice, snapshots: noSnapshots, project: 'p', dir, branches: [], now: 1 });
     alice.close();
 

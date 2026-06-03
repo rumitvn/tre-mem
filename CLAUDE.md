@@ -6,22 +6,22 @@
 
 **tre-mem** — branch-aware shared memory layer for AI coding tools.
 
-- Tagline: *"Tre — shared roots for your codebase."*
-- One-liner: builds *on top of* claude-mem (read-only) and adds the missing `branch` dimension so AI assistants understand the *feature you're working on*, not just the *repo you're in*.
+- Tagline: _"Tre — shared roots for your codebase."_
+- One-liner: builds _on top of_ claude-mem (read-only) and adds the missing `branch` dimension so AI assistants understand the _feature you're working on_, not just the _repo you're in_.
 - Distribution: npm package `tre-mem`, binary command `tre`, MCP stdio server.
 
 ## Stack & key decisions
 
-| Area | Choice | Why |
-|------|--------|-----|
-| Language | TypeScript (Node 20+) | Match claude-mem ecosystem, official MCP SDK in TS |
-| Storage | Sidecar SQLite at `~/.tre-mem/tre-mem.db` | Read-only adapter on `~/.claude-mem/claude-mem.db`, no schema mutation upstream |
-| SQLite driver | `better-sqlite3` (readonly mode) | Sync API, WAL-friendly, plays well with claude-mem's worker |
-| Vector | reuse `~/.claude-mem/chroma/` via `chromadb` client | Don't re-embed |
-| MCP | `@modelcontextprotocol/sdk` (stdio) | Standard transport for Claude Code / Cursor / Gemini CLI |
-| Git | `simple-git` + `chokidar` on `.git/HEAD` | Live branch detect + reflog backfill |
-| CLI | `cac` | Lightweight, ergonomic |
-| Tests | `vitest` | Fast, TS-native |
+| Area          | Choice                                              | Why                                                                             |
+| ------------- | --------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Language      | TypeScript (Node 20+)                               | Match claude-mem ecosystem, official MCP SDK in TS                              |
+| Storage       | Sidecar SQLite at `~/.tre-mem/tre-mem.db`           | Read-only adapter on `~/.claude-mem/claude-mem.db`, no schema mutation upstream |
+| SQLite driver | `better-sqlite3` (readonly mode)                    | Sync API, WAL-friendly, plays well with claude-mem's worker                     |
+| Vector        | reuse `~/.claude-mem/chroma/` via `chromadb` client | Don't re-embed                                                                  |
+| MCP           | `@modelcontextprotocol/sdk` (stdio)                 | Standard transport for Claude Code / Cursor / Gemini CLI                        |
+| Git           | `simple-git` + `chokidar` on `.git/HEAD`            | Live branch detect + reflog backfill                                            |
+| CLI           | `cac`                                               | Lightweight, ergonomic                                                          |
+| Tests         | `vitest`                                            | Fast, TS-native                                                                 |
 
 ## Architecture (60-second tour)
 
@@ -61,7 +61,7 @@ Format: `<type>(<scope>): T<week>D<day> <subject>`
 
 - 1 concept per file, < 400 lines target, 800 hard cap.
 - Tests next to code in `test/<module>.test.ts`.
-- No comments unless they explain *why* something non-obvious.
+- No comments unless they explain _why_ something non-obvious.
 
 ### Workflow
 

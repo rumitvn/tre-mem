@@ -82,7 +82,14 @@ echo '{"hook_event_name":"SessionStart","source":"startup","cwd":"'$(pwd)'"}' \
 Expected: a single-line JSON response like
 
 ```json
-{"continue":true,"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"tre-mem: project=<your-repo> branch=<your-branch> tagged_on_branch=N tagged_on_project=M (source=startup)"},"systemMessage":"…"}
+{
+  "continue": true,
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "tre-mem: project=<your-repo> branch=<your-branch> tagged_on_branch=N tagged_on_project=M (source=startup)"
+  },
+  "systemMessage": "…"
+}
 ```
 
 Then check that `branch_state` was upserted:
@@ -94,14 +101,14 @@ tre status
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| Hook prints nothing | `tre` not on PATH | Add `pnpm bin -g` to your `PATH`, or use an absolute path in `command`. |
-| `branch=(no-git)` | `cwd` is not a git repo | Expected outside repos; remove the hook for those projects or ignore. |
-| `tagged_on_branch=0` | No backfill yet | Run `tre backfill` once in each repo. |
-| Multiple SessionStart hooks | Settings merge | Only one `tre hook session-start` command is needed; duplicates are harmless but noisy. |
+| Symptom                     | Likely cause            | Fix                                                                                     |
+| --------------------------- | ----------------------- | --------------------------------------------------------------------------------------- |
+| Hook prints nothing         | `tre` not on PATH       | Add `pnpm bin -g` to your `PATH`, or use an absolute path in `command`.                 |
+| `branch=(no-git)`           | `cwd` is not a git repo | Expected outside repos; remove the hook for those projects or ignore.                   |
+| `tagged_on_branch=0`        | No backfill yet         | Run `tre backfill` once in each repo.                                                   |
+| Multiple SessionStart hooks | Settings merge          | Only one `tre hook session-start` command is needed; duplicates are harmless but noisy. |
 
-## What the hook does *not* do
+## What the hook does _not_ do
 
 - It does not modify `~/.claude-mem/claude-mem.db` (read-only adapter only).
 - It does not tag observations directly — that is `tre backfill`'s job for

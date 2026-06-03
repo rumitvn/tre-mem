@@ -38,14 +38,14 @@ That's the whole setup. On every merged PR, the action:
 
 ## Inputs
 
-| Input | Default | Description |
-|-------|---------|-------------|
-| `pr-number` | the triggering PR | PR to graduate |
-| `branch` | — | graduate this branch directly (skips PR lookup) |
-| `dir` | `.tre-mem` | committed sync directory |
-| `version` | `latest` | tre-mem npm version to run |
-| `commit-message` | `chore(tre-mem): graduate pins from merged PR` | commit message |
-| `dry-run` | `false` | compute without committing |
+| Input            | Default                                        | Description                                     |
+| ---------------- | ---------------------------------------------- | ----------------------------------------------- |
+| `pr-number`      | the triggering PR                              | PR to graduate                                  |
+| `branch`         | —                                              | graduate this branch directly (skips PR lookup) |
+| `dir`            | `.tre-mem`                                     | committed sync directory                        |
+| `version`        | `latest`                                       | tre-mem npm version to run                      |
+| `commit-message` | `chore(tre-mem): graduate pins from merged PR` | commit message                                  |
+| `dry-run`        | `false`                                        | compute without committing                      |
 
 ## Requirements
 

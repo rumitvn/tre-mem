@@ -121,12 +121,12 @@ export function setupClaudeCode(cwd: string, opts: SetupOptions = {}): SetupResu
     }
   }
 
-  const parts = [
-    added ? 'added SessionStart hook' : 'SessionStart hook already present',
-  ];
+  const parts = [added ? 'added SessionStart hook' : 'SessionStart hook already present'];
   if (opts.autoInject) {
     parts.push(
-      autoInjectAdded ? 'added UserPromptSubmit auto-inject hook' : 'auto-inject hook already present',
+      autoInjectAdded
+        ? 'added UserPromptSubmit auto-inject hook'
+        : 'auto-inject hook already present',
     );
   }
   if (opts.withAction) {

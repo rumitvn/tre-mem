@@ -10,7 +10,9 @@ import { parseShareignore } from '../src/sync/shareignore.js';
 import { migrate } from '../src/store/migrate.js';
 import { TreMemRepo } from '../src/store/repo.js';
 
-function fakeSnapshots(map: Record<number, { title: string | null; body: string | null }>): SnapshotProvider {
+function fakeSnapshots(
+  map: Record<number, { title: string | null; body: string | null }>,
+): SnapshotProvider {
   return {
     getSnapshots(ids) {
       const out = new Map<number, { title: string | null; body: string | null }>();
@@ -39,10 +41,24 @@ describe('exportSync', () => {
   });
 
   test('writes a branch pin to branches/<slug>.jsonl with snapshot content', () => {
-    repo.addPin({ project: 'p', branch: 'feature/payment', observation_id: 42, note: 'use webhook v3', created_at_epoch: 100 });
+    repo.addPin({
+      project: 'p',
+      branch: 'feature/payment',
+      observation_id: 42,
+      note: 'use webhook v3',
+      created_at_epoch: 100,
+    });
     const snapshots = fakeSnapshots({ 42: { title: 'Stripe decision', body: 'webhook v3' } });
 
-    const result = exportSync({ repo, snapshots, project: 'p', dir, branches: ['feature/payment'], now: 500, author: 'alice' });
+    const result = exportSync({
+      repo,
+      snapshots,
+      project: 'p',
+      dir,
+      branches: ['feature/payment'],
+      now: 500,
+      author: 'alice',
+    });
 
     const file = branchFilePath(dir, 'feature/payment');
     expect(file).toContain('feature-payment.jsonl');
@@ -64,10 +80,23 @@ describe('exportSync', () => {
   });
 
   test('marks exported pins shared in the sidecar DB', () => {
-    const pin = repo.addPin({ project: 'p', branch: 'main', observation_id: 1, note: 'n', created_at_epoch: 10 });
+    const pin = repo.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: 1,
+      note: 'n',
+      created_at_epoch: 10,
+    });
     expect(repo.countUnsharedPins('p')).toBe(1);
 
-    exportSync({ repo, snapshots: fakeSnapshots({ 1: { title: 't', body: 'b' } }), project: 'p', dir, branches: ['main'], now: 999 });
+    exportSync({
+      repo,
+      snapshots: fakeSnapshots({ 1: { title: 't', body: 'b' } }),
+      project: 'p',
+      dir,
+      branches: ['main'],
+      now: 999,
+    });
 
     expect(repo.countUnsharedPins('p')).toBe(0);
     const after = repo.getPinById(pin.id);
@@ -76,7 +105,13 @@ describe('exportSync', () => {
   });
 
   test('is idempotent: re-export adds zero new lines', () => {
-    repo.addPin({ project: 'p', branch: 'main', observation_id: 1, note: 'n', created_at_epoch: 10 });
+    repo.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: 1,
+      note: 'n',
+      created_at_epoch: 10,
+    });
     const snapshots = fakeSnapshots({ 1: { title: 't', body: 'b' } });
 
     exportSync({ repo, snapshots, project: 'p', dir, branches: ['main'], now: 1 });
@@ -87,7 +122,13 @@ describe('exportSync', () => {
   });
 
   test('dry-run writes nothing and marks nothing', () => {
-    repo.addPin({ project: 'p', branch: 'main', observation_id: 1, note: 'n', created_at_epoch: 10 });
+    repo.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: 1,
+      note: 'n',
+      created_at_epoch: 10,
+    });
     const result = exportSync({
       repo,
       snapshots: fakeSnapshots({ 1: { title: 't', body: 'b' } }),
@@ -109,8 +150,21 @@ describe('exportSync', () => {
     mkdirSync(join(dir, 'branches'), { recursive: true });
     writeFileSync(file, '{"schema":999,"kind":"future","content_hash":"zzz"}\n', 'utf8');
 
-    repo.addPin({ project: 'p', branch: 'main', observation_id: 1, note: 'n', created_at_epoch: 10 });
-    exportSync({ repo, snapshots: fakeSnapshots({ 1: { title: 't', body: 'b' } }), project: 'p', dir, branches: ['main'], now: 1 });
+    repo.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: 1,
+      note: 'n',
+      created_at_epoch: 10,
+    });
+    exportSync({
+      repo,
+      snapshots: fakeSnapshots({ 1: { title: 't', body: 'b' } }),
+      project: 'p',
+      dir,
+      branches: ['main'],
+      now: 1,
+    });
 
     const lines = readFileSync(file, 'utf8').trim().split('\n');
     expect(lines).toHaveLength(2);
@@ -119,7 +173,12 @@ describe('exportSync', () => {
   });
 
   test('exports graduated facts to graduated.jsonl', () => {
-    repo.graduateFact({ project: 'p', observation_id: 7, graduated_from_branch: 'feature/x', graduated_at_epoch: 200 });
+    repo.graduateFact({
+      project: 'p',
+      observation_id: 7,
+      graduated_from_branch: 'feature/x',
+      graduated_at_epoch: 200,
+    });
     const result = exportSync({
       repo,
       snapshots: fakeSnapshots({ 7: { title: 'graduated title', body: 'g body' } }),
@@ -142,11 +201,32 @@ describe('exportSync', () => {
   });
 
   test('free-text pin (null observation_id) exports with null title/body', () => {
-    repo.addPin({ project: 'p', branch: 'main', observation_id: null, note: 'free text decision', created_at_epoch: 5 });
-    exportSync({ repo, snapshots: fakeSnapshots({}), project: 'p', dir, branches: ['main'], now: 1 });
+    repo.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: null,
+      note: 'free text decision',
+      created_at_epoch: 5,
+    });
+    exportSync({
+      repo,
+      snapshots: fakeSnapshots({}),
+      project: 'p',
+      dir,
+      branches: ['main'],
+      now: 1,
+    });
 
-    const rows = readFileSync(branchFilePath(dir, 'main'), 'utf8').trim().split('\n').map(parseSyncLine);
-    expect(rows[0]).toMatchObject({ observation_id: null, note: 'free text decision', title: null, body: null });
+    const rows = readFileSync(branchFilePath(dir, 'main'), 'utf8')
+      .trim()
+      .split('\n')
+      .map(parseSyncLine);
+    expect(rows[0]).toMatchObject({
+      observation_id: null,
+      note: 'free text decision',
+      title: null,
+      body: null,
+    });
   });
 });
 
@@ -169,16 +249,35 @@ describe('exportSync — privacy guard (T3D4)', () => {
   });
 
   test('fail-closed: a secret aborts export and writes nothing', () => {
-    repo.addPin({ project: 'p', branch: 'main', observation_id: 1, note: 'token AKIAIOSFODNN7EXAMPLE', created_at_epoch: 10 });
+    repo.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: 1,
+      note: 'token AKIAIOSFODNN7EXAMPLE',
+      created_at_epoch: 10,
+    });
     expect(() =>
-      exportSync({ repo, snapshots: fakeSnapshots({ 1: { title: 't', body: 'b' } }), project: 'p', dir, branches: ['main'], now: 1 }),
+      exportSync({
+        repo,
+        snapshots: fakeSnapshots({ 1: { title: 't', body: 'b' } }),
+        project: 'p',
+        dir,
+        branches: ['main'],
+        now: 1,
+      }),
     ).toThrow(/blocked/);
     expect(existsSync(branchFilePath(dir, 'main'))).toBe(false);
     expect(repo.countUnsharedPins('p')).toBe(1); // not marked shared
   });
 
   test('redact mode replaces the secret and exports', () => {
-    repo.addPin({ project: 'p', branch: 'main', observation_id: 1, note: 'token AKIAIOSFODNN7EXAMPLE', created_at_epoch: 10 });
+    repo.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: 1,
+      note: 'token AKIAIOSFODNN7EXAMPLE',
+      created_at_epoch: 10,
+    });
     const result = exportSync({
       repo,
       snapshots: fakeSnapshots({ 1: { title: 't', body: 'b' } }),
@@ -195,8 +294,20 @@ describe('exportSync — privacy guard (T3D4)', () => {
   });
 
   test('shareignore excludes matching records', () => {
-    repo.addPin({ project: 'p', branch: 'main', observation_id: 1, note: 'internal-only secret plan', created_at_epoch: 10 });
-    repo.addPin({ project: 'p', branch: 'main', observation_id: 2, note: 'public decision', created_at_epoch: 11 });
+    repo.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: 1,
+      note: 'internal-only secret plan',
+      created_at_epoch: 10,
+    });
+    repo.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: 2,
+      note: 'public decision',
+      created_at_epoch: 11,
+    });
     const result = exportSync({
       repo,
       snapshots: fakeSnapshots({ 1: { title: null, body: null }, 2: { title: null, body: null } }),
@@ -207,7 +318,10 @@ describe('exportSync — privacy guard (T3D4)', () => {
       shareignore: parseShareignore('internal-only\n'),
     });
     expect(result.ignored).toBe(1);
-    const rows = readFileSync(branchFilePath(dir, 'main'), 'utf8').trim().split('\n').map(parseSyncLine);
+    const rows = readFileSync(branchFilePath(dir, 'main'), 'utf8')
+      .trim()
+      .split('\n')
+      .map(parseSyncLine);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ observation_id: 2 });
   });

@@ -51,6 +51,7 @@ clear
 ```
 
 Terminal settings (mac default):
+
 - Font size 18+ so the screen-record reads on mobile.
 - Make the window ~120 cols wide so the breakdown line doesn't wrap.
 - Single terminal tab is enough for v1. (Optional split-pane with Claude Code
@@ -67,6 +68,7 @@ polished cut, use OBS or Tella with the cursor highlight on.
 `tre --help`, or just a title slide `tre-mem · branch-aware memory`.
 
 **Voice-over (or caption)**:
+
 > "Same question. Two branches. Watch what happens to the answer when memory
 > understands the branch you're working on."
 
@@ -83,6 +85,7 @@ tre status
 ```
 
 **Voice-over**:
+
 > "I'm in a real Android repo on a feature branch. tre-mem already knows the
 > project, the active branch, and how many observations it has tagged on each
 > branch — including 36 from `develop` that we want it to ignore."
@@ -101,8 +104,9 @@ tre search "AccountManager region scope" --k 3
 ```
 
 **Voice-over**:
+
 > "Top hit: the AccountManager observation. Score 1.0 — semantic match plus
-> the branch boost because this fact was authored on *this* branch."
+> the branch boost because this fact was authored on _this_ branch."
 
 ### Scene 4 — The flip (1:00 → 1:35)
 
@@ -127,8 +131,9 @@ tre search "AccountManager region scope" --k 3
 ```
 
 **Voice-over**:
+
 > "Same query. I just switched branches. The branch-local observation
-> jumps over the higher-semantic AccountManager hit because *this* branch
+> jumps over the higher-semantic AccountManager hit because _this_ branch
 > doesn't own that fact anymore. That's the 0.40 branch boost flipping the
 > ranking."
 
@@ -138,6 +143,7 @@ Split the screen. Left: terminal still on `feature/test_tre_mem_2`. Right:
 Claude Code session in the same repo.
 
 **Type into Claude Code**:
+
 > "What were we working on in this branch?"
 
 **Expected**: Claude calls the `tre-mem.get_branch_context` MCP tool and
@@ -148,6 +154,7 @@ Then `git checkout feature/test_tre_mem` in the terminal, ask the same
 question again, and watch Claude switch to **AccountManager**.
 
 **Voice-over**:
+
 > "And inside Claude Code, the AI assistant follows the branch instead of the
 > repo. One MCP server. Five tools. Same answer engine, branch-aware."
 
@@ -160,15 +167,15 @@ question again, and watch Claude switch to **AccountManager**.
 
 ## Caption track (if no voice-over)
 
-| Time | Caption |
-|---|---|
-| 0:00 | Same question. Two branches. Different answer. |
-| 0:15 | Real Android repo. Two test branches, seeded memory. |
+| Time | Caption                                                      |
+| ---- | ------------------------------------------------------------ |
+| 0:00 | Same question. Two branches. Different answer.               |
+| 0:15 | Real Android repo. Two test branches, seeded memory.         |
 | 0:35 | Branch 1: "feature/test_tre_mem" — AccountManager fact wins. |
-| 1:00 | Switch to "feature/test_tre_mem_2". Same query. |
-| 1:15 | The branch boost flips the ranking. |
-| 1:35 | Same flip inside Claude Code via MCP. |
-| 1:55 | tre-mem — shared roots. branch-aware memory. |
+| 1:00 | Switch to "feature/test_tre_mem_2". Same query.              |
+| 1:15 | The branch boost flips the ranking.                          |
+| 1:35 | Same flip inside Claude Code via MCP.                        |
+| 1:55 | tre-mem — shared roots. branch-aware memory.                 |
 
 ## Post-record checklist
 
@@ -182,10 +189,10 @@ question again, and watch Claude switch to **AccountManager**.
 
 ## If something breaks live
 
-| Symptom | Quick fix |
-|---|---|
-| `tre status` shows `tagged_on_branch=0` | Re-run `tre backfill /Users/rumnv/Documents/source/android/multigo-android-dev` |
-| Search returns no hits | Confirm `~/.claude-mem/claude-mem.db` exists; re-check spelling of the query |
-| Top-1 doesn't flip | The seeded observations may have been re-ingested under different ids — re-run the pre-flight dry-run and update the expected `#id`s in this script |
-| Claude Code doesn't call the MCP tool | `/mcp` → reconnect tre-mem; check `claude mcp list` includes it |
-| Branch boost not applied | `tre list-branches --project multigo-android-dev` to confirm the row count per branch is non-zero |
+| Symptom                                 | Quick fix                                                                                                                                           |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tre status` shows `tagged_on_branch=0` | Re-run `tre backfill /Users/rumnv/Documents/source/android/multigo-android-dev`                                                                     |
+| Search returns no hits                  | Confirm `~/.claude-mem/claude-mem.db` exists; re-check spelling of the query                                                                        |
+| Top-1 doesn't flip                      | The seeded observations may have been re-ingested under different ids — re-run the pre-flight dry-run and update the expected `#id`s in this script |
+| Claude Code doesn't call the MCP tool   | `/mcp` → reconnect tre-mem; check `claude mcp list` includes it                                                                                     |
+| Branch boost not applied                | `tre list-branches --project multigo-android-dev` to confirm the row count per branch is non-zero                                                   |

@@ -17,7 +17,11 @@ const V1_SCHEMA_FILE = join(__dirname, 'schema.sql');
  * populated v0.1 database without data loss.
  */
 const V2_COLUMNS: ReadonlyArray<{ table: string; column: string; ddl: string }> = [
-  { table: 'branch_pin', column: 'content_hash', ddl: 'ALTER TABLE branch_pin ADD COLUMN content_hash TEXT' },
+  {
+    table: 'branch_pin',
+    column: 'content_hash',
+    ddl: 'ALTER TABLE branch_pin ADD COLUMN content_hash TEXT',
+  },
   {
     table: 'branch_pin',
     column: 'shared_at_epoch',
@@ -27,7 +31,11 @@ const V2_COLUMNS: ReadonlyArray<{ table: string; column: string; ddl: string }> 
   // teammate's machine, where the underlying claude-mem observation is absent.
   { table: 'branch_pin', column: 'title', ddl: 'ALTER TABLE branch_pin ADD COLUMN title TEXT' },
   { table: 'branch_pin', column: 'body', ddl: 'ALTER TABLE branch_pin ADD COLUMN body TEXT' },
-  { table: 'graduated', column: 'content_hash', ddl: 'ALTER TABLE graduated ADD COLUMN content_hash TEXT' },
+  {
+    table: 'graduated',
+    column: 'content_hash',
+    ddl: 'ALTER TABLE graduated ADD COLUMN content_hash TEXT',
+  },
   {
     table: 'graduated',
     column: 'shared_at_epoch',
@@ -117,8 +125,8 @@ export function migrate(dbPath: string = TRE_MEM_DB_PATH): MigrateResult {
 }
 
 function currentVersion(db: Database.Database): number {
-  const row = db
-    .prepare('SELECT MAX(version) AS version FROM schema_versions')
-    .get() as { version: number | null } | undefined;
+  const row = db.prepare('SELECT MAX(version) AS version FROM schema_versions').get() as
+    | { version: number | null }
+    | undefined;
   return row?.version ?? 0;
 }

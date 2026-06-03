@@ -9,10 +9,7 @@ import { prHeadBranch } from './git/github.js';
 import { gitAuthor } from './git/identity.js';
 import { NO_GIT, currentBranch, isDetached } from './git/resolver.js';
 import { type SessionStartInput, runSessionStartHook } from './hooks/session-start.js';
-import {
-  type UserPromptSubmitInput,
-  runUserPromptSubmitHook,
-} from './hooks/user-prompt-submit.js';
+import { type UserPromptSubmitInput, runUserPromptSubmitHook } from './hooks/user-prompt-submit.js';
 import { runMcpServer } from './mcp/server.js';
 import { setupTool } from './setup.js';
 import { searchBranchContext, type SearchHit } from './retrieval/search.js';
@@ -319,7 +316,10 @@ cli
   .option('--all', 'Export every branch that has pins')
   .option('--out <dir>', 'Output directory (defaults to <cwd>/.tre-mem)')
   .option('--author <name>', 'Attribution (defaults to git config user.name)')
-  .option('--force', 'Proceed past detected secrets by replacing them with [REDACTED:*] placeholders')
+  .option(
+    '--force',
+    'Proceed past detected secrets by replacing them with [REDACTED:*] placeholders',
+  )
   .option('--dry-run', 'Compute changes without writing files or marking pins shared')
   .action(
     async (flags: {
@@ -367,11 +367,15 @@ cli
           });
         } catch (err) {
           if (err instanceof RedactionError) {
-            process.stderr.write(`tre export blocked: ${err.matches.length} potential secret(s):\n`);
+            process.stderr.write(
+              `tre export blocked: ${err.matches.length} potential secret(s):\n`,
+            );
             for (const m of err.matches) {
               process.stderr.write(`  - ${m.rule} in ${m.field}: ${m.preview}\n`);
             }
-            process.stderr.write(`  Fix the source, add a .tre-mem/.shareignore pattern, or re-run with --force.\n`);
+            process.stderr.write(
+              `  Fix the source, add a .tre-mem/.shareignore pattern, or re-run with --force.\n`,
+            );
             process.exit(2);
           }
           throw err;
@@ -441,7 +445,7 @@ cli
 cli
   .command(
     'graduate-pr <ref>',
-    'Promote a merged branch\'s pins to graduated.jsonl (ref = PR number or branch name)',
+    "Promote a merged branch's pins to graduated.jsonl (ref = PR number or branch name)",
   )
   .option('--repo <owner/name>', 'GitHub repo for PR lookup (defaults to gh detection)')
   .option('--cwd <path>', 'Repo root that holds the .tre-mem/ directory (defaults to current dir)')
@@ -506,7 +510,10 @@ cli
   .command('setup <tool>', 'Wire tre-mem into a tool (tool=claude-code; cursor/codex stubbed)')
   .option('--cwd <path>', 'Repo root to write config into (defaults to current dir)')
   .option('--with-action', 'Also write the .github graduate-on-merge workflow')
-  .option('--auto-inject', 'Also wire the UserPromptSubmit hook (injects branch memory into prompts)')
+  .option(
+    '--auto-inject',
+    'Also wire the UserPromptSubmit hook (injects branch memory into prompts)',
+  )
   .action((tool: string, flags: { cwd?: string; withAction?: boolean; autoInject?: boolean }) => {
     const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
     const result = setupTool(tool, cwd, {
@@ -515,7 +522,8 @@ cli
     });
     console.log(result.message);
     if (result.settingsPath) console.log(`  settings: ${result.settingsPath}`);
-    if (result.workflowPath && result.workflowAdded) console.log(`  workflow: ${result.workflowPath}`);
+    if (result.workflowPath && result.workflowAdded)
+      console.log(`  workflow: ${result.workflowPath}`);
     if (!result.supported) process.exit(2);
   });
 
@@ -557,7 +565,8 @@ function printSearchHit(hit: SearchHit): void {
   const title = obs.title ?? obs.subtitle ?? (obs.text ?? '').slice(0, 80) ?? '(untitled)';
   const total = hit.total.toFixed(3);
   const b = hit.breakdown;
-  const tag = hit.source === 'shared-pin' ? ' [shared]' : hit.source === 'graduated' ? ' [graduated]' : '';
+  const tag =
+    hit.source === 'shared-pin' ? ' [shared]' : hit.source === 'graduated' ? ' [graduated]' : '';
   const breakdown = `sem ${b.semantic.toFixed(2)}  branch ${b.branch.toFixed(2)}  rec ${b.recency.toFixed(2)}  grad ${b.graduated.toFixed(2)}  pin ${b.pin.toFixed(2)}`;
   console.log(`  [${total}] #${obs.id}  ${title}${tag}`);
   console.log(`         ${breakdown}`);
@@ -595,8 +604,7 @@ async function runUserPromptSubmitHookCli(): Promise<void> {
     const repo = new TreMemRepo();
     try {
       const result = await runUserPromptSubmitHook(input, {
-        getHits: (args) =>
-          searchBranchContext({ adapter, repo }, { ...args, k: 5 }),
+        getHits: (args) => searchBranchContext({ adapter, repo }, { ...args, k: 5 }),
       });
       const payload =
         result.context === ''
@@ -636,4 +644,3 @@ async function readStdinJson<T>(): Promise<T> {
     return {} as T;
   }
 }
-

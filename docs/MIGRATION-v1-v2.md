@@ -8,12 +8,12 @@ idempotent. The first time you run any `tre` command on v0.2, your existing
 
 Schema v1 → v2 is **additive only**:
 
-| Change | Table | Purpose |
-|--------|-------|---------|
-| `+ content_hash TEXT` | `branch_pin`, `graduated` | dedupe key for git-shared rows |
-| `+ shared_at_epoch INTEGER` | `branch_pin`, `graduated` | marks a row as exported/shared |
-| `+ title TEXT`, `+ body TEXT` | `branch_pin`, `graduated` | snapshot so imported rows are self-contained |
-| `+ import_state` table | — | tracks per-file import SHA for idempotent `tre import` |
+| Change                        | Table                     | Purpose                                                |
+| ----------------------------- | ------------------------- | ------------------------------------------------------ |
+| `+ content_hash TEXT`         | `branch_pin`, `graduated` | dedupe key for git-shared rows                         |
+| `+ shared_at_epoch INTEGER`   | `branch_pin`, `graduated` | marks a row as exported/shared                         |
+| `+ title TEXT`, `+ body TEXT` | `branch_pin`, `graduated` | snapshot so imported rows are self-contained           |
+| `+ import_state` table        | —                         | tracks per-file import SHA for idempotent `tre import` |
 
 No columns are dropped or renamed. No existing rows are rewritten — the new
 columns are `NULL` on your existing pins until the next `tre export`.
@@ -46,7 +46,7 @@ sqlite3 ~/.tre-mem/tre-mem.db "PRAGMA table_info(branch_pin);"              # sh
 
 ## Rolling back
 
-v0.2 only *adds* columns/tables, so a v0.1 binary keeps working against a
+v0.2 only _adds_ columns/tables, so a v0.1 binary keeps working against a
 v2 database (it ignores the extra columns). If you want a clean v1 snapshot,
 back up the file before upgrading:
 

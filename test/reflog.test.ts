@@ -4,11 +4,7 @@ import { join } from 'node:path';
 import { simpleGit } from 'simple-git';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  parseHeadReflog,
-  readHeadReflog,
-  resolveBranchAt,
-} from '../src/git/reflog.js';
+import { parseHeadReflog, readHeadReflog, resolveBranchAt } from '../src/git/reflog.js';
 
 describe('parseHeadReflog', () => {
   it('returns [] on empty input', () => {
@@ -16,10 +12,9 @@ describe('parseHeadReflog', () => {
   });
 
   it('skips entries that are not branch checkouts', () => {
-    const raw = [
-      'HEAD@{1000}|commit (initial): seed',
-      'HEAD@{1500}|reset: moving to HEAD',
-    ].join('\n');
+    const raw = ['HEAD@{1000}|commit (initial): seed', 'HEAD@{1500}|reset: moving to HEAD'].join(
+      '\n',
+    );
     expect(parseHeadReflog(raw)).toEqual([]);
   });
 

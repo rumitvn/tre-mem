@@ -29,12 +29,32 @@ describe('graduateBranch', () => {
   });
 
   function seedBranchExport(branch: string): void {
-    repo.addPin({ project: 'p', branch, observation_id: 1, note: 'webhook v3', created_at_epoch: 100 });
-    repo.addPin({ project: 'p', branch, observation_id: 2, note: 'use idempotency keys', created_at_epoch: 101 });
-    repo.addPin({ project: 'p', branch, observation_id: null, note: 'free-text musing', created_at_epoch: 102 });
+    repo.addPin({
+      project: 'p',
+      branch,
+      observation_id: 1,
+      note: 'webhook v3',
+      created_at_epoch: 100,
+    });
+    repo.addPin({
+      project: 'p',
+      branch,
+      observation_id: 2,
+      note: 'use idempotency keys',
+      created_at_epoch: 101,
+    });
+    repo.addPin({
+      project: 'p',
+      branch,
+      observation_id: null,
+      note: 'free-text musing',
+      created_at_epoch: 102,
+    });
     exportSync({
       repo,
-      snapshots: { getSnapshots: (ids) => new Map(ids.map((id) => [id, { title: `t${id}`, body: `b${id}` }])) },
+      snapshots: {
+        getSnapshots: (ids) => new Map(ids.map((id) => [id, { title: `t${id}`, body: `b${id}` }])),
+      },
       project: 'p',
       dir,
       branches: [branch],
@@ -42,7 +62,7 @@ describe('graduateBranch', () => {
     });
   }
 
-  test('promotes a merged branch\'s observation pins into graduated.jsonl', () => {
+  test("promotes a merged branch's observation pins into graduated.jsonl", () => {
     seedBranchExport('feature/payment');
     const result = graduateBranch({ dir, branch: 'feature/payment', now: 500, author: 'ci' });
 
@@ -52,7 +72,11 @@ describe('graduateBranch', () => {
     const rows = readFileSync(graduatedFilePath(dir), 'utf8').trim().split('\n').map(parseSyncLine);
     expect(rows).toHaveLength(2);
     expect(rows.every((r) => r.kind === 'graduated')).toBe(true);
-    expect(rows.map((r) => (r.kind === 'graduated' ? r.graduated_from_branch : '')).every((b) => b === 'feature/payment')).toBe(true);
+    expect(
+      rows
+        .map((r) => (r.kind === 'graduated' ? r.graduated_from_branch : ''))
+        .every((b) => b === 'feature/payment'),
+    ).toBe(true);
   });
 
   test('is idempotent: re-graduating the same branch adds nothing', () => {

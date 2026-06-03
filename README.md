@@ -1,10 +1,10 @@
 # tre-mem 🎋
 
-> *Tre — shared roots for your codebase.*
+> _Tre — shared roots for your codebase._
 
 > 🇻🇳 Phiên bản tiếng Việt: [README.vi.md](./README.vi.md)
 
-In Vietnamese, **tre** means *bamboo* — an enduring symbol of resilience,
+In Vietnamese, **tre** means _bamboo_ — an enduring symbol of resilience,
 kinship, and shared roots. A bamboo grove is many stalks rising from one root
 system, swaying separately in the wind but standing together through every
 storm. The many branches of a codebase grow the same way: each its own
@@ -71,6 +71,7 @@ tre backfill
 ```
 
 Requirements:
+
 - Node 20+
 - claude-mem already installed and ingesting (we read from
   `~/.claude-mem/claude-mem.db`)
@@ -151,13 +152,13 @@ tre-mem search "stripe webhook"
 
 ## MCP tools
 
-| Tool | Input | Output |
-|------|-------|--------|
-| `get_branch_context` | `query`, `project?`, `branch?`, `k?` | Top-K observations, rerank breakdown included |
-| `get_branch_timeline` | `branch`, `project?`, `limit?` | Chronological feed for a branch |
-| `list_branches` | `project?` | Branches with tag counts |
-| `pin_fact` | `observation_id`, `branch?`, `note?` | Pin a fact to a branch (boost = 1.0) |
-| `graduate_fact` | `observation_id` | Promote a branch fact to project scope |
+| Tool                  | Input                                | Output                                        |
+| --------------------- | ------------------------------------ | --------------------------------------------- |
+| `get_branch_context`  | `query`, `project?`, `branch?`, `k?` | Top-K observations, rerank breakdown included |
+| `get_branch_timeline` | `branch`, `project?`, `limit?`       | Chronological feed for a branch               |
+| `list_branches`       | `project?`                           | Branches with tag counts                      |
+| `pin_fact`            | `observation_id`, `branch?`, `note?` | Pin a fact to a branch (boost = 1.0)          |
+| `graduate_fact`       | `observation_id`                     | Promote a branch fact to project scope        |
 
 ## Team memory — "git for AI memory" (v0.2)
 
@@ -246,6 +247,7 @@ end-to-end through a real git remote in `scripts/two-dev-e2e.sh`.
 [CHANGELOG.md](./CHANGELOG.md) tracks releases.
 
 Out of scope (deferred to V3):
+
 - GitLab / Bitbucket equivalents of the graduate Action
 - Dashboard / memory observability UI
 - Full independent ingest from Cursor / Gemini CLI / Codex (`tre setup` stubs exist)
@@ -257,4 +259,4 @@ MIT. See [LICENSE](./LICENSE).
 
 ---
 
-🎋 *Made with care, from the bamboo grove. Cảm ơn bạn đã ghé thăm.*
+🎋 _Made with care, from the bamboo grove. Cảm ơn bạn đã ghé thăm._

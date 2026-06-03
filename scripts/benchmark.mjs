@@ -136,15 +136,11 @@ function main() {
     lines.push(
       '- **tre-mem (B)** — `searchBranchContext` (3-signal weighted rerank: semantic + branch + recency, plus pin boost).',
     );
-    lines.push(
-      '- For each query we record the top-K ids returned by A and B, then compute:',
-    );
+    lines.push('- For each query we record the top-K ids returned by A and B, then compute:');
     lines.push(
       '  - `precision@K_branch` — fraction of top-K observations whose `branch_tag.branch` equals the target branch.',
     );
-    lines.push(
-      '  - `jaccard(A,B)` — overlap of the two top-K id sets.',
-    );
+    lines.push('  - `jaccard(A,B)` — overlap of the two top-K id sets.');
     lines.push(
       '  - B-top-1 score breakdown (`semantic / branch / recency / pin`) to show where rank came from.',
     );
@@ -154,9 +150,7 @@ function main() {
     lines.push(
       '| Query | A hits | B hits | A precision@K | B precision@K | Jaccard | B top-1 total | B top-1 breakdown |',
     );
-    lines.push(
-      '|---|---:|---:|---:|---:|---:|---:|---|',
-    );
+    lines.push('|---|---:|---:|---:|---:|---:|---:|---|');
     for (const r of rows) {
       const br = r.topBreak;
       const brStr = br

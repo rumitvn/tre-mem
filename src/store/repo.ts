@@ -275,18 +275,14 @@ export class TreMemRepo {
   listPinBranches(project: string): string[] {
     return (
       this.db
-        .prepare(
-          `SELECT DISTINCT branch FROM branch_pin WHERE project = ? ORDER BY branch ASC`,
-        )
+        .prepare(`SELECT DISTINCT branch FROM branch_pin WHERE project = ? ORDER BY branch ASC`)
         .all(project) as Array<{ branch: string }>
     ).map((r) => r.branch);
   }
 
   markPinShared(id: number, contentHash: string, sharedAtEpoch: number): void {
     this.db
-      .prepare(
-        `UPDATE branch_pin SET content_hash = ?, shared_at_epoch = ? WHERE id = ?`,
-      )
+      .prepare(`UPDATE branch_pin SET content_hash = ?, shared_at_epoch = ? WHERE id = ?`)
       .run(contentHash, sharedAtEpoch, id);
   }
 
@@ -298,17 +294,21 @@ export class TreMemRepo {
 
   countUnsharedPins(project: string): number {
     const row = this.db
-      .prepare(
-        `SELECT COUNT(*) AS n FROM branch_pin WHERE project = ? AND shared_at_epoch IS NULL`,
-      )
+      .prepare(`SELECT COUNT(*) AS n FROM branch_pin WHERE project = ? AND shared_at_epoch IS NULL`)
       .get(project) as { n: number };
     return row.n;
   }
 
-  getImportState(filePath: string): { file_path: string; last_sha: string; imported_at_epoch: number } | null {
+  getImportState(
+    filePath: string,
+  ): { file_path: string; last_sha: string; imported_at_epoch: number } | null {
     const row = this.db
-      .prepare(`SELECT file_path, last_sha, imported_at_epoch FROM import_state WHERE file_path = ?`)
-      .get(filePath) as { file_path: string; last_sha: string; imported_at_epoch: number } | undefined;
+      .prepare(
+        `SELECT file_path, last_sha, imported_at_epoch FROM import_state WHERE file_path = ?`,
+      )
+      .get(filePath) as
+      | { file_path: string; last_sha: string; imported_at_epoch: number }
+      | undefined;
     return row ?? null;
   }
 

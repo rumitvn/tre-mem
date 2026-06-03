@@ -1,6 +1,6 @@
 # tre-mem 🎋
 
-> *Tre — bộ rễ chung cho codebase của bạn.*
+> _Tre — bộ rễ chung cho codebase của bạn._
 
 > 🇬🇧 English version: [README.md](./README.md)
 
@@ -32,7 +32,7 @@ riêng, nhưng tất cả đều từ một dòng history chung.
 tiếng nói riêng, nhưng gốc rễ chung của codebase vẫn vẹn nguyên. Một tầng
 memory branch-aware đặt trên [claude-mem](https://github.com/thedotmack/claude-mem),
 để Claude Code / Cursor / Gemini CLI hiểu đúng **feature bạn đang làm**,
-không chỉ *repo bạn đang ở*.
+không chỉ _repo bạn đang ở_.
 
 `tre-mem` là sidecar của claude-mem. Nó **không** fork hay chỉnh sửa claude-mem —
 chỉ thêm một adapter read-only, tag mọi observation theo git branch nó được sinh
@@ -70,6 +70,7 @@ tre backfill
 ```
 
 Yêu cầu:
+
 - Node 20+
 - claude-mem đã cài và đang ingest (tre đọc từ `~/.claude-mem/claude-mem.db`)
 - `git` trong PATH
@@ -142,13 +143,13 @@ tre-mem search "stripe webhook"
 
 ## MCP tools
 
-| Tool | Input | Output |
-|------|-------|--------|
-| `get_branch_context` | `query`, `project?`, `branch?`, `k?` | Top-K observations, kèm breakdown rerank |
-| `get_branch_timeline` | `branch`, `project?`, `limit?` | Feed theo thời gian cho 1 branch |
-| `list_branches` | `project?` | Các branch kèm số lượng tag |
-| `pin_fact` | `observation_id`, `branch?`, `note?` | Ghim fact vào branch (boost = 1.0) |
-| `graduate_fact` | `observation_id` | Promote fact từ branch lên scope project |
+| Tool                  | Input                                | Output                                   |
+| --------------------- | ------------------------------------ | ---------------------------------------- |
+| `get_branch_context`  | `query`, `project?`, `branch?`, `k?` | Top-K observations, kèm breakdown rerank |
+| `get_branch_timeline` | `branch`, `project?`, `limit?`       | Feed theo thời gian cho 1 branch         |
+| `list_branches`       | `project?`                           | Các branch kèm số lượng tag              |
+| `pin_fact`            | `observation_id`, `branch?`, `note?` | Ghim fact vào branch (boost = 1.0)       |
+| `graduate_fact`       | `observation_id`                     | Promote fact từ branch lên scope project |
 
 ## Kiến trúc
 
@@ -189,6 +190,7 @@ project đa-branch thật; cùng một query, top-1 đổi đúng theo branch nh
 [CHANGELOG.md](./CHANGELOG.md) theo dõi release.
 
 Out of scope cho MVP (defer V2):
+
 - Team sync / cloud
 - Dashboard UI
 - Ingest độc lập từ Cursor / Gemini CLI / Codex
@@ -200,4 +202,4 @@ MIT. Xem [LICENSE](./LICENSE).
 
 ---
 
-🎋 *Làm với tình thương, từ một bụi tre nhỏ. Cảm ơn bạn đã ghé thăm.*
+🎋 _Làm với tình thương, từ một bụi tre nhỏ. Cảm ơn bạn đã ghé thăm._

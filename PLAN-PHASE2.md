@@ -12,6 +12,7 @@ Today the user starts dogfooding with a teammate. Phase 1 is "solo dev, branch-a
 **USP for Phase 2: "git push your AI memory."** Tre-mem becomes the first memory layer that travels through git itself — committed alongside code, reviewable in PRs, auto-graduated when PRs merge, inherited by new teammates the moment they `git clone`. No cloud, no central server, no lock-in. Branch-awareness (Phase 1) + team-share (Phase 2) is a combination no competitor has.
 
 **Decisions locked with user:**
+
 - Storage: `.tre-mem/` committed dir, JSONL files (human-readable diffs in PRs).
 - Share scope: pins + graduated facts only (raw observations stay private in each dev's `~/.claude-mem/`).
 - Graduation trigger: GitHub Action on merged PR (with manual CLI fallback for non-GH flows).
@@ -23,6 +24,7 @@ Today the user starts dogfooding with a teammate. Phase 1 is "solo dev, branch-a
 > "Tre-mem is git for AI memory. Pin a decision on `feature/payment`, push, and your teammate's Claude Code already knows it tomorrow. Merge the PR, and the decision automatically graduates to repo-wide knowledge. No cloud. No central server. Just git."
 
 Three differentiators stacked:
+
 1. **Branch-aware** (Phase 1, already shipped)
 2. **Team-shared via git** (Phase 2, new) — network effect: 2 devs = 2x value, 10 devs = 10x
 3. **Auto-lifecycle** (Phase 2, new) — PR merge graduates pins, no manual curation tax
@@ -37,6 +39,7 @@ vs. the field:
 | **tre-mem v0.2** | **✅** | **✅ (via git)** | **✅** | **✅** | **✅** |
 
 **Lore is our nearest neighbor — explicit positioning vs them:**
+
 > "Lore is server-shared. Tre-mem is git-shared. If your code lives in git, so does your AI memory — no Postgres, no API keys, no workspace setup, no central server. Clone the repo, you've cloned the memory."
 
 Lore validates the "shared AI memory" category (Docker Compose, pgvector, REST API, knowledge graph UI, workspace + RBAC, plugin SDK). We deliberately do not chase that surface — surface area is their bet, focus is ours. Our wedge is **the git workflow itself as the distribution mechanism**, not a server you have to stand up.
@@ -60,18 +63,21 @@ Lore validates the "shared AI memory" category (Docker Compose, pgvector, REST A
 ```
 
 **New module surface** (additive — keeps v0.1 architecture intact):
+
 - `src/sync/` — export/import JSONL ↔ sidecar DB, content-hash dedupe, redaction filter
 - `src/sync/format.ts` — JSONL schema (versioned: `{schema:1, kind:'pin'|'graduated', ...}`)
 - `src/sync/redact.ts` — secret detection (regex pack: API keys, tokens, private keys, emails opt-in)
 - `actions/graduate-on-merge/` — composite GitHub Action, published as `rumitvn/tre-mem-action@v1`
 
 **Schema v2 migration** (`schema.sql` → v2):
+
 - Add `branch_pin.shared_at_epoch` (nullable; non-null = exported to .tre-mem/)
 - Add `branch_pin.content_hash` (SHA-256 of normalized payload, for dedupe across devs)
 - Add `graduated.shared_at_epoch`, `graduated.content_hash`
 - Add `import_state` table: `(file_path PK, last_sha, imported_at_epoch)` so `tre import` is idempotent
 
 **JSONL on-disk format** (committed to repo):
+
 ```
 .tre-mem/
 ├── README.md                          # auto-generated, explains the dir to humans
@@ -88,6 +94,7 @@ Each JSONL row carries content_hash (dedupe key), author, branch, tagged_at_epoc
 ## Roadmap — 2 weeks (T3 + T4)
 
 ### Week 3 — Sync foundation
+
 - [x] **T3D1** Schema v2 migration + `tre migrate` re-runs cleanly on existing v0.1 DBs
 - [x] **T3D1** JSONL format spec frozen in `docs/SYNC-FORMAT.md` (versioned schema)
 - [x] **T3D2** `src/sync/export.ts` — `exportSync()` writes pins to `.tre-mem/branches/<slug>.jsonl` + graduated to `graduated.jsonl` (append-only, content-hash dedupe, forward-compatible with unknown lines)
@@ -100,6 +107,7 @@ Each JSONL row carries content_hash (dedupe key), author, branch, tagged_at_epoc
 - [x] **T3D5** **Checkpoint T3 PASSED**: E2E passes through a real bare-remote + two clones + two isolated sidecars (no network, no claude-mem dep)
 
 ### Week 4 — Auto-lifecycle + polish
+
 - [x] **T4D6** GitHub Action `actions/graduate-on-merge/action.yml` (composite, Node 20) — reads merged branch's pins via `tre graduate-pr`, appends to `graduated.jsonl`, commits back to base branch; core logic in testable `src/sync/graduate.ts`
 - [x] **T4D6** Action config: `branch` override, `version`, `commit-message` template, `dry-run` flag, `dir`; README with copy-paste workflow ([pin-filter] deferred — graduate-all is the v0.2 default)
 - [x] **T4D7** `tre graduate-pr <PR#|branch> [--repo] [--branch] [--dir] [--dry-run]` CLI — resolves PR→branch via `gh pr view`, falls back to direct branch; idempotent append, skips free-text pins
@@ -117,6 +125,7 @@ Each JSONL row carries content_hash (dedupe key), author, branch, tagged_at_epoc
 ## Critical files (modify / create)
 
 **Modify:**
+
 - `src/store/schema.sql` — schema v2 columns + `import_state` table
 - `src/store/migrate.ts` — apply v1→v2 migration
 - `src/store/repo.ts` — `addPin` / `graduateFact` accept content_hash, expose `listPinsForExport`, `listGraduatedForExport`, `upsertImported*`
@@ -127,12 +136,14 @@ Each JSONL row carries content_hash (dedupe key), author, branch, tagged_at_epoc
 - `README.md`, `README.vi.md`, `CHANGELOG.md`, `package.json` (0.1.0 → 0.2.0)
 
 **Create:**
+
 - `src/sync/format.ts`, `src/sync/export.ts`, `src/sync/import.ts`, `src/sync/redact.ts`, `src/sync/shareignore.ts`
 - `actions/graduate-on-merge/action.yml`, `actions/graduate-on-merge/src/index.ts`, `actions/graduate-on-merge/README.md`
 - `docs/SYNC-FORMAT.md`, `docs/TEAM-WORKFLOW.md`, `docs/MIGRATION-v1-v2.md`
 - Test files: `test/sync-export.test.ts`, `test/sync-import.test.ts`, `test/sync-redact.test.ts`, `test/sync-roundtrip.test.ts`, `test/action-graduate.test.ts`
 
 **Reuse from v0.1 (do not reinvent):**
+
 - `TreMemRepo.addPin/listPinsForBranch/graduateFact/listGraduated` (`src/store/repo.ts`)
 - `currentBranch()` for branch slug resolution (`src/git/resolver.ts`)
 - `searchBranchContext()` orchestration — only add graduated signal, don't rewrite (`src/retrieval/search.ts`)
@@ -151,6 +162,7 @@ Each JSONL row carries content_hash (dedupe key), author, branch, tagged_at_epoc
    - schema migration: v0.1 fixture DB migrates to v2 without data loss
 
 2. **Two-dev integration test** (manual, scripted in `scripts/two-dev-e2e.sh`):
+
    ```bash
    # alice
    cd /tmp/repoA && tre pin <obs> --note "use Stripe webhook v3"
@@ -188,6 +200,7 @@ Each JSONL row carries content_hash (dedupe key), author, branch, tagged_at_epoc
 - Conflict-aware retrieval beyond simple "both surfaced" — defer until we see real conflicts in dogfooding
 
 **Consciously NOT chasing Lore's surface area** (their bet, not ours):
+
 - Postgres + pgvector + Docker Compose server stack — kills local-first
 - Knowledge graph + entity extraction + D3 web UI — adds an LLM + frontend dependency for marginal demo value
 - Multi-tenant workspaces + RBAC + API keys — replaced by "the repo is the workspace, git is the access control"
@@ -200,14 +213,14 @@ Each JSONL row carries content_hash (dedupe key), author, branch, tagged_at_epoc
 
 ## Risks & mitigations
 
-| Risk | Mitigation |
-|------|-----------|
-| Pin leaks a secret to public repo | Redaction regex pack runs by default; `tre export` is fail-closed; `.shareignore` provides per-repo control. |
-| Solo devs see no value in team features | Position v0.2 as "solo-first, team-multiplier" — every Phase 1 capability still works untouched; team features are opt-in via `tre export`. |
-| JSONL merge conflicts | Append-only + content_hash as dedupe key means git's union-merge "just works"; document the one edge case (two devs edit same pin's note) with explicit resolution policy (latest tagged_at_epoch wins). |
-| GitHub Action friction (yaml fatigue) | Ship a 5-line copy-paste snippet in README + a `tre init --with-action` flag that writes the workflow file. |
-| Schema v1 → v2 migration breaks existing v0.1 users | Migration is additive (only new columns + new table), tested against a fixture v0.1 DB; release notes flag the upgrade explicitly. |
-| Bob can't read alice's claude-mem observation body (it's on alice's laptop only) | This is by design — only pins+graduated carry their content into the shared `.tre-mem/`. The user explicitly chose this scope for privacy. Document clearly in `docs/TEAM-WORKFLOW.md`. |
+| Risk                                                                             | Mitigation                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pin leaks a secret to public repo                                                | Redaction regex pack runs by default; `tre export` is fail-closed; `.shareignore` provides per-repo control.                                                                                             |
+| Solo devs see no value in team features                                          | Position v0.2 as "solo-first, team-multiplier" — every Phase 1 capability still works untouched; team features are opt-in via `tre export`.                                                              |
+| JSONL merge conflicts                                                            | Append-only + content_hash as dedupe key means git's union-merge "just works"; document the one edge case (two devs edit same pin's note) with explicit resolution policy (latest tagged_at_epoch wins). |
+| GitHub Action friction (yaml fatigue)                                            | Ship a 5-line copy-paste snippet in README + a `tre init --with-action` flag that writes the workflow file.                                                                                              |
+| Schema v1 → v2 migration breaks existing v0.1 users                              | Migration is additive (only new columns + new table), tested against a fixture v0.1 DB; release notes flag the upgrade explicitly.                                                                       |
+| Bob can't read alice's claude-mem observation body (it's on alice's laptop only) | This is by design — only pins+graduated carry their content into the shared `.tre-mem/`. The user explicitly chose this scope for privacy. Document clearly in `docs/TEAM-WORKFLOW.md`.                  |
 
 ---
 

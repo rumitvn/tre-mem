@@ -4,12 +4,7 @@ import { join } from 'node:path';
 import { simpleGit } from 'simple-git';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  DETACHED_PREFIX,
-  NO_GIT,
-  currentBranch,
-  isDetached,
-} from '../src/git/resolver.js';
+import { DETACHED_PREFIX, NO_GIT, currentBranch, isDetached } from '../src/git/resolver.js';
 
 describe('currentBranch', () => {
   let tmp: string;

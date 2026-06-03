@@ -21,18 +21,18 @@
 
 ## Per-query results
 
-| Query | A hits | B hits | A precision@K | B precision@K | Jaccard | B top-1 total | B top-1 breakdown |
-|---|---:|---:|---:|---:|---:|---:|---|
-| `FTS5 BM25 semantic searcher` | 10 | 10 | 0.000 | 1.000 | 0.000 | 0.419 | sem 0.02 / br 0.40 / rec 0.00 / pin 0.00 |
-| `git reflog backfill branch` | 10 | 10 | 0.300 | 1.000 | 0.176 | 0.623 | sem 0.22 / br 0.40 / rec 0.00 / pin 0.00 |
-| `MCP server stdio tool` | 10 | 10 | 0.200 | 0.900 | 0.176 | 0.600 | sem 0.40 / br 0.00 / rec 0.20 / pin 0.00 |
-| `weighted rerank signal` | 10 | 10 | 0.100 | 1.000 | 0.053 | 0.441 | sem 0.04 / br 0.40 / rec 0.00 / pin 0.00 |
-| `session-start hook claude code` | 10 | 10 | 0.600 | 1.000 | 0.429 | 0.800 | sem 0.40 / br 0.40 / rec 0.00 / pin 0.00 |
-| `pin graduate fact` | 10 | 10 | 0.000 | 0.900 | 0.053 | 0.599 | sem 0.40 / br 0.00 / rec 0.20 / pin 0.00 |
-| `claude-mem adapter readonly` | 10 | 10 | 0.200 | 1.000 | 0.111 | 0.519 | sem 0.12 / br 0.40 / rec 0.00 / pin 0.00 |
-| `branch_tag schema migration` | 10 | 10 | 0.300 | 1.000 | 0.176 | 0.470 | sem 0.07 / br 0.40 / rec 0.00 / pin 0.00 |
-| `epoch normalization milliseconds` | 10 | 10 | 0.100 | 0.900 | 0.111 | 0.599 | sem 0.40 / br 0.00 / rec 0.20 / pin 0.00 |
-| `test fixture vitest` | 10 | 10 | 0.100 | 1.000 | 0.053 | 0.444 | sem 0.04 / br 0.40 / rec 0.00 / pin 0.00 |
+| Query                              | A hits | B hits | A precision@K | B precision@K | Jaccard | B top-1 total | B top-1 breakdown                        |
+| ---------------------------------- | -----: | -----: | ------------: | ------------: | ------: | ------------: | ---------------------------------------- |
+| `FTS5 BM25 semantic searcher`      |     10 |     10 |         0.000 |         1.000 |   0.000 |         0.419 | sem 0.02 / br 0.40 / rec 0.00 / pin 0.00 |
+| `git reflog backfill branch`       |     10 |     10 |         0.300 |         1.000 |   0.176 |         0.623 | sem 0.22 / br 0.40 / rec 0.00 / pin 0.00 |
+| `MCP server stdio tool`            |     10 |     10 |         0.200 |         0.900 |   0.176 |         0.600 | sem 0.40 / br 0.00 / rec 0.20 / pin 0.00 |
+| `weighted rerank signal`           |     10 |     10 |         0.100 |         1.000 |   0.053 |         0.441 | sem 0.04 / br 0.40 / rec 0.00 / pin 0.00 |
+| `session-start hook claude code`   |     10 |     10 |         0.600 |         1.000 |   0.429 |         0.800 | sem 0.40 / br 0.40 / rec 0.00 / pin 0.00 |
+| `pin graduate fact`                |     10 |     10 |         0.000 |         0.900 |   0.053 |         0.599 | sem 0.40 / br 0.00 / rec 0.20 / pin 0.00 |
+| `claude-mem adapter readonly`      |     10 |     10 |         0.200 |         1.000 |   0.111 |         0.519 | sem 0.12 / br 0.40 / rec 0.00 / pin 0.00 |
+| `branch_tag schema migration`      |     10 |     10 |         0.300 |         1.000 |   0.176 |         0.470 | sem 0.07 / br 0.40 / rec 0.00 / pin 0.00 |
+| `epoch normalization milliseconds` |     10 |     10 |         0.100 |         0.900 |   0.111 |         0.599 | sem 0.40 / br 0.00 / rec 0.20 / pin 0.00 |
+| `test fixture vitest`              |     10 |     10 |         0.100 |         1.000 |   0.053 |         0.444 | sem 0.04 / br 0.40 / rec 0.00 / pin 0.00 |
 
 ## Aggregate
 

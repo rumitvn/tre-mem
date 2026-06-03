@@ -11,10 +11,7 @@ export interface ResolverOptions {
   binary?: string;
 }
 
-export async function currentBranch(
-  cwd: string,
-  opts: ResolverOptions = {},
-): Promise<string> {
+export async function currentBranch(cwd: string, opts: ResolverOptions = {}): Promise<string> {
   if (!existsSync(cwd) || !existsSync(join(cwd, '.git'))) {
     return NO_GIT;
   }

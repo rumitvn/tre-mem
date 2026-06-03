@@ -6,7 +6,7 @@
 ## Why this exists
 
 Phase 1 kept all memory private in each developer's `~/.tre-mem/tre-mem.db`. Phase 2 shares the
-*curated* slice — pins and graduated facts — by committing it to the repo itself. The transport is
+_curated_ slice — pins and graduated facts — by committing it to the repo itself. The transport is
 git: `tre export` writes JSONL into `.tre-mem/`, you commit and push, your teammate pulls and runs
 `tre import`. No server, no API keys.
 
@@ -36,39 +36,62 @@ a fixed order for stable, reviewable diffs.
 
 ### Common fields
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `schema` | number | Format version. Currently `1`. A reader MUST reject versions it does not understand. |
-| `kind` | `"pin"` \| `"graduated"` | Discriminates the row shape. |
-| `content_hash` | string | SHA-256 (64 hex chars) over the row's *semantic content only*. The dedupe key. |
-| `author` | string \| null | Who exported the row (best-effort, from git config). Excluded from the hash. |
+| Field          | Type                     | Notes                                                                                |
+| -------------- | ------------------------ | ------------------------------------------------------------------------------------ |
+| `schema`       | number                   | Format version. Currently `1`. A reader MUST reject versions it does not understand. |
+| `kind`         | `"pin"` \| `"graduated"` | Discriminates the row shape.                                                         |
+| `content_hash` | string                   | SHA-256 (64 hex chars) over the row's _semantic content only_. The dedupe key.       |
+| `author`       | string \| null           | Who exported the row (best-effort, from git config). Excluded from the hash.         |
 
 ### `pin` record
 
 ```json
-{"schema":1,"kind":"pin","content_hash":"<sha256>","project":"tre-mem","branch":"feature/payment","observation_id":42,"note":"use Stripe webhook v3","title":"Stripe webhook decision","body":"We standardized on webhook v3 for idempotency.","author":"alice","tagged_at_epoch":1780000000}
+{
+  "schema": 1,
+  "kind": "pin",
+  "content_hash": "<sha256>",
+  "project": "tre-mem",
+  "branch": "feature/payment",
+  "observation_id": 42,
+  "note": "use Stripe webhook v3",
+  "title": "Stripe webhook decision",
+  "body": "We standardized on webhook v3 for idempotency.",
+  "author": "alice",
+  "tagged_at_epoch": 1780000000
+}
 ```
 
-| Field | Type | |
-|-------|------|--|
-| `project` | string | claude-mem project key. |
-| `branch` | string | Branch the pin belongs to (verbatim). |
-| `observation_id` | number \| null | Upstream claude-mem observation id, or null for free-text pins. |
-| `note` | string \| null | The curator's note. |
-| `title` / `body` | string \| null | Snapshot of the observation content, so the row is self-contained on the receiving dev's machine (who does not have the raw observation). |
-| `tagged_at_epoch` | number | Pin creation time (seconds). Tie-breaker for conflict policy; excluded from the hash. |
+| Field             | Type           |                                                                                                                                           |
+| ----------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `project`         | string         | claude-mem project key.                                                                                                                   |
+| `branch`          | string         | Branch the pin belongs to (verbatim).                                                                                                     |
+| `observation_id`  | number \| null | Upstream claude-mem observation id, or null for free-text pins.                                                                           |
+| `note`            | string \| null | The curator's note.                                                                                                                       |
+| `title` / `body`  | string \| null | Snapshot of the observation content, so the row is self-contained on the receiving dev's machine (who does not have the raw observation). |
+| `tagged_at_epoch` | number         | Pin creation time (seconds). Tie-breaker for conflict policy; excluded from the hash.                                                     |
 
 ### `graduated` record
 
 ```json
-{"schema":1,"kind":"graduated","content_hash":"<sha256>","project":"tre-mem","observation_id":99,"graduated_from_branch":"feature/payment","title":"Stripe is the payment provider","body":"Graduated repo-wide.","author":"bob","graduated_at_epoch":1780000500}
+{
+  "schema": 1,
+  "kind": "graduated",
+  "content_hash": "<sha256>",
+  "project": "tre-mem",
+  "observation_id": 99,
+  "graduated_from_branch": "feature/payment",
+  "title": "Stripe is the payment provider",
+  "body": "Graduated repo-wide.",
+  "author": "bob",
+  "graduated_at_epoch": 1780000500
+}
 ```
 
-| Field | Type | |
-|-------|------|--|
-| `observation_id` | number | Upstream observation id (graduated facts are never free-text). |
-| `graduated_from_branch` | string | Branch the fact was promoted from. |
-| `graduated_at_epoch` | number | Graduation time (seconds). Excluded from the hash. |
+| Field                   | Type   |                                                                |
+| ----------------------- | ------ | -------------------------------------------------------------- |
+| `observation_id`        | number | Upstream observation id (graduated facts are never free-text). |
+| `graduated_from_branch` | string | Branch the fact was promoted from.                             |
+| `graduated_at_epoch`    | number | Graduation time (seconds). Excluded from the hash.             |
 
 ## Content hashing (dedupe semantics)
 
@@ -86,7 +109,7 @@ fact). Re-exporting the same fact yields the same hash (idempotent).
 ## Conflict policy
 
 Append-only + content-hash dedupe means git's union-merge "just works" for the common case. The one
-genuine edge case — two devs edit the *same* pin's note — produces two rows with different hashes.
+genuine edge case — two devs edit the _same_ pin's note — produces two rows with different hashes.
 Resolution policy: **latest `tagged_at_epoch` wins** at import time; the older row is ignored but
 left in the file (the file stays append-only; import resolves at read time).
 

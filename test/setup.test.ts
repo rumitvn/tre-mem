@@ -42,7 +42,9 @@ describe('setupClaudeCode', () => {
       join(tmp, '.claude', 'settings.json'),
       JSON.stringify({
         model: 'opus',
-        hooks: { PostToolUse: [{ matcher: 'Write', hooks: [{ type: 'command', command: 'prettier' }] }] },
+        hooks: {
+          PostToolUse: [{ matcher: 'Write', hooks: [{ type: 'command', command: 'prettier' }] }],
+        },
       }),
       'utf8',
     );

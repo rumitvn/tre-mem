@@ -168,7 +168,9 @@ export function parseSyncLine(line: string): SyncRecord {
 
   const schema = asNumber(obj.schema, 'schema');
   if (schema !== SYNC_SCHEMA_VERSION) {
-    throw new Error(`sync record: unsupported schema version ${schema} (expected ${SYNC_SCHEMA_VERSION})`);
+    throw new Error(
+      `sync record: unsupported schema version ${schema} (expected ${SYNC_SCHEMA_VERSION})`,
+    );
   }
 
   const kind = obj.kind;

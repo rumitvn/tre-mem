@@ -20,13 +20,7 @@ export async function readHeadReflog(cwd: string): Promise<BranchTransition[]> {
   const git = simpleGit(cwd);
   let raw: string;
   try {
-    raw = await git.raw([
-      'reflog',
-      'show',
-      'HEAD',
-      '--date=unix',
-      '--pretty=format:%gd|%gs',
-    ]);
+    raw = await git.raw(['reflog', 'show', 'HEAD', '--date=unix', '--pretty=format:%gd|%gs']);
   } catch {
     return [];
   }
@@ -73,10 +67,7 @@ export function parseHeadReflog(raw: string): BranchTransition[] {
  *     of the earliest transition (the implied initial branch).
  *   - If transitions list is empty or no fallback available, return null.
  */
-export function resolveBranchAt(
-  transitions: BranchTransition[],
-  epoch: number,
-): string | null {
+export function resolveBranchAt(transitions: BranchTransition[], epoch: number): string | null {
   let candidate: string | null = null;
   for (const t of transitions) {
     if (t.at_epoch > epoch) break;
