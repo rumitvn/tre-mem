@@ -1,7 +1,7 @@
 # tre-mem 🎋
 
 [![CI](https://github.com/rumitvn/tre-mem/actions/workflows/ci.yml/badge.svg)](https://github.com/rumitvn/tre-mem/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/tre-mem)](https://www.npmjs.com/package/tre-mem)
+[![npm](https://img.shields.io/npm/v/tre-mem?cacheSeconds=3600)](https://www.npmjs.com/package/tre-mem)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 > _Tre — shared roots for your codebase._
