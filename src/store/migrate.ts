@@ -7,9 +7,51 @@ import { TRE_MEM_DB_PATH } from './paths.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 const V1_SCHEMA_FILE = join(__dirname, 'schema.sql');
+
+/**
+ * Schema v2 (Phase 2 — git-native team sync). Additive only: nullable columns
+ * on existing tables plus a new `import_state` table. Safe to apply to a
+ * populated v0.1 database without data loss.
+ */
+const V2_COLUMNS: ReadonlyArray<{ table: string; column: string; ddl: string }> = [
+  { table: 'branch_pin', column: 'content_hash', ddl: 'ALTER TABLE branch_pin ADD COLUMN content_hash TEXT' },
+  {
+    table: 'branch_pin',
+    column: 'shared_at_epoch',
+    ddl: 'ALTER TABLE branch_pin ADD COLUMN shared_at_epoch INTEGER',
+  },
+  { table: 'graduated', column: 'content_hash', ddl: 'ALTER TABLE graduated ADD COLUMN content_hash TEXT' },
+  {
+    table: 'graduated',
+    column: 'shared_at_epoch',
+    ddl: 'ALTER TABLE graduated ADD COLUMN shared_at_epoch INTEGER',
+  },
+];
+
+const V2_IMPORT_STATE = `
+  CREATE TABLE IF NOT EXISTS import_state (
+    file_path         TEXT    PRIMARY KEY,
+    last_sha          TEXT    NOT NULL,
+    imported_at_epoch INTEGER NOT NULL
+  );
+`;
+
+function columnExists(db: Database.Database, table: string, column: string): boolean {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  return cols.some((c) => c.name === column);
+}
+
+function applyV2(db: Database.Database): void {
+  for (const { table, column, ddl } of V2_COLUMNS) {
+    if (!columnExists(db, table, column)) db.exec(ddl);
+  }
+  db.exec(V2_IMPORT_STATE);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_branch_pin_content_hash ON branch_pin(content_hash)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_graduated_content_hash ON graduated(content_hash)');
+}
 
 export type MigrateResult = {
   dbPath: string;
@@ -47,6 +89,18 @@ export function migrate(dbPath: string = TRE_MEM_DB_PATH): MigrateResult {
       });
       tx();
       applied.push(1);
+    }
+
+    if (currentVersion(db) < 2) {
+      const recordVersion = db.prepare(
+        'INSERT OR IGNORE INTO schema_versions (version, applied_at_epoch) VALUES (?, ?)',
+      );
+      const tx = db.transaction(() => {
+        applyV2(db);
+        recordVersion.run(2, Math.floor(Date.now() / 1000));
+      });
+      tx();
+      applied.push(2);
     }
 
     const toVersion = currentVersion(db);

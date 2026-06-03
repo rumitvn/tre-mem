@@ -19,12 +19,12 @@ describe('migrate', () => {
     rmSync(tmp, { recursive: true, force: true });
   });
 
-  it('creates a fresh database at v1 with all expected tables and indexes', () => {
+  it('creates a fresh database at the current version with all expected tables and indexes', () => {
     const result = migrate(dbPath);
 
     expect(result.fromVersion).toBe(0);
     expect(result.toVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(result.applied).toEqual([1]);
+    expect(result.applied).toEqual([1, 2]);
 
     const db = new Database(dbPath, { readonly: true });
     try {
@@ -36,6 +36,7 @@ describe('migrate', () => {
           'graduated',
           'branch_state',
           'schema_versions',
+          'import_state',
         ]),
       );
 
@@ -53,7 +54,7 @@ describe('migrate', () => {
       const version = db
         .prepare('SELECT MAX(version) AS v FROM schema_versions')
         .get() as { v: number };
-      expect(version.v).toBe(1);
+      expect(version.v).toBe(CURRENT_SCHEMA_VERSION);
     } finally {
       db.close();
     }
@@ -90,7 +91,70 @@ describe('migrate', () => {
     const result = migrate(nestedDbPath);
     expect(result.toVersion).toBe(CURRENT_SCHEMA_VERSION);
   });
+
+  it('adds v2 sync columns to branch_pin and graduated', () => {
+    migrate(dbPath);
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      expect(columnNames(db, 'branch_pin')).toEqual(
+        expect.arrayContaining(['content_hash', 'shared_at_epoch']),
+      );
+      expect(columnNames(db, 'graduated')).toEqual(
+        expect.arrayContaining(['content_hash', 'shared_at_epoch']),
+      );
+    } finally {
+      db.close();
+    }
+  });
+
+  it('upgrades a populated v1 database to v2 without data loss', () => {
+    // Simulate an existing v0.1 install: apply v1 schema only, seed a pin.
+    const db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+    db.exec(`
+      CREATE TABLE schema_versions (version INTEGER PRIMARY KEY, applied_at_epoch INTEGER NOT NULL);
+      CREATE TABLE branch_pin (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, project TEXT NOT NULL, branch TEXT NOT NULL,
+        observation_id INTEGER, note TEXT, created_at_epoch INTEGER NOT NULL
+      );
+      CREATE TABLE graduated (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, project TEXT NOT NULL, observation_id INTEGER NOT NULL,
+        graduated_from_branch TEXT NOT NULL, graduated_at_epoch INTEGER NOT NULL,
+        UNIQUE(project, observation_id)
+      );
+      INSERT INTO schema_versions (version, applied_at_epoch) VALUES (1, 0);
+      INSERT INTO branch_pin (project, branch, observation_id, note, created_at_epoch)
+        VALUES ('p', 'feature/x', 7, 'keep me', 100);
+    `);
+    db.close();
+
+    const result = migrate(dbPath);
+    expect(result.fromVersion).toBe(1);
+    expect(result.toVersion).toBe(2);
+    expect(result.applied).toEqual([2]);
+
+    const verify = new Database(dbPath, { readonly: true });
+    try {
+      const pin = verify
+        .prepare('SELECT note, content_hash, shared_at_epoch FROM branch_pin WHERE observation_id = 7')
+        .get() as { note: string; content_hash: string | null; shared_at_epoch: number | null };
+      expect(pin.note).toBe('keep me');
+      expect(pin.content_hash).toBeNull();
+      expect(pin.shared_at_epoch).toBeNull();
+      expect(columnNames(verify, 'graduated')).toEqual(
+        expect.arrayContaining(['content_hash', 'shared_at_epoch']),
+      );
+    } finally {
+      verify.close();
+    }
+  });
 });
+
+function columnNames(db: Database.Database, table: string): string[] {
+  return (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(
+    (c) => c.name,
+  );
+}
 
 function listObjects(db: Database.Database, type: 'table' | 'index'): string[] {
   return (

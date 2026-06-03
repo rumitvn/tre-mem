@@ -88,8 +88,8 @@ Each JSONL row carries content_hash (dedupe key), author, branch, tagged_at_epoc
 ## Roadmap — 2 weeks (T3 + T4)
 
 ### Week 3 — Sync foundation
-- [ ] **T3D1** Schema v2 migration + `tre migrate` re-runs cleanly on existing v0.1 DBs
-- [ ] **T3D1** JSONL format spec frozen in `docs/SYNC-FORMAT.md` (versioned schema)
+- [x] **T3D1** Schema v2 migration + `tre migrate` re-runs cleanly on existing v0.1 DBs
+- [x] **T3D1** JSONL format spec frozen in `docs/SYNC-FORMAT.md` (versioned schema)
 - [ ] **T3D2** `src/sync/export.ts` — `exportBranch(branch)` writes pins to `.tre-mem/branches/<slug>.jsonl`
 - [ ] **T3D2** `tre export [--branch X] [--all]` CLI, idempotent, dry-run mode
 - [ ] **T3D3** `src/sync/import.ts` — `importDir(path)` reads `.tre-mem/`, upserts via content_hash, populates local sidecar
