@@ -26,6 +26,8 @@ export interface BranchPin {
   observation_id: number | null;
   note: string | null;
   created_at_epoch: number;
+  content_hash: string | null;
+  shared_at_epoch: number | null;
 }
 
 export interface BranchPinInsert {
@@ -42,6 +44,8 @@ export interface Graduated {
   observation_id: number;
   graduated_from_branch: string;
   graduated_at_epoch: number;
+  content_hash: string | null;
+  shared_at_epoch: number | null;
 }
 
 export interface GraduatedInsert {
@@ -185,7 +189,7 @@ export class TreMemRepo {
   getPinById(id: number): BranchPin | null {
     const row = this.db
       .prepare(
-        `SELECT id, project, branch, observation_id, note, created_at_epoch
+        `SELECT id, project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch
            FROM branch_pin
           WHERE id = ?`,
       )
@@ -196,7 +200,7 @@ export class TreMemRepo {
   listPinsForBranch(project: string, branch: string): BranchPin[] {
     return this.db
       .prepare(
-        `SELECT id, project, branch, observation_id, note, created_at_epoch
+        `SELECT id, project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch
            FROM branch_pin
           WHERE project = ? AND branch = ?
           ORDER BY created_at_epoch DESC, id DESC`,
@@ -207,7 +211,7 @@ export class TreMemRepo {
   listPinsForProject(project: string): BranchPin[] {
     return this.db
       .prepare(
-        `SELECT id, project, branch, observation_id, note, created_at_epoch
+        `SELECT id, project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch
            FROM branch_pin
           WHERE project = ?
           ORDER BY created_at_epoch DESC, id DESC`,
@@ -231,7 +235,7 @@ export class TreMemRepo {
   getGraduated(project: string, observationId: number): Graduated | null {
     const row = this.db
       .prepare(
-        `SELECT id, project, observation_id, graduated_from_branch, graduated_at_epoch
+        `SELECT id, project, observation_id, graduated_from_branch, graduated_at_epoch, content_hash, shared_at_epoch
            FROM graduated
           WHERE project = ? AND observation_id = ?`,
       )
@@ -242,7 +246,7 @@ export class TreMemRepo {
   listGraduated(project: string): Graduated[] {
     return this.db
       .prepare(
-        `SELECT id, project, observation_id, graduated_from_branch, graduated_at_epoch
+        `SELECT id, project, observation_id, graduated_from_branch, graduated_at_epoch, content_hash, shared_at_epoch
            FROM graduated
           WHERE project = ?
           ORDER BY graduated_at_epoch DESC, id DESC`,
@@ -260,5 +264,115 @@ export class TreMemRepo {
           ORDER BY count DESC, branch ASC`,
       )
       .all(project) as Array<{ branch: string; count: number }>;
+  }
+
+  // --- Phase 2 sync (schema v2) ---
+
+  listPinBranches(project: string): string[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT DISTINCT branch FROM branch_pin WHERE project = ? ORDER BY branch ASC`,
+        )
+        .all(project) as Array<{ branch: string }>
+    ).map((r) => r.branch);
+  }
+
+  markPinShared(id: number, contentHash: string, sharedAtEpoch: number): void {
+    this.db
+      .prepare(
+        `UPDATE branch_pin SET content_hash = ?, shared_at_epoch = ? WHERE id = ?`,
+      )
+      .run(contentHash, sharedAtEpoch, id);
+  }
+
+  markGraduatedShared(id: number, contentHash: string, sharedAtEpoch: number): void {
+    this.db
+      .prepare(`UPDATE graduated SET content_hash = ?, shared_at_epoch = ? WHERE id = ?`)
+      .run(contentHash, sharedAtEpoch, id);
+  }
+
+  countUnsharedPins(project: string): number {
+    const row = this.db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM branch_pin WHERE project = ? AND shared_at_epoch IS NULL`,
+      )
+      .get(project) as { n: number };
+    return row.n;
+  }
+
+  getImportState(filePath: string): { file_path: string; last_sha: string; imported_at_epoch: number } | null {
+    const row = this.db
+      .prepare(`SELECT file_path, last_sha, imported_at_epoch FROM import_state WHERE file_path = ?`)
+      .get(filePath) as { file_path: string; last_sha: string; imported_at_epoch: number } | undefined;
+    return row ?? null;
+  }
+
+  upsertImportState(filePath: string, lastSha: string, importedAtEpoch: number): void {
+    this.db
+      .prepare(
+        `INSERT INTO import_state (file_path, last_sha, imported_at_epoch)
+         VALUES (?, ?, ?)
+         ON CONFLICT(file_path) DO UPDATE SET
+           last_sha          = excluded.last_sha,
+           imported_at_epoch = excluded.imported_at_epoch`,
+      )
+      .run(filePath, lastSha, importedAtEpoch);
+  }
+
+  /**
+   * Upsert a pin received from a teammate's export, keyed by content_hash so
+   * re-importing the same row is a no-op. Returns true if a new row was inserted.
+   */
+  importPin(pin: BranchPinInsert & { content_hash: string; shared_at_epoch: number }): boolean {
+    const existing = this.db
+      .prepare(`SELECT id FROM branch_pin WHERE content_hash = ?`)
+      .get(pin.content_hash) as { id: number } | undefined;
+    if (existing !== undefined) return false;
+    this.db
+      .prepare(
+        `INSERT INTO branch_pin (project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch)
+         VALUES (@project, @branch, @observation_id, @note, @created_at_epoch, @content_hash, @shared_at_epoch)`,
+      )
+      .run({
+        project: pin.project,
+        branch: pin.branch,
+        observation_id: pin.observation_id ?? null,
+        note: pin.note ?? null,
+        created_at_epoch: pin.created_at_epoch,
+        content_hash: pin.content_hash,
+        shared_at_epoch: pin.shared_at_epoch,
+      });
+    return true;
+  }
+
+  /**
+   * Upsert a graduated fact received from a teammate, keyed by content_hash.
+   * Returns true if a new row was inserted.
+   */
+  importGraduated(
+    grad: GraduatedInsert & { content_hash: string; shared_at_epoch: number },
+  ): boolean {
+    const existing = this.db
+      .prepare(`SELECT id FROM graduated WHERE content_hash = ?`)
+      .get(grad.content_hash) as { id: number } | undefined;
+    if (existing !== undefined) return false;
+    this.db
+      .prepare(
+        `INSERT INTO graduated (project, observation_id, graduated_from_branch, graduated_at_epoch, content_hash, shared_at_epoch)
+         VALUES (@project, @observation_id, @graduated_from_branch, @graduated_at_epoch, @content_hash, @shared_at_epoch)
+         ON CONFLICT(project, observation_id) DO UPDATE SET
+           content_hash    = excluded.content_hash,
+           shared_at_epoch = excluded.shared_at_epoch`,
+      )
+      .run({
+        project: grad.project,
+        observation_id: grad.observation_id,
+        graduated_from_branch: grad.graduated_from_branch,
+        graduated_at_epoch: grad.graduated_at_epoch,
+        content_hash: grad.content_hash,
+        shared_at_epoch: grad.shared_at_epoch,
+      });
+    return true;
   }
 }

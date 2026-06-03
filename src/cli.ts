@@ -4,11 +4,15 @@ import { basename, resolve } from 'node:path';
 
 import { ClaudeMemAdapter } from './adapter/claude-mem.js';
 import { backfill } from './git/backfill.js';
+import { gitAuthor } from './git/identity.js';
 import { NO_GIT, currentBranch, isDetached } from './git/resolver.js';
 import { type SessionStartInput, runSessionStartHook } from './hooks/session-start.js';
 import { runMcpServer } from './mcp/server.js';
 import { searchBranchContext, type SearchHit } from './retrieval/search.js';
 import { migrate } from './store/migrate.js';
+import { SYNC_DIR_NAME } from './sync/layout.js';
+import { exportSync } from './sync/export.js';
+import { AdapterSnapshotProvider } from './sync/snapshot.js';
 import { TRE_MEM_DB_PATH, TRE_MEM_HOME } from './store/paths.js';
 import { TreMemRepo } from './store/repo.js';
 
@@ -295,6 +299,76 @@ cli
       repo.close();
     }
   });
+
+cli
+  .command('export', 'Export pins + graduated facts to the committed .tre-mem/ directory')
+  .option('--cwd <path>', 'Repo root to derive project + branch from (defaults to current dir)')
+  .option('--project <slug>', 'Override project slug')
+  .option('--branch <name>', 'Export a single branch (defaults to current branch)')
+  .option('--all', 'Export every branch that has pins')
+  .option('--out <dir>', 'Output directory (defaults to <cwd>/.tre-mem)')
+  .option('--author <name>', 'Attribution (defaults to git config user.name)')
+  .option('--dry-run', 'Compute changes without writing files or marking pins shared')
+  .action(
+    async (flags: {
+      cwd?: string;
+      project?: string;
+      branch?: string;
+      all?: boolean;
+      out?: string;
+      author?: string;
+      dryRun?: boolean;
+    }) => {
+      const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
+      const project = flags.project ?? basename(cwd);
+      const dir = flags.out ? resolve(flags.out) : resolve(cwd, SYNC_DIR_NAME);
+      const author = flags.author ?? (await gitAuthor(cwd));
+
+      migrate();
+      const adapter = new ClaudeMemAdapter();
+      const repo = new TreMemRepo();
+      try {
+        let branches: string[];
+        if (flags.all) {
+          branches = repo.listPinBranches(project);
+        } else if (flags.branch) {
+          branches = [flags.branch];
+        } else {
+          const cur = await currentBranch(cwd);
+          branches = cur === NO_GIT || isDetached(cur) ? repo.listPinBranches(project) : [cur];
+        }
+
+        const result = exportSync({
+          repo,
+          snapshots: new AdapterSnapshotProvider(adapter),
+          project,
+          dir,
+          branches,
+          now: Math.floor(Date.now() / 1000),
+          author,
+          dryRun: flags.dryRun ?? false,
+        });
+
+        const tag = result.dryRun ? ' (dry-run)' : '';
+        console.log(`tre-mem export${tag}: ${project} -> ${result.dir}`);
+        let totalAdded = 0;
+        for (const b of result.branches) {
+          console.log(`  ${b.branch}: +${b.added} (${b.total} total) ${b.file}`);
+          totalAdded += b.added;
+        }
+        console.log(`  graduated: +${result.graduated.added} (${result.graduated.total} total)`);
+        totalAdded += result.graduated.added;
+        if (result.dryRun) {
+          console.log(`  would add ${totalAdded} row(s); run without --dry-run to write.`);
+        } else {
+          console.log(`  added ${totalAdded} row(s). Commit .tre-mem/ to share with your team.`);
+        }
+      } finally {
+        adapter.close();
+        repo.close();
+      }
+    },
+  );
 
 cli.command('mcp', 'Start the tre-mem MCP server on stdio').action(async () => {
   await runMcpServer();
