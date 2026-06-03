@@ -29,6 +29,14 @@ export function branchSignal({ tags, currentBranch }: BranchSignalInput): Scored
     .map((tag) => ({ observationId: tag.observation_id, score: 1 }));
 }
 
+/**
+ * Graduated facts are repo-wide knowledge promoted off a branch. They surface
+ * on every branch with a flat boost so cross-branch decisions flow naturally.
+ */
+export function graduatedSignal(observationIds: ReadonlyArray<number>): ScoredObservation[] {
+  return observationIds.map((observationId) => ({ observationId, score: 1 }));
+}
+
 export interface RecencySignalInput {
   observations: ReadonlyArray<Observation>;
   nowEpoch: number;

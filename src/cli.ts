@@ -468,8 +468,9 @@ function printSearchHit(hit: SearchHit): void {
   const title = obs.title ?? obs.subtitle ?? (obs.text ?? '').slice(0, 80) ?? '(untitled)';
   const total = hit.total.toFixed(3);
   const b = hit.breakdown;
-  const breakdown = `sem ${b.semantic.toFixed(2)}  branch ${b.branch.toFixed(2)}  rec ${b.recency.toFixed(2)}  pin ${b.pin.toFixed(2)}`;
-  console.log(`  [${total}] #${obs.id}  ${title}`);
+  const tag = hit.source === 'shared-pin' ? ' [shared]' : hit.source === 'graduated' ? ' [graduated]' : '';
+  const breakdown = `sem ${b.semantic.toFixed(2)}  branch ${b.branch.toFixed(2)}  rec ${b.recency.toFixed(2)}  grad ${b.graduated.toFixed(2)}  pin ${b.pin.toFixed(2)}`;
+  console.log(`  [${total}] #${obs.id}  ${title}${tag}`);
   console.log(`         ${breakdown}`);
 }
 

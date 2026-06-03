@@ -21,6 +21,7 @@ describe('rerank', () => {
       semantic: DEFAULT_RERANK_WEIGHTS.semantic,
       branch: 0,
       recency: 0,
+      graduated: 0,
       pin: 0,
     });
   });
@@ -117,6 +118,7 @@ describe('rerank', () => {
       semantic: 0.1,
       branch: 0.5,
       recency: 0.4,
+      graduated: 0,
       pin: 0,
     });
   });
@@ -132,7 +134,7 @@ describe('rerank', () => {
       {
         observationId: 42,
         total: DEFAULT_RERANK_WEIGHTS.pin,
-        breakdown: { semantic: 0, branch: 0, recency: 0, pin: DEFAULT_RERANK_WEIGHTS.pin },
+        breakdown: { semantic: 0, branch: 0, recency: 0, graduated: 0, pin: DEFAULT_RERANK_WEIGHTS.pin },
       },
     ]);
   });

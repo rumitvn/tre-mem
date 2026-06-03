@@ -28,6 +28,8 @@ export interface BranchPin {
   created_at_epoch: number;
   content_hash: string | null;
   shared_at_epoch: number | null;
+  title: string | null;
+  body: string | null;
 }
 
 export interface BranchPinInsert {
@@ -46,6 +48,8 @@ export interface Graduated {
   graduated_at_epoch: number;
   content_hash: string | null;
   shared_at_epoch: number | null;
+  title: string | null;
+  body: string | null;
 }
 
 export interface GraduatedInsert {
@@ -189,7 +193,7 @@ export class TreMemRepo {
   getPinById(id: number): BranchPin | null {
     const row = this.db
       .prepare(
-        `SELECT id, project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch
+        `SELECT id, project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch, title, body
            FROM branch_pin
           WHERE id = ?`,
       )
@@ -200,7 +204,7 @@ export class TreMemRepo {
   listPinsForBranch(project: string, branch: string): BranchPin[] {
     return this.db
       .prepare(
-        `SELECT id, project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch
+        `SELECT id, project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch, title, body
            FROM branch_pin
           WHERE project = ? AND branch = ?
           ORDER BY created_at_epoch DESC, id DESC`,
@@ -211,7 +215,7 @@ export class TreMemRepo {
   listPinsForProject(project: string): BranchPin[] {
     return this.db
       .prepare(
-        `SELECT id, project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch
+        `SELECT id, project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch, title, body
            FROM branch_pin
           WHERE project = ?
           ORDER BY created_at_epoch DESC, id DESC`,
@@ -235,7 +239,7 @@ export class TreMemRepo {
   getGraduated(project: string, observationId: number): Graduated | null {
     const row = this.db
       .prepare(
-        `SELECT id, project, observation_id, graduated_from_branch, graduated_at_epoch, content_hash, shared_at_epoch
+        `SELECT id, project, observation_id, graduated_from_branch, graduated_at_epoch, content_hash, shared_at_epoch, title, body
            FROM graduated
           WHERE project = ? AND observation_id = ?`,
       )
@@ -246,7 +250,7 @@ export class TreMemRepo {
   listGraduated(project: string): Graduated[] {
     return this.db
       .prepare(
-        `SELECT id, project, observation_id, graduated_from_branch, graduated_at_epoch, content_hash, shared_at_epoch
+        `SELECT id, project, observation_id, graduated_from_branch, graduated_at_epoch, content_hash, shared_at_epoch, title, body
            FROM graduated
           WHERE project = ?
           ORDER BY graduated_at_epoch DESC, id DESC`,
@@ -324,15 +328,22 @@ export class TreMemRepo {
    * Upsert a pin received from a teammate's export, keyed by content_hash so
    * re-importing the same row is a no-op. Returns true if a new row was inserted.
    */
-  importPin(pin: BranchPinInsert & { content_hash: string; shared_at_epoch: number }): boolean {
+  importPin(
+    pin: BranchPinInsert & {
+      content_hash: string;
+      shared_at_epoch: number;
+      title?: string | null;
+      body?: string | null;
+    },
+  ): boolean {
     const existing = this.db
       .prepare(`SELECT id FROM branch_pin WHERE content_hash = ?`)
       .get(pin.content_hash) as { id: number } | undefined;
     if (existing !== undefined) return false;
     this.db
       .prepare(
-        `INSERT INTO branch_pin (project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch)
-         VALUES (@project, @branch, @observation_id, @note, @created_at_epoch, @content_hash, @shared_at_epoch)`,
+        `INSERT INTO branch_pin (project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch, title, body)
+         VALUES (@project, @branch, @observation_id, @note, @created_at_epoch, @content_hash, @shared_at_epoch, @title, @body)`,
       )
       .run({
         project: pin.project,
@@ -342,6 +353,8 @@ export class TreMemRepo {
         created_at_epoch: pin.created_at_epoch,
         content_hash: pin.content_hash,
         shared_at_epoch: pin.shared_at_epoch,
+        title: pin.title ?? null,
+        body: pin.body ?? null,
       });
     return true;
   }
@@ -351,7 +364,12 @@ export class TreMemRepo {
    * Returns true if a new row was inserted.
    */
   importGraduated(
-    grad: GraduatedInsert & { content_hash: string; shared_at_epoch: number },
+    grad: GraduatedInsert & {
+      content_hash: string;
+      shared_at_epoch: number;
+      title?: string | null;
+      body?: string | null;
+    },
   ): boolean {
     const existing = this.db
       .prepare(`SELECT id FROM graduated WHERE content_hash = ?`)
@@ -359,11 +377,13 @@ export class TreMemRepo {
     if (existing !== undefined) return false;
     this.db
       .prepare(
-        `INSERT INTO graduated (project, observation_id, graduated_from_branch, graduated_at_epoch, content_hash, shared_at_epoch)
-         VALUES (@project, @observation_id, @graduated_from_branch, @graduated_at_epoch, @content_hash, @shared_at_epoch)
+        `INSERT INTO graduated (project, observation_id, graduated_from_branch, graduated_at_epoch, content_hash, shared_at_epoch, title, body)
+         VALUES (@project, @observation_id, @graduated_from_branch, @graduated_at_epoch, @content_hash, @shared_at_epoch, @title, @body)
          ON CONFLICT(project, observation_id) DO UPDATE SET
            content_hash    = excluded.content_hash,
-           shared_at_epoch = excluded.shared_at_epoch`,
+           shared_at_epoch = excluded.shared_at_epoch,
+           title           = excluded.title,
+           body            = excluded.body`,
       )
       .run({
         project: grad.project,
@@ -372,6 +392,8 @@ export class TreMemRepo {
         graduated_at_epoch: grad.graduated_at_epoch,
         content_hash: grad.content_hash,
         shared_at_epoch: grad.shared_at_epoch,
+        title: grad.title ?? null,
+        body: grad.body ?? null,
       });
     return true;
   }

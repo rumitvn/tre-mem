@@ -23,12 +23,18 @@ const V2_COLUMNS: ReadonlyArray<{ table: string; column: string; ddl: string }> 
     column: 'shared_at_epoch',
     ddl: 'ALTER TABLE branch_pin ADD COLUMN shared_at_epoch INTEGER',
   },
+  // title/body snapshots make imported rows self-contained for retrieval on a
+  // teammate's machine, where the underlying claude-mem observation is absent.
+  { table: 'branch_pin', column: 'title', ddl: 'ALTER TABLE branch_pin ADD COLUMN title TEXT' },
+  { table: 'branch_pin', column: 'body', ddl: 'ALTER TABLE branch_pin ADD COLUMN body TEXT' },
   { table: 'graduated', column: 'content_hash', ddl: 'ALTER TABLE graduated ADD COLUMN content_hash TEXT' },
   {
     table: 'graduated',
     column: 'shared_at_epoch',
     ddl: 'ALTER TABLE graduated ADD COLUMN shared_at_epoch INTEGER',
   },
+  { table: 'graduated', column: 'title', ddl: 'ALTER TABLE graduated ADD COLUMN title TEXT' },
+  { table: 'graduated', column: 'body', ddl: 'ALTER TABLE graduated ADD COLUMN body TEXT' },
 ];
 
 const V2_IMPORT_STATE = `

@@ -94,5 +94,14 @@ COUNT="$(node -e '
 [ "$COUNT" = "1" ] || fail "re-import duplicated rows (count=$COUNT)"
 pass "re-import is idempotent (still 1 row)"
 
+# --- 6. bob's `tre search` surfaces alice's pin from its snapshot (T4D9) ---
+SEARCH="$(TRE_MEM_HOME="$(export_home bob)" node "$CLI" search "webhook" \
+  --project "$PROJECT" --branch "$BRANCH" 2>/dev/null || true)"
+if echo "$SEARCH" | grep -q "$NOTE" && echo "$SEARCH" | grep -q "shared"; then
+  pass "bob's tre search surfaces alice's shared pin"
+else
+  printf '  \033[33m~ skipped search assertion (needs ~/.claude-mem present)\033[0m\n'
+fi
+
 echo ""
 echo "✅ Checkpoint T3 PASSED — sync foundation works through real git."

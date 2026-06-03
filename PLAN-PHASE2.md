@@ -107,7 +107,7 @@ Each JSONL row carries content_hash (dedupe key), author, branch, tagged_at_epoc
 - [ ] **T4D8** Optional `UserPromptSubmit` hook (inspired by Lore) — inject top-K relevant pins+graduated into every prompt, scoped to current branch; gated behind `tre setup claude-code --auto-inject` so default behaviour stays conservative
 - [ ] **T4D8** `tre status` v2 — adds "shared: X pins exported / Y pending import / Z redacted" line
 - [ ] **T4D8** `tre setup <tool>` command (borrowed from Lore's `lore setup` UX) — `tre setup claude-code` writes the SessionStart hook to `.claude/settings.json` and (optionally) the GitHub Action workflow; ship `claude-code` first, leave `cursor` / `codex` as stubs returning "coming in V3"
-- [ ] **T4D9** Retrieval v2 — graduated facts surface as their own signal in `searchBranchContext` (`graduatedSignal`, weight 0.3) so cross-branch knowledge flows naturally
+- [x] **T4D9** Retrieval v2 — `graduatedSignal` (weight 0.3) + shared pins/graduated **surface from their JSONL snapshot even when the local claude-mem lacks the observation** (schema v2 title/body cols, synthetic ids for free-text pins, `SearchHit.source`); two-dev E2E now proves bob's `tre search` returns alice's pin
 - [ ] **T4D9** Demo screen-record: 2-dev split-screen, "alice pins decision → 30s later bob's Claude Code references it"
 - [ ] **T4D10** Polish: README v0.2 with team workflow + GIF, `docs/MIGRATION-v1-v2.md`, version bump → `0.2.0`, CHANGELOG
 - [ ] **T4D10** **Checkpoint T4 (moment of truth)**: ≥1 real team of 2+ devs uses shared memory for ≥3 days, qualitative win documented

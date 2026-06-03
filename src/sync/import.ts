@@ -90,6 +90,8 @@ function importFile(
         created_at_epoch: record.tagged_at_epoch,
         content_hash: record.content_hash,
         shared_at_epoch: record.tagged_at_epoch,
+        title: record.title,
+        body: record.body,
       });
       if (added) {
         inserted++;
@@ -105,6 +107,8 @@ function importFile(
         graduated_at_epoch: record.graduated_at_epoch,
         content_hash: record.content_hash,
         shared_at_epoch: record.graduated_at_epoch,
+        title: record.title,
+        body: record.body,
       });
       if (added) {
         inserted++;

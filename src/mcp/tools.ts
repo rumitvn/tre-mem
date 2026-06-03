@@ -245,6 +245,7 @@ export async function getBranchContext(
       created_at_epoch: h.observation.created_at_epoch,
       total: h.total,
       breakdown: h.breakdown,
+      source: h.source,
     })),
   };
 }

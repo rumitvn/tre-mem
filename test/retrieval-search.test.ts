@@ -85,6 +85,69 @@ describe('searchBranchContext', () => {
     );
     expect(hits).toEqual([]);
   });
+
+  it('surfaces a shared pin whose observation is absent locally (from its snapshot)', () => {
+    // Simulates a pin imported from a teammate: obs 9001 is NOT in claude-mem.
+    repo.importPin({
+      project: 'proj-a',
+      branch: 'feature/payment',
+      observation_id: 9001,
+      note: 'use Stripe webhook v3',
+      created_at_epoch: NOW,
+      content_hash: 'hash-9001',
+      shared_at_epoch: NOW,
+      title: "Alice's decision: webhook v3",
+      body: 'Standardized on webhook v3 for idempotency.',
+    });
+
+    const hits = searchBranchContext(
+      { adapter, repo },
+      { query: 'anything', project: 'proj-a', branch: 'feature/payment', k: 10, nowEpoch: NOW },
+    );
+    const shared = hits.find((h) => h.observation.id === 9001);
+    expect(shared).toBeDefined();
+    expect(shared?.source).toBe('shared-pin');
+    expect(shared?.observation.title).toBe("Alice's decision: webhook v3");
+    expect(shared?.breakdown.pin).toBeGreaterThan(0);
+  });
+
+  it('surfaces a free-text pin (no observation id at all)', () => {
+    repo.addPin({
+      project: 'proj-a',
+      branch: 'feature/payment',
+      observation_id: null,
+      note: 'decision: prefer pessimistic locking here',
+      created_at_epoch: NOW,
+    });
+    const hits = searchBranchContext(
+      { adapter, repo },
+      { query: 'anything', project: 'proj-a', branch: 'feature/payment', k: 10, nowEpoch: NOW },
+    );
+    const freeText = hits.find((h) => h.source === 'shared-pin' && h.observation.id < 0);
+    expect(freeText).toBeDefined();
+    expect(freeText?.observation.title).toContain('pessimistic locking');
+  });
+
+  it('surfaces a graduated fact whose observation is absent locally, on any branch', () => {
+    repo.importGraduated({
+      project: 'proj-a',
+      observation_id: 9002,
+      graduated_from_branch: 'feature/payment',
+      graduated_at_epoch: NOW,
+      content_hash: 'hash-9002',
+      shared_at_epoch: NOW,
+      title: 'Stripe is the canonical payment provider',
+      body: 'Repo-wide decision.',
+    });
+    const hits = searchBranchContext(
+      { adapter, repo },
+      { query: 'anything', project: 'proj-a', branch: 'some/other-branch', k: 10, nowEpoch: NOW },
+    );
+    const grad = hits.find((h) => h.observation.id === 9002);
+    expect(grad).toBeDefined();
+    expect(grad?.source).toBe('graduated');
+    expect(grad?.breakdown.graduated).toBeGreaterThan(0);
+  });
 });
 
 function seedClaudeMem(dbPath: string, now: number): void {

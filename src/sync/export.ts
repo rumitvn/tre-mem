@@ -81,8 +81,10 @@ function buildPinItems(
   const snap = snapshots.getSnapshots(ids);
   return pins.map((pin) => {
     const s = pin.observation_id !== null ? snap.get(pin.observation_id) : undefined;
-    const title = s?.title ?? null;
-    const body = s?.body ?? null;
+    // Prefer the live observation; fall back to a row's own stored snapshot
+    // (e.g. a pin imported from a teammate, whose observation we don't have).
+    const title = s?.title ?? pin.title ?? null;
+    const body = s?.body ?? pin.body ?? null;
     return {
       pinId: pin.id,
       record: {
@@ -118,8 +120,8 @@ function buildGradItems(
   const snap = snapshots.getSnapshots(grads.map((g) => g.observation_id));
   return grads.map((g) => {
     const s = snap.get(g.observation_id);
-    const title = s?.title ?? null;
-    const body = s?.body ?? null;
+    const title = s?.title ?? g.title ?? null;
+    const body = s?.body ?? g.body ?? null;
     return {
       gradId: g.id,
       record: {

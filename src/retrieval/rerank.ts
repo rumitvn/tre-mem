@@ -4,6 +4,7 @@ export interface RerankWeights {
   semantic: number;
   branch: number;
   recency: number;
+  graduated: number;
   pin: number;
 }
 
@@ -11,6 +12,7 @@ export const DEFAULT_RERANK_WEIGHTS: RerankWeights = {
   semantic: 0.4,
   branch: 0.4,
   recency: 0.2,
+  graduated: 0.3,
   pin: 1,
 };
 
@@ -18,6 +20,7 @@ export interface RerankInput {
   semantic: ReadonlyArray<ScoredObservation>;
   branch: ReadonlyArray<ScoredObservation>;
   recency: ReadonlyArray<ScoredObservation>;
+  graduated?: ReadonlyArray<ScoredObservation>;
   pins: ReadonlyArray<number>;
 }
 
@@ -25,6 +28,7 @@ export interface RerankBreakdown {
   semantic: number;
   branch: number;
   recency: number;
+  graduated: number;
   pin: number;
 }
 
@@ -45,12 +49,14 @@ export function rerank(input: RerankInput, opts: RerankOptions = {}): RerankResu
   const sem = collapseMax(input.semantic);
   const br = collapseMax(input.branch);
   const rec = collapseMax(input.recency);
+  const grad = collapseMax(input.graduated ?? []);
   const pinSet = new Set<number>(input.pins);
 
   const ids = new Set<number>();
   for (const id of sem.keys()) ids.add(id);
   for (const id of br.keys()) ids.add(id);
   for (const id of rec.keys()) ids.add(id);
+  for (const id of grad.keys()) ids.add(id);
   for (const id of pinSet) ids.add(id);
 
   const results: RerankResult[] = [];
@@ -59,9 +65,15 @@ export function rerank(input: RerankInput, opts: RerankOptions = {}): RerankResu
       semantic: (sem.get(id) ?? 0) * weights.semantic,
       branch: (br.get(id) ?? 0) * weights.branch,
       recency: (rec.get(id) ?? 0) * weights.recency,
+      graduated: (grad.get(id) ?? 0) * weights.graduated,
       pin: pinSet.has(id) ? weights.pin : 0,
     };
-    const total = breakdown.semantic + breakdown.branch + breakdown.recency + breakdown.pin;
+    const total =
+      breakdown.semantic +
+      breakdown.branch +
+      breakdown.recency +
+      breakdown.graduated +
+      breakdown.pin;
     results.push({ observationId: id, total, breakdown });
   }
 
