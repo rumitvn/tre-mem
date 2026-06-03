@@ -12,6 +12,7 @@ import { searchBranchContext, type SearchHit } from './retrieval/search.js';
 import { migrate } from './store/migrate.js';
 import { SYNC_DIR_NAME } from './sync/layout.js';
 import { exportSync } from './sync/export.js';
+import { importDir } from './sync/import.js';
 import { AdapterSnapshotProvider } from './sync/snapshot.js';
 import { TRE_MEM_DB_PATH, TRE_MEM_HOME } from './store/paths.js';
 import { TreMemRepo } from './store/repo.js';
@@ -369,6 +370,43 @@ cli
       }
     },
   );
+
+cli
+  .command('import', "Import a teammate's committed .tre-mem/ into your local sidecar")
+  .option('--cwd <path>', 'Repo root that holds the .tre-mem/ directory (defaults to current dir)')
+  .option('--from <dir>', 'Directory to import (defaults to <cwd>/.tre-mem)')
+  .option('--force', 'Re-import even if files are unchanged since the last import')
+  .action(async (flags: { cwd?: string; from?: string; force?: boolean }) => {
+    const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
+    const dir = flags.from ? resolve(flags.from) : resolve(cwd, SYNC_DIR_NAME);
+
+    migrate();
+    const repo = new TreMemRepo();
+    try {
+      const result = importDir({
+        repo,
+        dir,
+        now: Math.floor(Date.now() / 1000),
+        force: flags.force ?? false,
+      });
+      console.log(`tre-mem import: ${result.dir}`);
+      if (result.files.length === 0) {
+        console.log('  (nothing to import — no .tre-mem/ directory found)');
+        return;
+      }
+      for (const f of result.files) {
+        if (f.unchanged) {
+          console.log(`  ${f.file}: unchanged`);
+        } else {
+          const errs = f.errors > 0 ? `, ${f.errors} error(s)` : '';
+          console.log(`  ${f.file}: +${f.inserted} new, ${f.duplicates} dup${errs}`);
+        }
+      }
+      console.log(`  imported ${result.pins} pin(s), ${result.graduated} graduated fact(s).`);
+    } finally {
+      repo.close();
+    }
+  });
 
 cli.command('mcp', 'Start the tre-mem MCP server on stdio').action(async () => {
   await runMcpServer();
