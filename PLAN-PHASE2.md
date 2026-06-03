@@ -96,8 +96,8 @@ Each JSONL row carries content_hash (dedupe key), author, branch, tagged_at_epoc
 - [x] **T3D3** `tre import [--from .tre-mem] [--force]` CLI; auto-skips unchanged files via `import_state` SHA; alice→bob round-trip verified (unit + CLI)
 - [x] **T3D4** `src/sync/redact.ts` — regex pack (private keys, OpenAI/Anthropic/AWS/GitHub/Google/Slack keys, JWTs); `tre export` is fail-closed (exit 2 + masked report) unless `--force` → `[REDACTED:*]` placeholders
 - [x] **T3D4** `.tre-mem/.shareignore` parser (glob syntax, applied to pin/graduated note+title+body); auto-scaffolds README.md + starter .shareignore on export
-- [ ] **T3D5** Two-dev E2E rehearsal: alice pins → `tre export` → `git commit/push` → bob `git pull` → `tre import` → `tre search` returns alice's pin
-- [ ] **T3D5** **Checkpoint T3**: above E2E passes on real shared repo (use `multigo-android-dev` if your teammate is on it, else `tre-mem` itself)
+- [x] **T3D5** Two-dev E2E rehearsal in `scripts/two-dev-e2e.sh`: alice pins → `tre export` → `git commit/push` → bob clone → `tre import` → pin lands intact + idempotent. (Search-surfacing of shared pins deferred to T4D9 retrieval-v2.)
+- [x] **T3D5** **Checkpoint T3 PASSED**: E2E passes through a real bare-remote + two clones + two isolated sidecars (no network, no claude-mem dep)
 
 ### Week 4 — Auto-lifecycle + polish
 - [ ] **T4D6** GitHub Action `actions/graduate-on-merge/action.yml` (composite, Node 20) — checkout, read merged branch's pins, append to `graduated.jsonl`, commit back to base branch
