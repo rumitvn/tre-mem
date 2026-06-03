@@ -1,0 +1,71 @@
+name: 'tre-mem graduate on merge'
+description: "Promote a merged PR branch's pinned decisions into repo-wide graduated facts in .tre-mem/"
+author: 'rumitvn'
+branding:
+  icon: 'git-merge'
+  color: 'green'
+
+inputs:
+  pr-number:
+    description: 'PR number to graduate (defaults to the triggering PR)'
+    required: false
+    default: ${{ github.event.pull_request.number }}
+  branch:
+    description: 'Branch to graduate directly (overrides pr-number lookup)'
+    required: false
+    default: ''
+  dir:
+    description: 'Path to the committed .tre-mem/ directory'
+    required: false
+    default: '.tre-mem'
+  version:
+    description: 'tre-mem npm version to use'
+    required: false
+    default: 'latest'
+  commit-message:
+    description: 'Commit message when graduated.jsonl changes'
+    required: false
+    default: 'chore(tre-mem): graduate pins from merged PR'
+  dry-run:
+    description: 'Compute changes without committing'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Graduate merged pins
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        ARGS=(graduate-pr)
+        if [ -n "${{ inputs.branch }}" ]; then
+          ARGS+=("${{ inputs.branch }}" --branch "${{ inputs.branch }}")
+        else
+          ARGS+=("${{ inputs.pr-number }}")
+        fi
+        ARGS+=(--dir "${{ inputs.dir }}")
+        if [ "${{ inputs.dry-run }}" = "true" ]; then ARGS+=(--dry-run); fi
+        npx --yes "tre-mem@${{ inputs.version }}" "${ARGS[@]}"
+
+    - name: Commit graduated facts
+      if: ${{ inputs.dry-run != 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -z "$(git status --porcelain "${{ inputs.dir }}")" ]; then
+          echo "tre-mem: no new graduated facts."
+          exit 0
+        fi
+        git config user.name  "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add "${{ inputs.dir }}"
+        git commit -m "${{ inputs.commit-message }}"
+        git push

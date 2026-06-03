@@ -100,9 +100,9 @@ Each JSONL row carries content_hash (dedupe key), author, branch, tagged_at_epoc
 - [x] **T3D5** **Checkpoint T3 PASSED**: E2E passes through a real bare-remote + two clones + two isolated sidecars (no network, no claude-mem dep)
 
 ### Week 4 — Auto-lifecycle + polish
-- [ ] **T4D6** GitHub Action `actions/graduate-on-merge/action.yml` (composite, Node 20) — checkout, read merged branch's pins, append to `graduated.jsonl`, commit back to base branch
-- [ ] **T4D6** Action config: `pin-filter` (default: all pins; alt: only pins with `[graduate]` in note), `commit-message` template, `dry-run` flag
-- [ ] **T4D7** `tre graduate-pr <PR#> [--repo owner/name]` CLI fallback for non-GH or local dry-runs (uses `gh pr view` to fetch merge metadata)
+- [x] **T4D6** GitHub Action `actions/graduate-on-merge/action.yml` (composite, Node 20) — reads merged branch's pins via `tre graduate-pr`, appends to `graduated.jsonl`, commits back to base branch; core logic in testable `src/sync/graduate.ts`
+- [x] **T4D6** Action config: `branch` override, `version`, `commit-message` template, `dry-run` flag, `dir`; README with copy-paste workflow ([pin-filter] deferred — graduate-all is the v0.2 default)
+- [x] **T4D7** `tre graduate-pr <PR#|branch> [--repo] [--branch] [--dir] [--dry-run]` CLI — resolves PR→branch via `gh pr view`, falls back to direct branch; idempotent append, skips free-text pins
 - [ ] **T4D8** SessionStart hook v2 — runs `tre import .tre-mem` (silent, fast) if `.tre-mem/` mtime changed since last session
 - [ ] **T4D8** Optional `UserPromptSubmit` hook (inspired by Lore) — inject top-K relevant pins+graduated into every prompt, scoped to current branch; gated behind `tre setup claude-code --auto-inject` so default behaviour stays conservative
 - [ ] **T4D8** `tre status` v2 — adds "shared: X pins exported / Y pending import / Z redacted" line

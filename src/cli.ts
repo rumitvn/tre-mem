@@ -4,6 +4,7 @@ import { basename, resolve } from 'node:path';
 
 import { ClaudeMemAdapter } from './adapter/claude-mem.js';
 import { backfill } from './git/backfill.js';
+import { prHeadBranch } from './git/github.js';
 import { gitAuthor } from './git/identity.js';
 import { NO_GIT, currentBranch, isDetached } from './git/resolver.js';
 import { type SessionStartInput, runSessionStartHook } from './hooks/session-start.js';
@@ -12,6 +13,7 @@ import { searchBranchContext, type SearchHit } from './retrieval/search.js';
 import { migrate } from './store/migrate.js';
 import { SYNC_DIR_NAME, ensureSyncScaffold } from './sync/layout.js';
 import { exportSync } from './sync/export.js';
+import { graduateBranch } from './sync/graduate.js';
 import { importDir } from './sync/import.js';
 import { RedactionError } from './sync/redact.js';
 import { loadShareignore } from './sync/shareignore.js';
@@ -429,6 +431,70 @@ cli
       repo.close();
     }
   });
+
+cli
+  .command(
+    'graduate-pr <ref>',
+    'Promote a merged branch\'s pins to graduated.jsonl (ref = PR number or branch name)',
+  )
+  .option('--repo <owner/name>', 'GitHub repo for PR lookup (defaults to gh detection)')
+  .option('--cwd <path>', 'Repo root that holds the .tre-mem/ directory (defaults to current dir)')
+  .option('--dir <path>', 'Sync directory (defaults to <cwd>/.tre-mem)')
+  .option('--branch <name>', 'Graduate this branch directly (skips PR lookup)')
+  .option('--author <name>', 'Attribution (defaults to git config user.name)')
+  .option('--dry-run', 'Compute changes without writing graduated.jsonl')
+  .action(
+    async (
+      ref: string,
+      flags: {
+        repo?: string;
+        cwd?: string;
+        dir?: string;
+        branch?: string;
+        author?: string;
+        dryRun?: boolean;
+      },
+    ) => {
+      const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
+      const dir = flags.dir ? resolve(flags.dir) : resolve(cwd, SYNC_DIR_NAME);
+
+      let branch = flags.branch;
+      if (!branch) {
+        if (/^\d+$/.test(ref)) {
+          branch = (await prHeadBranch(Number.parseInt(ref, 10), flags.repo)) ?? undefined;
+          if (!branch) {
+            process.stderr.write(
+              `tre graduate-pr: could not resolve PR #${ref} to a branch (is gh installed + authed?). ` +
+                `Pass --branch <name> to graduate directly.\n`,
+            );
+            process.exit(2);
+          }
+        } else {
+          branch = ref; // non-numeric ref is treated as a branch name
+        }
+      }
+
+      const author = flags.author ?? (await gitAuthor(cwd));
+      const result = graduateBranch({
+        dir,
+        branch,
+        now: Math.floor(Date.now() / 1000),
+        author,
+        dryRun: flags.dryRun ?? false,
+      });
+
+      const tag = result.dryRun ? ' (dry-run)' : '';
+      console.log(`tre-mem graduate-pr${tag}: branch ${result.branch} -> ${result.file}`);
+      console.log(`  graduated:        ${result.graduated}`);
+      console.log(`  already graduated: ${result.alreadyGraduated}`);
+      if (result.skippedFreeText > 0) {
+        console.log(`  skipped (free-text pins): ${result.skippedFreeText}`);
+      }
+      if (!result.dryRun && result.graduated > 0) {
+        console.log(`  commit ${SYNC_DIR_NAME}/graduated.jsonl to publish these repo-wide facts.`);
+      }
+    },
+  );
 
 cli.command('mcp', 'Start the tre-mem MCP server on stdio').action(async () => {
   await runMcpServer();
