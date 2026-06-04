@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
+import { type RecentObs, buildSessionDigest, timeLabel } from '../format/digest.js';
 import { currentBranch } from '../git/resolver.js';
 import { log, logError } from '../log/logger.js';
 import { TreMemRepo } from '../store/repo.js';
@@ -24,6 +25,12 @@ export interface SessionStartOptions {
   now?: () => number;
   /** Skip the auto-import of the committed `.tre-mem/` directory. */
   skipImport?: boolean;
+  /**
+   * Resolve the most-recent branch-tagged observations for the digest. May
+   * throw (e.g. claude-mem missing) — the hook then renders an empty list plus
+   * a hint and never fails. Returns [] when there simply are no tags yet.
+   */
+  recent?: (args: { project: string; branch: string }) => RecentObs[];
 }
 
 export interface SessionStartResult {
@@ -36,7 +43,10 @@ export interface SessionStartResult {
   tagged_count_for_project: number;
   imported_pins: number;
   imported_graduated: number;
+  /** Plain ASCII digest for the model (`additionalContext`). */
   message: string;
+  /** Colored digest for display (`systemMessage`). */
+  display: string;
 }
 
 export async function runSessionStartHook(
@@ -82,14 +92,29 @@ export async function runSessionStartHook(
       }
     }
 
-    const message = formatMessage({
+    let recent: RecentObs[] = [];
+    let note: string | undefined;
+    if (opts.recent) {
+      try {
+        recent = opts.recent({ project, branch });
+      } catch (err) {
+        // claude-mem missing/incompatible — never block the session.
+        logError('hook', 'session_recent_failed', err, { project, branch });
+        note = 'claude-mem unavailable — run `tre doctor` for setup help.';
+      }
+    }
+
+    const digest = buildSessionDigest({
       project,
       branch,
-      tagged_count_for_branch,
-      tagged_count_for_project,
-      imported_pins,
-      imported_graduated,
       source,
+      timeLabel: timeLabel(new Date(tagged_at_epoch * 1000)),
+      taggedOnBranch: tagged_count_for_branch,
+      taggedOnProject: tagged_count_for_project,
+      importedPins: imported_pins,
+      importedGraduated: imported_graduated,
+      recent,
+      note,
     });
     log({
       level: 'info',
@@ -116,29 +141,10 @@ export async function runSessionStartHook(
       tagged_count_for_project,
       imported_pins,
       imported_graduated,
-      message,
+      message: digest.context,
+      display: digest.display,
     };
   } finally {
     if (ownsRepo) repo.close();
   }
-}
-
-function formatMessage(parts: {
-  project: string;
-  branch: string;
-  tagged_count_for_branch: number;
-  tagged_count_for_project: number;
-  imported_pins: number;
-  imported_graduated: number;
-  source: SessionStartSource;
-}): string {
-  const imported =
-    parts.imported_pins + parts.imported_graduated > 0
-      ? ` imported=${parts.imported_pins}pin/${parts.imported_graduated}grad`
-      : '';
-  return (
-    `tre-mem: project=${parts.project} branch=${parts.branch} ` +
-    `tagged_on_branch=${parts.tagged_count_for_branch} ` +
-    `tagged_on_project=${parts.tagged_count_for_project}${imported} (source=${parts.source})`
-  );
 }

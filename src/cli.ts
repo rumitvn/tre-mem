@@ -4,6 +4,9 @@ import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 
 import { ClaudeMemAdapter } from './adapter/claude-mem.js';
+import { claudeMemGuidance, diagnoseClaudeMem } from './adapter/preflight.js';
+import { auto as theme } from './format/colors.js';
+import type { RecentObs } from './format/digest.js';
 import { backfill } from './git/backfill.js';
 import { prHeadBranch } from './git/github.js';
 import { gitAuthor } from './git/identity.js';
@@ -25,6 +28,7 @@ import { loadShareignore } from './sync/shareignore.js';
 import { AdapterSnapshotProvider } from './sync/snapshot.js';
 import { TRE_MEM_DB_PATH, TRE_MEM_HOME } from './store/paths.js';
 import { TreMemRepo } from './store/repo.js';
+import { VERSION } from './version.js';
 
 interface BackfillFlags {
   project?: string;
@@ -46,6 +50,26 @@ cli.command('init', 'Initialize ~/.tre-mem/ and run schema migrations').action((
   }
   console.log(`  home: ${TRE_MEM_HOME}`);
   console.log(`  db:   ${TRE_MEM_DB_PATH}`);
+
+  const cm = diagnoseClaudeMem();
+  if (!cm.installed || !cm.compatible) {
+    console.log('');
+    console.log(claudeMemGuidance(cm, theme.isColorSupported));
+  } else {
+    console.log(`  ${claudeMemGuidance(cm, theme.isColorSupported)}`);
+    console.log(`  next: ${theme.cyan('tre backfill')} to branch-tag past observations`);
+  }
+});
+
+cli.command('doctor', 'Diagnose claude-mem connectivity and tre-mem setup').action(() => {
+  console.log(theme.bold('tre-mem doctor'));
+  console.log(`  version: ${VERSION}`);
+  console.log(`  home:    ${TRE_MEM_HOME}`);
+  console.log(`  db:      ${TRE_MEM_DB_PATH}`);
+  console.log('');
+  const cm = diagnoseClaudeMem();
+  console.log(claudeMemGuidance(cm, theme.isColorSupported));
+  process.exitCode = cm.installed && cm.compatible ? 0 : 1;
 });
 
 cli
@@ -90,23 +114,28 @@ cli
       repo.close();
     }
 
+    const cm = diagnoseClaudeMem();
+    if (!cm.installed || !cm.compatible) {
+      console.log('');
+      console.log(claudeMemGuidance(cm, theme.isColorSupported));
+      return;
+    }
+    const schema = cm.schemaVersion !== null ? `v${cm.schemaVersion}` : 'unknown';
+    console.log(`  claude-mem: schema ${schema} (tested up to v${cm.testedSchema})`);
+    if (cm.newerThanTested) {
+      console.log(claudeMemGuidance(cm, theme.isColorSupported));
+    }
+    const adapter = new ClaudeMemAdapter();
     try {
-      const adapter = new ClaudeMemAdapter();
-      try {
-        const obs = adapter.getObservations({ project, limit: 1 });
-        if (obs.length === 0) {
-          console.log('  claude-mem observations: 0');
-        } else {
-          const head = obs[0];
-          if (head) {
-            console.log(`  claude-mem observations: >=1 (newest at ${head.created_at})`);
-          }
-        }
-      } finally {
-        adapter.close();
-      }
-    } catch (err) {
-      console.log(`  claude-mem: ${(err as Error).message}`);
+      const obs = adapter.getObservations({ project, limit: 1 });
+      const head = obs[0];
+      console.log(
+        head
+          ? `  claude-mem observations: >=1 (newest at ${head.created_at})`
+          : '  claude-mem observations: 0',
+      );
+    } finally {
+      adapter.close();
     }
   });
 
@@ -125,6 +154,7 @@ cli
     const limit = flags.limit !== undefined ? Number.parseInt(flags.limit, 10) : undefined;
 
     migrate();
+    if (!ensureClaudeMemReady()) return;
     const cur = await currentBranch(cwd);
     const fallbackBranch = cur === NO_GIT || isDetached(cur) ? undefined : cur;
     const adapter = new ClaudeMemAdapter();
@@ -188,6 +218,7 @@ cli
       const k = Number.parseInt(String(flags.k ?? 10), 10);
 
       migrate();
+      if (!ensureClaudeMemReady()) return;
       const adapter = new ClaudeMemAdapter();
       const repo = new TreMemRepo();
       try {
@@ -340,6 +371,7 @@ cli
       const author = flags.author ?? (await gitAuthor(cwd));
 
       migrate();
+      if (!ensureClaudeMemReady()) return;
       const adapter = new ClaudeMemAdapter();
       const repo = new TreMemRepo();
       try {
@@ -605,7 +637,7 @@ try {
 }
 
 function getPackageVersion(): string {
-  return '0.3.1';
+  return VERSION;
 }
 
 function printSearchHeader(info: {
@@ -634,18 +666,63 @@ function printSearchHit(hit: SearchHit): void {
   console.log(`         ${breakdown}`);
 }
 
+/**
+ * Print friendly guidance and flag a failing exit if claude-mem can't be read.
+ * Returns true when the adapter is safe to open. Keeps commands stack-trace-free
+ * for the most common first-run footgun (claude-mem not installed).
+ */
+function ensureClaudeMemReady(): boolean {
+  const cm = diagnoseClaudeMem();
+  if (!cm.installed || !cm.compatible) {
+    console.error(claudeMemGuidance(cm, theme.isColorSupported));
+    process.exitCode = 1;
+    return false;
+  }
+  return true;
+}
+
+const RECENT_LIMIT = 8;
+
+/**
+ * Resolve the most-recent branch-tagged observations for the session digest,
+ * preserving recency order. Throws if claude-mem is missing/incompatible (when
+ * there are tags to resolve) — the hook catches it and degrades gracefully.
+ */
+function recentObservations(repo: TreMemRepo, project: string, branch: string): RecentObs[] {
+  const tags = repo.listBranchTagsForBranch(project, branch, RECENT_LIMIT);
+  if (tags.length === 0) return [];
+  const adapter = new ClaudeMemAdapter();
+  try {
+    const ids = tags.map((t) => t.observation_id);
+    const byId = new Map(adapter.getObservationsByIds(ids).map((o) => [o.id, o]));
+    return ids
+      .map((id) => byId.get(id))
+      .filter((o): o is NonNullable<typeof o> => o !== undefined)
+      .map((o) => ({
+        id: o.id,
+        type: o.type,
+        title: o.title ?? o.subtitle ?? (o.text ? o.text.slice(0, 70) : null),
+      }));
+  } finally {
+    adapter.close();
+  }
+}
+
 async function runSessionStartHookCli(): Promise<void> {
   try {
     const input = await readStdinJson<SessionStartInput>();
     migrate();
     const repo = new TreMemRepo();
     try {
-      const result = await runSessionStartHook(input, { repo });
+      const result = await runSessionStartHook(input, {
+        repo,
+        recent: ({ project, branch }) => recentObservations(repo, project, branch),
+      });
       process.stdout.write(
         `${JSON.stringify({
           continue: true,
           hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: result.message },
-          systemMessage: result.message,
+          systemMessage: result.display,
         })}\n`,
       );
     } finally {
