@@ -89,6 +89,35 @@ tre status                   # sanity check
 tre mcp                      # start MCP server (registered in ~/.claude.json)
 ```
 
+## Pre-push gate (must match CI, or the PR fails)
+
+CI (`.github/workflows/ci.yml`) runs these **in this order** on Node 20 + 22. Run
+the same locally before committing/pushing — a failure at any step blocks the PR:
+
+```bash
+pnpm format:check            # prettier --check .   ← easy to miss; run pnpm format to fix
+pnpm lint                    # eslint .
+pnpm typecheck               # tsc --noEmit
+pnpm test                    # vitest run
+pnpm build                   # tsc → dist/ (+ copy assets)
+```
+
+One-liner before pushing:
+
+```bash
+pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
+```
+
+> ⚠️ `format:check` covers **all** files including Markdown — editing a README or
+> doc can fail CI on formatting alone. Run `pnpm format` to auto-fix, then re-stage.
+
+### Version bumps
+
+Version lives in exactly **two** places, kept in sync: `package.json` `version`
+and `src/version.ts` `VERSION`. Update both, add a `CHANGELOG.md` entry, then run
+the gate above (the bump changes `tre --version` output asserted nowhere, but the
+build must still pass).
+
 ## Where things live
 
 - This project: `/Users/rumnv/Documents/tre-mem/`
