@@ -7,6 +7,17 @@ export interface RecentObs {
   title: string | null;
 }
 
+export interface PinnedFact {
+  /** Source observation id, or null for a free-text pin. */
+  id: number | null;
+  type: string | null;
+  title: string | null;
+  /** The human "why this matters" note attached at pin time. */
+  note: string | null;
+  /** True once the pin has been exported/imported (lives in the team's .tre-mem/). */
+  shared: boolean;
+}
+
 export interface SessionDigestParts {
   project: string;
   branch: string;
@@ -17,6 +28,8 @@ export interface SessionDigestParts {
   taggedOnProject: number;
   importedPins: number;
   importedGraduated: number;
+  /** Curated pins for this branch (with notes), surfaced above the recent list. */
+  pinned?: PinnedFact[];
   /** Most-recent branch-tagged observations (already resolved + ordered). */
   recent: RecentObs[];
   /** Optional trailing note (plain text), e.g. a claude-mem compatibility hint. */
@@ -31,10 +44,29 @@ export interface SessionDigest {
 }
 
 const TITLE_MAX = 70;
+const NOTE_MAX = 80;
 const RECENT_MAX = 8;
+const PIN_MAX = 6;
 
 function truncate(s: string, max: number): string {
   return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
+}
+
+/** The pinned/shared block — curated facts (and their notes) float above recents. */
+function renderPinned(pinned: PinnedFact[], c: Palette): string[] {
+  if (pinned.length === 0) return [];
+  const lines: string[] = ['', c.bold(`📌 Pinned on this branch`)];
+  for (const p of pinned.slice(0, PIN_MAX)) {
+    const { emoji } = iconFor(p.type);
+    const id = c.dim(p.id !== null ? `#${p.id}` : '#—');
+    const title = truncate(p.title ?? '(pinned fact)', TITLE_MAX);
+    const shared = p.shared ? ` ${c.dim('[shared]')}` : '';
+    lines.push(`${id} ${emoji} ${title}${shared}`);
+    if (p.note && p.note.trim() !== '') {
+      lines.push(`   ${c.dim(`↳ ${truncate(p.note.trim(), NOTE_MAX)}`)}`);
+    }
+  }
+  return lines;
 }
 
 function render(parts: SessionDigestParts, c: Palette): string {
@@ -53,6 +85,8 @@ function render(parts: SessionDigestParts, c: Palette): string {
   }
   stats += ` · ${c.dim(`source: ${parts.source}`)}`;
   lines.push(stats);
+
+  lines.push(...renderPinned(parts.pinned ?? [], c));
 
   lines.push('');
   const recent = parts.recent.slice(0, RECENT_MAX);

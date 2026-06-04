@@ -1,7 +1,12 @@
 import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
-import { type RecentObs, buildSessionDigest, timeLabel } from '../format/digest.js';
+import {
+  type PinnedFact,
+  type RecentObs,
+  buildSessionDigest,
+  timeLabel,
+} from '../format/digest.js';
 import { currentBranch } from '../git/resolver.js';
 import { log, logError } from '../log/logger.js';
 import { TreMemRepo } from '../store/repo.js';
@@ -31,6 +36,12 @@ export interface SessionStartOptions {
    * a hint and never fails. Returns [] when there simply are no tags yet.
    */
   recent?: (args: { project: string; branch: string }) => RecentObs[];
+  /**
+   * Resolve curated pins for this branch (with notes). Resilient: works from the
+   * pins' own snapshots even when claude-mem is unavailable. Returns [] when the
+   * branch has no pins.
+   */
+  pinned?: (args: { project: string; branch: string }) => PinnedFact[];
 }
 
 export interface SessionStartResult {
@@ -104,6 +115,16 @@ export async function runSessionStartHook(
       }
     }
 
+    let pinned: PinnedFact[] = [];
+    if (opts.pinned) {
+      try {
+        pinned = opts.pinned({ project, branch });
+      } catch (err) {
+        // Pins must never block a session — degrade to no pinned block.
+        logError('hook', 'session_pinned_failed', err, { project, branch });
+      }
+    }
+
     const digest = buildSessionDigest({
       project,
       branch,
@@ -113,6 +134,7 @@ export async function runSessionStartHook(
       taggedOnProject: tagged_count_for_project,
       importedPins: imported_pins,
       importedGraduated: imported_graduated,
+      pinned,
       recent,
       note,
     });

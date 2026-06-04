@@ -6,7 +6,7 @@ import { basename, resolve } from 'node:path';
 import { ClaudeMemAdapter } from './adapter/claude-mem.js';
 import { claudeMemGuidance, diagnoseClaudeMem } from './adapter/preflight.js';
 import { auto as theme } from './format/colors.js';
-import type { RecentObs } from './format/digest.js';
+import type { PinnedFact, RecentObs } from './format/digest.js';
 import { backfill } from './git/backfill.js';
 import { prHeadBranch } from './git/github.js';
 import { gitAuthor } from './git/identity.js';
@@ -34,6 +34,53 @@ interface BackfillFlags {
   project?: string;
   since?: string;
   limit?: string;
+}
+
+/**
+ * `tre export` publishes *curated* facts (pins + graduated), never the local
+ * branch_tag index. When an export adds 0 rows, explain why and what to do —
+ * the most common cause is "you have lots of tagged context but nothing pinned".
+ */
+function printNothingToExportHint(opts: {
+  exportedBranches: ReadonlyArray<string>;
+  projectPins: ReadonlyArray<{ branch: string; shared_at_epoch: number | null }>;
+  graduatedCount: number;
+}): void {
+  const { exportedBranches, projectPins, graduatedCount } = opts;
+
+  if (projectPins.length === 0 && graduatedCount === 0) {
+    console.log('');
+    console.log('  Nothing to share yet. `tre export` publishes the facts you curate —');
+    console.log('  pinned + graduated facts — not the local branch index (your branch_tag');
+    console.log('  rows stay on this machine). Curate something first, then re-run export:');
+    console.log(
+      `    ${theme.cyan('tre pin <observation-id>')}        mark a fact important for a branch`,
+    );
+    console.log(`    ${theme.cyan('tre graduate <observation-id>')}   promote a fact project-wide`);
+    console.log('  (or use the pin_fact / graduate_fact MCP tools from Claude Code.)');
+    console.log(
+      `  Find ids with ${theme.cyan('tre search "<query>"')} or the get_branch_context MCP tool.`,
+    );
+    return;
+  }
+
+  const onExported = projectPins.filter((p) => exportedBranches.includes(p.branch));
+  if (onExported.length === 0 && projectPins.length > 0) {
+    console.log('');
+    console.log(
+      `  No pins on the exported branch(es): ${exportedBranches.join(', ') || '(none)'}.`,
+    );
+    console.log(
+      `  ${projectPins.length} pin(s) live on other branches — run ${theme.cyan('tre export --all')} to include them.`,
+    );
+    return;
+  }
+
+  const pendingOnExported = onExported.filter((p) => p.shared_at_epoch === null).length;
+  if (pendingOnExported === 0) {
+    console.log('');
+    console.log('  Everything is already exported — nothing new to add.');
+  }
 }
 
 const cli = cac('tre');
@@ -106,10 +153,18 @@ cli
       const graduatedCount = repo.listGraduated(project).length;
       const syncDir = resolve(cwd, SYNC_DIR_NAME);
       const hasSyncDir = existsSync(syncDir);
+      if (pins.length === 0 && graduatedCount === 0) {
+        console.log(
+          `  shared: nothing pinned yet — ${theme.cyan('tre pin <id>')} / ${theme.cyan('tre graduate <id>')} curate facts, then ${theme.cyan('tre export')}`,
+        );
+      } else {
+        console.log(
+          `  shared: ${sharedPins} pin(s) exported / ${pendingPins} pending export / ${graduatedCount} graduated`,
+        );
+      }
       console.log(
-        `  shared: ${sharedPins} pin(s) exported / ${pendingPins} pending export / ${graduatedCount} graduated`,
+        `  .tre-mem/: ${hasSyncDir ? syncDir : pins.length === 0 && graduatedCount === 0 ? '(not present — pin a fact first, then `tre export`)' : '(not present — run `tre export`)'}`,
       );
-      console.log(`  .tre-mem/: ${hasSyncDir ? syncDir : '(not present — run `tre export`)'}`);
     } finally {
       repo.close();
     }
@@ -442,6 +497,13 @@ cli
           if (totalAdded > 0) ensureSyncScaffold(result.dir);
           console.log(`  added ${totalAdded} row(s). Commit .tre-mem/ to share with your team.`);
         }
+        if (totalAdded === 0) {
+          printNothingToExportHint({
+            exportedBranches: result.branches.map((b) => b.branch),
+            projectPins: repo.listPinsForProject(project),
+            graduatedCount: repo.listGraduated(project).length,
+          });
+        }
       } finally {
         adapter.close();
         repo.close();
@@ -708,6 +770,47 @@ function recentObservations(repo: TreMemRepo, project: string, branch: string): 
   }
 }
 
+/**
+ * Resolve curated pins for the session digest. Resilient by design: prefers the
+ * live observation title/type, but falls back to the pin's own snapshot so a
+ * teammate's shared pin still renders even without claude-mem or the source
+ * observation locally. Never throws — pins must not block a session.
+ */
+function pinnedFacts(repo: TreMemRepo, project: string, branch: string): PinnedFact[] {
+  const pins = repo.listPinsForBranch(project, branch).slice(0, RECENT_LIMIT);
+  if (pins.length === 0) return [];
+
+  let byId = new Map<number, { type: string | null; title: string | null }>();
+  const ids = pins.map((p) => p.observation_id).filter((id): id is number => id !== null);
+  if (ids.length > 0) {
+    try {
+      const adapter = new ClaudeMemAdapter();
+      try {
+        byId = new Map(
+          adapter
+            .getObservationsByIds(ids)
+            .map((o) => [o.id, { type: o.type, title: o.title ?? o.subtitle ?? null }]),
+        );
+      } finally {
+        adapter.close();
+      }
+    } catch {
+      /* claude-mem unavailable — fall back to pin snapshots below */
+    }
+  }
+
+  return pins.map((p) => {
+    const live = p.observation_id !== null ? byId.get(p.observation_id) : undefined;
+    return {
+      id: p.observation_id,
+      type: live?.type ?? null,
+      title: live?.title ?? p.title ?? null,
+      note: p.note,
+      shared: p.shared_at_epoch !== null,
+    };
+  });
+}
+
 async function runSessionStartHookCli(): Promise<void> {
   try {
     const input = await readStdinJson<SessionStartInput>();
@@ -717,6 +820,7 @@ async function runSessionStartHookCli(): Promise<void> {
       const result = await runSessionStartHook(input, {
         repo,
         recent: ({ project, branch }) => recentObservations(repo, project, branch),
+        pinned: ({ project, branch }) => pinnedFacts(repo, project, branch),
       });
       process.stdout.write(
         `${JSON.stringify({
