@@ -141,12 +141,12 @@ reduced-motion respected. Bundle target < 80kb JS gzipped (microsite budget).
 
 ### Week 6 — SPA + design + ship
 
-- [ ] **T6D6** esbuild pipeline (`scripts/build-web.mjs` → `dist/web/`) wired into `pnpm build`; React shell + `tokens.css` design system
-- [ ] **T6D7** Overview + branch-map viz; Branch-detail timeline
-- [ ] **T6D8** Team-memory view (pins + graduated + authors) + Search view with score breakdown
-- [ ] **T6D9** Live wiring (SSE → targeted re-fetch); dark/light; a11y + reduced-motion; Playwright smoke (optional, gated)
-- [ ] **T6D10** Polish: `docs/WEB-UI.md`, README + README.vi web section, version bump `0.4.0 → 0.5.0`, CHANGELOG `[0.5.0]`, full pre-push gate, PR
-- [ ] **T6D10** **Checkpoint T6 (moment of truth)**: a teammate opens `tre web`, sees the team's shared pins/graduated/branch-map, and the page updates live on a fresh `git pull` + `tre import`
+- [x] **T6D6** esbuild pipeline (`scripts/build-web.mjs` → `dist/web/public`, ~65 kb gz) wired into `pnpm build`; React shell + `styles.css` design system (oklch tokens, serif/sans pairing, light+dark); `tsconfig.web.json` typechecks the SPA
+- [x] **T6D7** Overview + branch-graph hero viz; Branch-detail timeline (pins + graduated + tagged activity)
+- [x] **T6D8** Team-memory view (pins + graduated, branch context + shared/pending) + Search view with per-signal score breakdown
+- [x] **T6D9** Live wiring (SSE → `refreshKey` re-fetch); dark/light toggle (no-flash boot); a11y (semantic nav, aria-current, focus rings) + reduced-motion. Playwright deferred (kept out of CI to stay lean) — server/API/SSE/watch covered by unit + integration tests
+- [x] **T6D10** Polish: `docs/WEB-UI.md`, README + README.vi web section, version bump `0.4.0 → 0.5.0`, CHANGELOG `[0.5.0]`
+- [x] **T6D10** **Checkpoint T6**: live `tre web` on this repo serves the SPA (traversal-guarded static + SPA fallback), real SSE handshake delivers `hello`, `/api/projects` lists all 9 real projects; watch→SSE (branch/sidecar) proven by unit tests. 248 tests; format + lint + typecheck (src + web) + build all green
 
 ---
 

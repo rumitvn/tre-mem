@@ -90,7 +90,12 @@ describe('web API (shared-memory-only, adapter absent)', () => {
   it('GET /api/health reports shared-only mode', async () => {
     const { status, body } = await get('/api/health');
     expect(status).toBe(200);
-    expect(body).toMatchObject({ ok: true, mode: 'shared-only', project: PROJECT, version: '9.9.9' });
+    expect(body).toMatchObject({
+      ok: true,
+      mode: 'shared-only',
+      project: PROJECT,
+      version: '9.9.9',
+    });
   });
 
   it('GET /api/projects includes the launched project', async () => {

@@ -110,7 +110,11 @@ export function openBrowser(targetUrl: string): void {
   const cmd =
     process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
   try {
-    const child = spawn(cmd, [targetUrl], { stdio: 'ignore', detached: true, shell: process.platform === 'win32' });
+    const child = spawn(cmd, [targetUrl], {
+      stdio: 'ignore',
+      detached: true,
+      shell: process.platform === 'win32',
+    });
     child.on('error', () => {});
     child.unref();
   } catch {
