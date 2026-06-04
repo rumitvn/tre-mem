@@ -1,6 +1,6 @@
 # CLAUDE.md — Codebase Guide for Claude Code
 
-> **Always read `PLAN.md` first.** It is the single source of truth for scope, architecture, roadmap, and progress. This file gives Claude orientation; `PLAN.md` gives the work.
+> **Always read `PLAN.md` first.** It is the single source of truth for scope, architecture, roadmap, and progress. This file gives Claude orientation; `PLAN.md` gives the work. Phase SSOTs chain from it: `PLAN-PHASE2.md` (v0.2–0.4 team share), `PLAN-PHASE3.md` (v0.5 web dashboard), `PLAN-PHASE4.md` (v0.6 cross-tool).
 
 ## What this project is
 

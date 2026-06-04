@@ -226,6 +226,30 @@ tre logs --clear         # xóa rỗng log (và xóa bản backup .1)
 
 File tự xoay vòng sang `tre-mem.log.1` khi vượt 5 MB, nên không bao giờ phình vô hạn.
 
+## Xem trực quan — dashboard nhóm (v0.5)
+
+Phase 2 đưa memory đi qua git; **v0.5 cho cả nhóm _nhìn thấy_ nó.** Chạy `tre web`
+để mở dashboard cục bộ, chỉ-đọc: cây nhánh (branch graph), các quyết định đã pin,
+fact đã graduated, và những gì đang chờ export — cập nhật trực tiếp khi repo và
+sidecar thay đổi. Không tài khoản, không cloud; chỉ bind `127.0.0.1`.
+
+```bash
+tre web                 # khởi động + mở trình duyệt (Ctrl-C để dừng)
+tre web --background    # chạy nền; quản lý bằng `tre web status` / `tre web stop`
+```
+
+- **Branch graph** — mỗi nhánh kèm số observation đã tag, số pin, lần hoạt động
+  gần nhất, và `HEAD` hiện tại.
+- **Team memory** — ai đã pin gì và vì sao, kèm các fact đã graduated, với nhãn
+  `shared` / `pending export`.
+- **Search** — theo nhánh, kèm phân rã điểm theo từng tín hiệu.
+- **Live** — phản ứng khi đổi nhánh, khi đồng đội `git pull` / `tre import`, và khi
+  pin được ghi từ terminal khác (SSE).
+
+Hoạt động cả khi **không có claude-mem** (chế độ shared-memory-only: pin +
+graduated từ sidecar/`.tre-mem/`, tìm kiếm substring). Hướng dẫn đầy đủ:
+[docs/WEB-UI.md](./docs/WEB-UI.md).
+
 ## Kiến trúc
 
 ```

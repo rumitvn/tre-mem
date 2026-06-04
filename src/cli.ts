@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { cac } from 'cac';
+import { spawn } from 'node:child_process';
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 
@@ -29,6 +30,8 @@ import { AdapterSnapshotProvider } from './sync/snapshot.js';
 import { TRE_MEM_DB_PATH, TRE_MEM_HOME } from './store/paths.js';
 import { TreMemRepo } from './store/repo.js';
 import { VERSION } from './version.js';
+import { clearDaemon, reconcileDaemon, stopDaemon, writeDaemon } from './web/daemon.js';
+import { runWebServer } from './web/server.js';
 
 interface BackfillFlags {
   project?: string;
@@ -636,6 +639,91 @@ cli
 cli.command('mcp', 'Start the tre-mem MCP server on stdio').action(async () => {
   await runMcpServer();
 });
+
+interface WebFlags {
+  background?: boolean;
+  port?: string;
+  open?: boolean;
+}
+
+cli
+  .command('web [action]', 'Open the team memory dashboard (start | stop | status)')
+  .option('--background', 'Run the dashboard server detached in the background')
+  .option('--port <port>', 'Port to bind (default: TRE_MEM_WEB_PORT or 38700+uid)')
+  .option('--no-open', 'Do not auto-open the browser')
+  .action(async (action: string | undefined, flags: WebFlags) => {
+    const cmd = action ?? 'start';
+    const portFlag = flags.port ? Number.parseInt(flags.port, 10) : undefined;
+    const port = portFlag !== undefined && Number.isInteger(portFlag) ? portFlag : undefined;
+
+    if (cmd === 'status') {
+      const info = reconcileDaemon();
+      if (info) {
+        console.log(
+          `tre web: running (pid ${info.pid}) → ${theme.cyan(`http://127.0.0.1:${info.port}/`)}`,
+        );
+      } else {
+        console.log('tre web: not running');
+      }
+      return;
+    }
+
+    if (cmd === 'stop') {
+      const result = stopDaemon();
+      console.log(
+        result.stopped ? `tre web: stopped (pid ${result.pid})` : 'tre web: nothing to stop',
+      );
+      return;
+    }
+
+    // Hidden action used by the detached background child.
+    if (cmd === '__serve') {
+      const running = await runWebServer({ port, open: false });
+      writeDaemon({
+        pid: process.pid,
+        port: running.port,
+        startedAtEpoch: Math.floor(Date.now() / 1000),
+      });
+      const shutdown = (): void => {
+        clearDaemon();
+        void running.close().then(() => process.exit(0));
+      };
+      process.on('SIGINT', shutdown);
+      process.on('SIGTERM', shutdown);
+      return;
+    }
+
+    if (cmd !== 'start') {
+      console.error(`tre web: unknown action "${cmd}" (use start | stop | status)`);
+      process.exitCode = 1;
+      return;
+    }
+
+    if (flags.background) {
+      const existing = reconcileDaemon();
+      if (existing) {
+        console.log(
+          `tre web: already running (pid ${existing.pid}) → http://127.0.0.1:${existing.port}/`,
+        );
+        return;
+      }
+      const args = [process.argv[1] as string, 'web', '__serve'];
+      if (port !== undefined) args.push('--port', String(port));
+      const child = spawn(process.execPath, args, { detached: true, stdio: 'ignore' });
+      child.unref();
+      console.log('tre web: starting in background — check `tre web status` in a moment.');
+      return;
+    }
+
+    const running = await runWebServer({ port, open: flags.open !== false });
+    console.log(`tre web: ${theme.bold(running.mode)} mode → ${theme.cyan(running.url)}`);
+    console.log('  press Ctrl-C to stop.');
+    const shutdown = (): void => {
+      void running.close().then(() => process.exit(0));
+    };
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+  });
 
 interface LogsFlags {
   tail?: string | number;

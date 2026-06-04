@@ -5,6 +5,11 @@
 
 > **Đây là single source of truth.** Mọi tiến độ, quyết định, đổi scope đều cập nhật vào file này và commit cùng code.
 
+> **Phase plans (SSOT chain):** [`PLAN.md`](./PLAN.md) — Phase 1 (v0.1.x, branch-aware solo) ·
+> [`PLAN-PHASE2.md`](./PLAN-PHASE2.md) — Phase 2 (v0.2–v0.4.x, git-native team share) ·
+> [`PLAN-PHASE3.md`](./PLAN-PHASE3.md) — Phase 3 (v0.5.x, team web dashboard) ·
+> [`PLAN-PHASE4.md`](./PLAN-PHASE4.md) — Phase 4 (v0.6.x, cross-tool port). Current: **v0.4.0**.
+
 ---
 
 ## Context

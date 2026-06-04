@@ -4,6 +4,44 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-06-04
+
+**`tre web` — a local dashboard for your team's shared roots.** Phase 2 made AI
+memory travel through git; this release lets the whole team _see_ it. Run
+`tre web` and a localhost dashboard shows the branch graph, every pinned decision,
+the facts that graduated repo-wide, and what's pending export — reading straight
+from the sidecar + the committed `.tre-mem/`, and updating live as the repo and
+sidecar change. Read-only, local-only, no account, no cloud.
+
+### Added
+
+- **`tre web [start|stop|status]`** — starts a local, read-only dashboard
+  (foreground or `--background` daemon with a self-healing pidfile under
+  `~/.tre-mem/`). Port defaults to `TRE_MEM_WEB_PORT` or `38700 + (uid % 100)`
+  and walks forward if busy; auto-opens the browser (disable with `--no-open`).
+- **Dashboard views** — Overview with a **branch-graph** hero (tag counts, pins,
+  last-active, current `HEAD`), per-branch detail (pins + graduated + tagged
+  activity), a **Team-memory** view (pinned decisions and graduated facts with
+  branch + shared/pending state), and a branch-aware **Search** with a per-signal
+  score breakdown (semantic / branch / recency / graduated / pin).
+- **Live updates over SSE** — the page reacts to branch switches (`.git/HEAD`),
+  teammate memory landing (`.tre-mem/` changes), and sidecar writes from another
+  terminal, without a manual refresh.
+- **Shared-memory-only mode** — the dashboard (and its API) render fully even when
+  claude-mem is not installed: pins + graduated come from the sidecar/`.tre-mem/`,
+  and Search degrades to a substring match over those self-contained snapshots.
+  This is also groundwork for the v0.6 cross-tool port.
+- **Frontend pipeline** — a React SPA bundled with esbuild to a static
+  `dist/web/public` (~65 kb gzipped), served by a dependency-light `node:http`
+  server (no Express). Build via `pnpm build` (or `pnpm build:web`).
+
+### Notes
+
+- The dashboard binds `127.0.0.1` and is read-only. Observation _ingest_ remains
+  claude-mem's job; tre-mem visualizes the branch-aware + git-shared layer on top.
+- Playwright visual-regression smoke is deferred (kept out of CI to stay lean);
+  the server/API/SSE/watch paths have unit + integration coverage.
+
 ## [0.4.0] — 2026-06-04
 
 **Curated pins now surface in the session digest, and `tre export` explains

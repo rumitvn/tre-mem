@@ -305,6 +305,29 @@ Key properties:
 Full guide: [docs/TEAM-WORKFLOW.md](./docs/TEAM-WORKFLOW.md). Upgrading from
 v0.1 is automatic — see [docs/MIGRATION-v1-v2.md](./docs/MIGRATION-v1-v2.md).
 
+## See it — the team dashboard (v0.5)
+
+Phase 2 made memory travel through git; **v0.5 lets your team _see_ it.** Run
+`tre web` for a local, read-only dashboard of the branch graph, pinned decisions,
+graduated facts, and what's pending export — updating live as the repo and sidecar
+change. No account, no cloud; binds `127.0.0.1` only.
+
+```bash
+tre web                 # start + open the browser (Ctrl-C to stop)
+tre web --background    # run detached; manage with `tre web status` / `tre web stop`
+```
+
+- **Branch graph** — every branch with tagged-count, pins, last-active, current `HEAD`.
+- **Team memory** — who pinned what and why, plus graduated facts, with a
+  `shared` / `pending export` marker.
+- **Search** — branch-aware, with a per-signal score breakdown.
+- **Live** — reacts to branch switches, teammate `git pull` / `tre import`, and
+  pins written from another terminal (SSE).
+
+Works even **without claude-mem** (shared-memory-only mode: pins + graduated from
+the sidecar/`.tre-mem/`, substring search). Full guide:
+[docs/WEB-UI.md](./docs/WEB-UI.md).
+
 ## Architecture
 
 ```
