@@ -16,7 +16,15 @@ import { dirname, join } from 'node:path';
  */
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-export type LogComponent = 'hook' | 'mcp' | 'backfill' | 'sync' | 'git' | 'store' | 'cli';
+export type LogComponent =
+  | 'hook'
+  | 'mcp'
+  | 'backfill'
+  | 'sync'
+  | 'git'
+  | 'store'
+  | 'cli'
+  | 'web';
 
 export interface LogRecord {
   level: LogLevel;
