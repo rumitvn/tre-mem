@@ -156,13 +156,13 @@ so if _everything_ were auto-pinned, nothing would stand out. But you steer it i
 plain language via the `pin_fact` / `graduate_fact` MCP tools; Claude can even
 write the note for you:
 
-| You say to Claude…                                                    | Claude calls…                                  |
-| --------------------------------------------------------------------- | ---------------------------------------------- |
-| "Pin this decision for the team: we use Stripe webhook v3."           | `pin_fact` (note on the current branch)        |
-| "Remember why we chose MQTT over polling — share it with the team."   | `pin_fact` on the key ⚖️ decision              |
-| "What's the context on this branch?" / "What did we decide about X?"  | `get_branch_context` → ranked, pins on top     |
-| "Show me the timeline of this feature so far."                        | `get_branch_timeline`                          |
-| "This branch is merged — promote its decisions repo-wide."            | `graduate_fact` (or the merge Action does it)  |
+| You say to Claude…                                                   | Claude calls…                                 |
+| -------------------------------------------------------------------- | --------------------------------------------- |
+| "Pin this decision for the team: we use Stripe webhook v3."          | `pin_fact` (note on the current branch)       |
+| "Remember why we chose MQTT over polling — share it with the team."  | `pin_fact` on the key ⚖️ decision             |
+| "What's the context on this branch?" / "What did we decide about X?" | `get_branch_context` → ranked, pins on top    |
+| "Show me the timeline of this feature so far."                       | `get_branch_timeline`                         |
+| "This branch is merged — promote its decisions repo-wide."           | `graduate_fact` (or the merge Action does it) |
 
 Then `tre export && git push` (or let the GitHub Action graduate on merge) and
 your teammate inherits the pin automatically on their next session — surfaced in

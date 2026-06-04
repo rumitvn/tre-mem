@@ -149,13 +149,13 @@ Việc pin là chủ đích theo thiết kế — một pin được **boost 1.0
 khiển nó bằng ngôn ngữ tự nhiên qua các MCP tool `pin_fact` / `graduate_fact`;
 Claude còn có thể tự viết ghi chú giúp bạn:
 
-| Bạn nói với Claude…                                                       | Claude gọi…                                    |
-| ------------------------------------------------------------------------- | ---------------------------------------------- |
-| "Pin quyết định này cho cả team: mình dùng Stripe webhook v3."            | `pin_fact` (ghi chú trên branch hiện tại)      |
-| "Nhớ lý do chọn MQTT thay vì polling — chia sẻ cho team."                 | `pin_fact` trên quyết định ⚖️ then chốt        |
-| "Ngữ cảnh của branch này là gì?" / "Mình đã quyết gì về X?"               | `get_branch_context` → xếp hạng, pin lên đầu   |
-| "Cho xem timeline của feature này."                                       | `get_branch_timeline`                          |
-| "Branch này đã merge — đưa các quyết định lên phạm vi repo."              | `graduate_fact` (hoặc Action lúc merge tự làm) |
+| Bạn nói với Claude…                                            | Claude gọi…                                    |
+| -------------------------------------------------------------- | ---------------------------------------------- |
+| "Pin quyết định này cho cả team: mình dùng Stripe webhook v3." | `pin_fact` (ghi chú trên branch hiện tại)      |
+| "Nhớ lý do chọn MQTT thay vì polling — chia sẻ cho team."      | `pin_fact` trên quyết định ⚖️ then chốt        |
+| "Ngữ cảnh của branch này là gì?" / "Mình đã quyết gì về X?"    | `get_branch_context` → xếp hạng, pin lên đầu   |
+| "Cho xem timeline của feature này."                            | `get_branch_timeline`                          |
+| "Branch này đã merge — đưa các quyết định lên phạm vi repo."   | `graduate_fact` (hoặc Action lúc merge tự làm) |
 
 Sau đó `tre export && git push` (hoặc để GitHub Action graduate lúc merge) và đồng
 đội tự động thừa hưởng pin trong phiên kế tiếp — hiện trong digest của họ với nhãn
