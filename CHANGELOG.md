@@ -4,6 +4,36 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-06-04
+
+**Local diagnostics log.** tre-mem now records its own runtime events to a
+quick, append-only JSONL file so you can collect real-world signal from a
+device and paste it to an AI for product insight — no UI, no telemetry server.
+
+### Added
+
+- **Append-only JSONL log** at `~/.tre-mem/tre-mem.log` (one event per line:
+  `ts`, `t`, `level`, `component`, `event`, `fields`). Writes **only to a file**
+  (hooks keep stdout clean), **never throws** (a logging failure can't break a
+  hook, the MCP server, or any command), and rotates to `tre-mem.log.1` at 5 MB.
+- **`tre logs`** — `--tail <n>` / `--all` / `--level <lvl>` / `--component <name>`
+  / `--path` / `--clear`. The end-of-day collection command.
+- **Instrumented events** across hooks (`session_start`, `prompt_inject`,
+  `session_import_failed`, `hook_error`), `backfill`, sync (`export`, `import`,
+  `graduate_pr`, `export_redaction_blocked`), and the MCP server
+  (`server_start`/`server_stop`, `tool_call`, `tool_error`), plus `cli_error`.
+- **Env contract** — `TRE_MEM_LOG=0` to disable, `TRE_MEM_LOG_LEVEL` (default
+  `info`), `TRE_MEM_LOG_FILE` to override the path.
+
+### Notes
+
+- **Privacy by design:** the log carries counts + metadata only (branch/project
+  names, ids, durations, error class+message). It **never** logs raw query text,
+  prompt text, or pin/note bodies — consistent with the fail-closed export
+  redaction, so the file is safe to share.
+
+[0.3.0]: https://github.com/rumitvn/tre-mem/releases/tag/v0.3.0
+
 ## [0.2.0] — 2026-06-04
 
 **"Git for AI memory."** Phase 2 makes tre-mem team-shared: pin a decision on a
