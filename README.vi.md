@@ -122,6 +122,7 @@ tre search "<query>" [--branch B] [--k 10]
 tre pin <observation_id> [--note "..."]
 tre graduate <observation_id>           # promote fact từ branch → project-wide
 tre list-branches [--project SLUG]
+tre logs [--tail 50 | --all] [--level warn] [--path]  # log chẩn đoán cục bộ
 tre hook session-start                  # Claude Code gọi, đọc JSON qua stdin
 tre mcp                                 # khởi động MCP server (stdio)
 ```
@@ -150,6 +151,31 @@ tre-mem search "stripe webhook"
 | `list_branches`       | `project?`                           | Các branch kèm số lượng tag              |
 | `pin_fact`            | `observation_id`, `branch?`, `note?` | Ghim fact vào branch (boost = 1.0)       |
 | `graduate_fact`       | `observation_id`                     | Promote fact từ branch lên scope project |
+
+## Log chẩn đoán
+
+tre-mem ghi một file log JSONL nhỏ (chỉ ghi nối thêm) tại `~/.tre-mem/tre-mem.log` để
+bạn xem nó đã làm gì trên máy và chia sẻ khi cần gỡ lỗi. File **chỉ chứa số liệu và
+metadata** — tên branch/project, số lượng sự kiện, id, thời lượng, lớp + thông điệp lỗi.
+Nó **không bao giờ** ghi nội dung query, prompt, hay nội dung pin/note, nên file an toàn
+để gửi đi.
+
+```bash
+tre logs                 # 50 dòng JSONL gần nhất
+tre logs --all           # toàn bộ file (tiện để thu thập cuối ngày)
+tre logs --level warn    # chỉ cảnh báo + lỗi
+tre logs --component mcp # chỉ sự kiện MCP
+tre logs --path          # in đường dẫn file (để cat / copy)
+tre logs --clear         # xóa rỗng log (và xóa bản backup .1)
+```
+
+| Biến môi trường     | Mặc định                     | Ý nghĩa                                      |
+| ------------------- | ---------------------------- | -------------------------------------------- |
+| `TRE_MEM_LOG`       | bật                          | đặt `0`/`false`/`off` để tắt logging         |
+| `TRE_MEM_LOG_LEVEL` | `info`                       | mức tối thiểu: `debug`/`info`/`warn`/`error` |
+| `TRE_MEM_LOG_FILE`  | `<TRE_MEM_HOME>/tre-mem.log` | ghi đè đường dẫn tuyệt đối                   |
+
+File tự xoay vòng sang `tre-mem.log.1` khi vượt 5 MB, nên không bao giờ phình vô hạn.
 
 ## Kiến trúc
 

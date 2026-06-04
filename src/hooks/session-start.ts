@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
 import { currentBranch } from '../git/resolver.js';
+import { log, logError } from '../log/logger.js';
 import { TreMemRepo } from '../store/repo.js';
 import { importDir } from '../sync/import.js';
 import { SYNC_DIR_NAME } from '../sync/layout.js';
@@ -47,6 +48,7 @@ export async function runSessionStartHook(
   const source = input.source ?? 'startup';
   const now = opts.now ?? (() => Math.floor(Date.now() / 1000));
   const tagged_at_epoch = now();
+  const startedMs = Date.now();
 
   const branch = await currentBranch(cwd);
 
@@ -73,8 +75,9 @@ export async function runSessionStartHook(
           const result = importDir({ repo, dir: syncDir, now: tagged_at_epoch });
           imported_pins = result.pins;
           imported_graduated = result.graduated;
-        } catch {
+        } catch (err) {
           /* a broken .tre-mem/ must never block a session */
+          logError('hook', 'session_import_failed', err, { project, branch });
         }
       }
     }
@@ -87,6 +90,21 @@ export async function runSessionStartHook(
       imported_pins,
       imported_graduated,
       source,
+    });
+    log({
+      level: 'info',
+      component: 'hook',
+      event: 'session_start',
+      fields: {
+        project,
+        branch,
+        source,
+        tagged_branch: tagged_count_for_branch,
+        tagged_project: tagged_count_for_project,
+        imported_pins,
+        imported_graduated,
+        ms: Date.now() - startedMs,
+      },
     });
     return {
       project,

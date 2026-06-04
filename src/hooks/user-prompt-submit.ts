@@ -1,6 +1,7 @@
 import { basename } from 'node:path';
 
 import { currentBranch } from '../git/resolver.js';
+import { log } from '../log/logger.js';
 import type { SearchHit } from '../retrieval/search.js';
 
 export interface UserPromptSubmitInput {
@@ -45,6 +46,7 @@ export async function runUserPromptSubmitHook(
   const project = basename(cwd);
   const prompt = (input.prompt ?? '').trim();
   const branch = await currentBranch(cwd);
+  const startedMs = Date.now();
 
   if (prompt === '') return { project, branch, injected: 0, context: '' };
 
@@ -53,5 +55,12 @@ export async function runUserPromptSubmitHook(
 
   const context =
     `tre-mem — memory relevant to branch "${branch}":\n` + hits.map(hitLine).join('\n');
+  // Stay silent on empty/no-match prompts to avoid per-keystroke spam; only log a hit.
+  log({
+    level: 'info',
+    component: 'hook',
+    event: 'prompt_inject',
+    fields: { project, branch, injected: hits.length, ms: Date.now() - startedMs },
+  });
   return { project, branch, injected: hits.length, context };
 }

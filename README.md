@@ -128,6 +128,7 @@ tre search "<query>" [--branch B] [--k 10]
 tre pin <observation_id> [--note "..."]
 tre graduate <observation_id>           # promote branch fact → project-wide
 tre list-branches [--project SLUG]
+tre logs [--tail 50 | --all] [--level warn] [--path]  # local diagnostics log
 tre mcp                                 # start MCP server (stdio)
 
 # --- team sync (v0.2) ---
@@ -163,6 +164,50 @@ tre-mem search "stripe webhook"
 | `list_branches`       | `project?`                           | Branches with tag counts                      |
 | `pin_fact`            | `observation_id`, `branch?`, `note?` | Pin a fact to a branch (boost = 1.0)          |
 | `graduate_fact`       | `observation_id`                     | Promote a branch fact to project scope        |
+
+## Diagnostics log
+
+tre-mem writes a small append-only JSONL log to `~/.tre-mem/tre-mem.log` so you can
+see what it did on a machine and share it for troubleshooting. It records **counts and
+metadata only** — branch/project names, event counts, ids, durations, and error
+class+message. It never logs raw query text, prompt text, or pin/note bodies, so the
+file is safe to hand off.
+
+```bash
+tre logs                 # last 50 lines of JSONL
+tre logs --all           # whole file (good for collecting end-of-day)
+tre logs --level warn    # only warnings + errors
+tre logs --component mcp # only MCP events
+tre logs --path          # print the file path (e.g. to cat / copy it)
+tre logs --clear         # truncate the log (and remove the rotated .1 backup)
+```
+
+Each line looks like:
+
+```json
+{
+  "ts": "2026-06-04T09:12:03.144Z",
+  "t": 1780989123144,
+  "level": "info",
+  "component": "hook",
+  "event": "session_start",
+  "fields": {
+    "project": "shop",
+    "branch": "feature/payment",
+    "tagged_branch": 12,
+    "imported_pins": 2,
+    "ms": 31
+  }
+}
+```
+
+| Env var             | Default                      | Meaning                                  |
+| ------------------- | ---------------------------- | ---------------------------------------- |
+| `TRE_MEM_LOG`       | enabled                      | set `0`/`false`/`off` to disable logging |
+| `TRE_MEM_LOG_LEVEL` | `info`                       | min level: `debug`/`info`/`warn`/`error` |
+| `TRE_MEM_LOG_FILE`  | `<TRE_MEM_HOME>/tre-mem.log` | absolute path override                   |
+
+The file rotates to `tre-mem.log.1` once it passes 5 MB, so it never grows unbounded.
 
 ## Team memory — "git for AI memory" (v0.2)
 

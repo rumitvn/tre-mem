@@ -86,3 +86,7 @@ export type {
 } from './mcp/tools.js';
 export { createMcpServer, runMcpServer } from './mcp/server.js';
 export type { CreateServerOptions } from './mcp/server.js';
+export { log, logError, logFilePath, resetLoggerForTests } from './log/logger.js';
+export type { LogLevel, LogComponent, LogRecord } from './log/logger.js';
+export { filterLogLines, readLogTail } from './log/read.js';
+export type { ReadLogOptions, ReadLogResult } from './log/read.js';

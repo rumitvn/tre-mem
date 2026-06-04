@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { cac } from 'cac';
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 
 import { ClaudeMemAdapter } from './adapter/claude-mem.js';
@@ -10,6 +10,8 @@ import { gitAuthor } from './git/identity.js';
 import { NO_GIT, currentBranch, isDetached } from './git/resolver.js';
 import { type SessionStartInput, runSessionStartHook } from './hooks/session-start.js';
 import { type UserPromptSubmitInput, runUserPromptSubmitHook } from './hooks/user-prompt-submit.js';
+import { log, logError, logFilePath } from './log/logger.js';
+import { readLogTail } from './log/read.js';
 import { runMcpServer } from './mcp/server.js';
 import { setupTool } from './setup.js';
 import { searchBranchContext, type SearchHit } from './retrieval/search.js';
@@ -367,6 +369,16 @@ cli
           });
         } catch (err) {
           if (err instanceof RedactionError) {
+            log({
+              level: 'warn',
+              component: 'sync',
+              event: 'export_redaction_blocked',
+              fields: {
+                project,
+                matches: err.matches.length,
+                rules: [...new Set(err.matches.map((m) => m.rule))],
+              },
+            });
             process.stderr.write(
               `tre export blocked: ${err.matches.length} potential secret(s):\n`,
             );
@@ -531,6 +543,55 @@ cli.command('mcp', 'Start the tre-mem MCP server on stdio').action(async () => {
   await runMcpServer();
 });
 
+interface LogsFlags {
+  tail?: string | number;
+  all?: boolean;
+  level?: string;
+  component?: string;
+  path?: boolean;
+  clear?: boolean;
+}
+
+cli
+  .command('logs', 'Show the local diagnostics log (use --path / --all to collect & share)')
+  .option('--tail <n>', 'Show the last N lines (0 = whole file)', { default: '50' })
+  .option('--all', 'Show the whole file')
+  .option('--level <lvl>', 'Only lines at >= level (debug|info|warn|error)')
+  .option(
+    '--component <name>',
+    'Only lines from this component (hook|mcp|backfill|sync|git|store|cli)',
+  )
+  .option('--path', 'Print the resolved log file path and exit')
+  .option('--clear', 'Truncate the log file (and remove the rotated .1 backup) and exit')
+  .action((flags: LogsFlags) => {
+    const file = logFilePath();
+
+    if (flags.path) {
+      console.log(file);
+      return;
+    }
+
+    if (flags.clear) {
+      writeFileSync(file, '', 'utf8');
+      rmSync(`${file}.1`, { force: true });
+      console.log(`tre-mem: cleared ${file}`);
+      return;
+    }
+
+    const n = Number.parseInt(String(flags.tail ?? 50), 10);
+    const result = readLogTail(file, {
+      tail: n,
+      all: flags.all ?? false,
+      level: flags.level,
+      component: flags.component,
+    });
+    if (!result.exists) {
+      console.log(`(no log file yet at ${file})`);
+      return;
+    }
+    for (const l of result.lines) console.log(l);
+  });
+
 cli.help();
 cli.version(getPackageVersion());
 
@@ -538,6 +599,7 @@ try {
   cli.parse();
 } catch (err) {
   const msg = err instanceof Error ? err.message : String(err);
+  logError('cli', 'cli_error', err);
   console.error(`tre: ${msg}`);
   process.exit(1);
 }
@@ -591,6 +653,7 @@ async function runSessionStartHookCli(): Promise<void> {
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    logError('hook', 'hook_error', err, { event: 'session-start' });
     process.stderr.write(`tre hook session-start: ${msg}\n`);
     process.stdout.write(`${JSON.stringify({ continue: true })}\n`);
   }
@@ -624,6 +687,7 @@ async function runUserPromptSubmitHookCli(): Promise<void> {
   } catch (err) {
     // Never block a prompt — emit a silent continue on any failure.
     const msg = err instanceof Error ? err.message : String(err);
+    logError('hook', 'hook_error', err, { event: 'user-prompt-submit' });
     process.stderr.write(`tre hook user-prompt-submit: ${msg}\n`);
     process.stdout.write(`${JSON.stringify({ continue: true })}\n`);
   }

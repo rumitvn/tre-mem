@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+import { log } from '../log/logger.js';
 import type { TreMemRepo } from '../store/repo.js';
 
 import {
@@ -325,6 +326,14 @@ export function exportSync(opts: ExportOptions): ExportResult {
   if (!dryRun) {
     for (const it of gradItems) repo.markGraduatedShared(it.gradId, it.record.content_hash, now);
   }
+
+  const added = branchResults.reduce((sum, b) => sum + b.added, 0) + gradResult.added;
+  log({
+    level: 'info',
+    component: 'sync',
+    event: 'export',
+    fields: { project, branches: branchResults.length, added, ignored, redacted, dryRun },
+  });
 
   return { dir, branches: branchResults, graduated: gradResult, ignored, redacted, dryRun };
 }

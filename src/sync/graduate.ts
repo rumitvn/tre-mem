@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+import { log } from '../log/logger.js';
+
 import {
   SYNC_SCHEMA_VERSION,
   graduatedContentHash,
@@ -115,6 +117,19 @@ export function graduateBranch(opts: GraduateOptions): GraduateResult {
     mkdirSync(dirname(gradFile), { recursive: true });
     writeFileAtomic(gradFile, [...lines, ...newLines].join('\n') + '\n');
   }
+
+  log({
+    level: 'info',
+    component: 'sync',
+    event: 'graduate_pr',
+    fields: {
+      branch,
+      graduated: newLines.length,
+      alreadyGraduated,
+      skippedFreeText,
+      dryRun,
+    },
+  });
 
   return {
     branch,
