@@ -112,6 +112,55 @@ branch nào đang active kể cả giữa các chu kỳ watcher. Xem [docs/HOOKS
 }
 ```
 
+## Dùng từ Claude Code (luồng thực tế hằng ngày)
+
+Bạn hiếm khi gõ `tre` thủ công. tre-mem đăng ký một MCP server **và** một
+SessionStart hook, nên vòng lặp thật sự là: **Claude hiển thị ngữ cảnh theo
+branch khi mở phiên, còn bạn chọn lọc bằng cách trò chuyện với nó.** Phần CLI bên
+dưới chỉ là lối thoát thủ công.
+
+### Bạn thấy gì khi một phiên bắt đầu
+
+Khi đã đăng ký hook, mỗi phiên Claude Code mở ra cùng một digest theo branch
+(`systemMessage` của hook, hiển thị màu trong terminal). Thấy nó hiện ra nghĩa là
+nó đang chạy:
+
+```text
+[tre-mem] recent context · feature/payment · shop · 4:12pm
+Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
+tagged: 38 on branch · 232 on project · imported: 1pin/0grad · source: startup
+
+📌 Pinned on this branch
+#411 ⚖️ Simulator Mock Features Strategy: File Download and MQTT Playgrounds [shared]
+   ↳ vì sao chọn mock MQTT + download thay vì gọi thẳng staging
+
+#412 🔵 CardApi Endpoints for Student, Deny, and Blackcard List Synchronization
+#410 🔵 Simulator Web Infrastructure and API Routing for New Features
+```
+
+Khối `📌 Pinned` đẩy các quyết định đã chọn lọc — kèm ghi chú giải thích _vì sao_
+— lên đầu. `[shared]` nghĩa là pin đến từ `git push` của đồng đội và được tự động
+import trong phiên này. Dòng `imported: 1pin/0grad` xác nhận việc import đã xảy ra.
+
+### Chọn lọc bằng cách nói với Claude, không phải CLI
+
+Việc pin là chủ đích theo thiết kế — một pin được **boost 1.0** khi tìm kiếm (luôn
+ở đầu), nên nếu _mọi thứ_ đều tự pin thì chẳng còn gì nổi bật. Nhưng bạn điều
+khiển nó bằng ngôn ngữ tự nhiên qua các MCP tool `pin_fact` / `graduate_fact`;
+Claude còn có thể tự viết ghi chú giúp bạn:
+
+| Bạn nói với Claude…                                                       | Claude gọi…                                    |
+| ------------------------------------------------------------------------- | ---------------------------------------------- |
+| "Pin quyết định này cho cả team: mình dùng Stripe webhook v3."            | `pin_fact` (ghi chú trên branch hiện tại)      |
+| "Nhớ lý do chọn MQTT thay vì polling — chia sẻ cho team."                 | `pin_fact` trên quyết định ⚖️ then chốt        |
+| "Ngữ cảnh của branch này là gì?" / "Mình đã quyết gì về X?"               | `get_branch_context` → xếp hạng, pin lên đầu   |
+| "Cho xem timeline của feature này."                                       | `get_branch_timeline`                          |
+| "Branch này đã merge — đưa các quyết định lên phạm vi repo."              | `graduate_fact` (hoặc Action lúc merge tự làm) |
+
+Sau đó `tre export && git push` (hoặc để GitHub Action graduate lúc merge) và đồng
+đội tự động thừa hưởng pin trong phiên kế tiếp — hiện trong digest của họ với nhãn
+`[shared]` như trên.
+
 ## Bộ lệnh CLI
 
 ```bash

@@ -118,6 +118,56 @@ troubleshooting matrix. Short version: add to `~/.claude/settings.json`:
 }
 ```
 
+## Using it from Claude Code (the everyday path)
+
+You rarely type `tre` by hand. tre-mem registers an MCP server **and** a
+SessionStart hook, so the real loop is: **Claude shows you branch context when a
+session starts, and you curate by just talking to it.** The CLI further down is
+the manual escape hatch.
+
+### What you see when a session starts
+
+With the hook registered, every Claude Code session opens with a branch-scoped
+digest (the hook's `systemMessage`, rendered in color in your terminal). When
+this shows up, it's working:
+
+```text
+[tre-mem] recent context · feature/payment · shop · 4:12pm
+Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
+tagged: 38 on branch · 232 on project · imported: 1pin/0grad · source: startup
+
+📌 Pinned on this branch
+#411 ⚖️ Simulator Mock Features Strategy: File Download and MQTT Playgrounds [shared]
+   ↳ why we mock MQTT + downloads instead of hitting staging
+
+#412 🔵 CardApi Endpoints for Student, Deny, and Blackcard List Synchronization
+#410 🔵 Simulator Web Infrastructure and API Routing for New Features
+```
+
+The `📌 Pinned` block floats curated decisions — and the note explaining _why_ —
+to the top. `[shared]` means the pin arrived from a teammate's `git push` and was
+auto-imported on this session. `imported: 1pin/0grad` in the stats line confirms
+the import happened.
+
+### Curate by talking to Claude, not the CLI
+
+Pinning is deliberate by design — a pin gets a **1.0 search boost** (always top),
+so if _everything_ were auto-pinned, nothing would stand out. But you steer it in
+plain language via the `pin_fact` / `graduate_fact` MCP tools; Claude can even
+write the note for you:
+
+| You say to Claude…                                                    | Claude calls…                                  |
+| --------------------------------------------------------------------- | ---------------------------------------------- |
+| "Pin this decision for the team: we use Stripe webhook v3."           | `pin_fact` (note on the current branch)        |
+| "Remember why we chose MQTT over polling — share it with the team."   | `pin_fact` on the key ⚖️ decision              |
+| "What's the context on this branch?" / "What did we decide about X?"  | `get_branch_context` → ranked, pins on top     |
+| "Show me the timeline of this feature so far."                        | `get_branch_timeline`                          |
+| "This branch is merged — promote its decisions repo-wide."            | `graduate_fact` (or the merge Action does it)  |
+
+Then `tre export && git push` (or let the GitHub Action graduate on merge) and
+your teammate inherits the pin automatically on their next session — surfaced in
+their digest with the `[shared]` tag shown above.
+
 ## CLI surface
 
 ```bash

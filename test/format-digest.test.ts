@@ -78,6 +78,45 @@ describe('buildSessionDigest', () => {
     expect(context).toContain('…');
     expect(context).not.toContain(long);
   });
+
+  it('omits the pinned block when there are no pins', () => {
+    const { context } = buildSessionDigest(base());
+    expect(context).not.toContain('Pinned on this branch');
+  });
+
+  it('renders pinned facts with type emoji, note, and shared marker', () => {
+    const { context } = buildSessionDigest(
+      base({
+        pinned: [
+          {
+            id: 411,
+            type: 'decision',
+            title: 'Simulator Mock Features Strategy',
+            note: 'why this matters',
+            shared: true,
+          },
+        ],
+      }),
+    );
+    expect(context).toContain('📌 Pinned on this branch');
+    expect(context).toContain('#411 ⚖️ Simulator Mock Features Strategy');
+    expect(context).toContain('[shared]');
+    expect(context).toContain('↳ why this matters');
+  });
+
+  it('shows a free-text pin (null id) and omits [shared] for local-only pins', () => {
+    const { context } = buildSessionDigest(
+      base({
+        pinned: [
+          { id: null, type: null, title: 'Remember the deploy gate', note: null, shared: false },
+        ],
+      }),
+    );
+    expect(context).toContain('#— • Remember the deploy gate');
+    expect(context).not.toContain('[shared]');
+    // No note line when the pin has no note.
+    expect(context).not.toContain('↳');
+  });
 });
 
 describe('icons', () => {

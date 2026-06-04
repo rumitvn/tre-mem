@@ -4,6 +4,35 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-06-04
+
+**Curated pins now surface in the session digest, and `tre export` explains
+itself when there's nothing to share.** Field feedback showed two gaps: an export
+that added 0 rows gave no reason (the common cause is "lots of branch tags, but
+nothing pinned"), and a pin's `--note` — the "why this matters" — was never shown
+back to anyone, including teammates who imported it.
+
+### Added
+
+- **`📌 Pinned on this branch` block in the SessionStart digest.** Curated pins
+  float above the recent list with their type icon, title, the attached **note**
+  (`↳ …`), and a `[shared]` marker once the pin has been exported/imported. Works
+  from the pin's own snapshot, so a teammate's shared pin renders even without
+  claude-mem or the source observation locally. Shown in both the colored
+  terminal display and the plain text the model reads.
+- **Empty-export guidance.** When `tre export` adds 0 rows it now explains why and
+  what to do — distinguishing "nothing pinned anywhere" (with `tre pin` /
+  `tre graduate` / `pin_fact` next steps), "pins live on other branches" (suggests
+  `--all`), and "everything already exported".
+- **README "Using it from Claude Code" section** (EN + VI): example natural-language
+  prompts that drive `pin_fact` / `graduate_fact` / `get_branch_context`, plus a
+  sample session-start digest so users can recognize it's working.
+
+### Changed
+
+- **`tre status`** nudges toward curation when nothing is pinned yet, instead of
+  reporting a bare `0 pin(s) exported` and an unconditional "run `tre export`".
+
 ## [0.3.2] — 2026-06-04
 
 **First-run guidance, a claude-mem compatibility guard, and a colored session
