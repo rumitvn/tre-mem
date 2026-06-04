@@ -58,7 +58,15 @@ function columnExists(db: Database.Database, table: string, column: string): boo
   return cols.some((c) => c.name === column);
 }
 
-function applyV2(db: Database.Database): void {
+/**
+ * Reconcile the additive v2 sync columns + import_state table + indexes.
+ * Fully idempotent (guarded by `columnExists` / `IF NOT EXISTS`), so it is safe
+ * to run on every migrate(). This is what self-heals databases that recorded
+ * `schema_versions = 2` under an earlier, incomplete column set — e.g. a build
+ * that predated the `title`/`body` columns. Without this, the `currentVersion < 2`
+ * gate would never re-run the DDL and `branch_pin.title` stays missing forever.
+ */
+function ensureSyncColumns(db: Database.Database): void {
   for (const { table, column, ddl } of V2_COLUMNS) {
     if (!columnExists(db, table, column)) db.exec(ddl);
   }
@@ -110,11 +118,16 @@ export function migrate(dbPath: string = TRE_MEM_DB_PATH): MigrateResult {
         'INSERT OR IGNORE INTO schema_versions (version, applied_at_epoch) VALUES (?, ?)',
       );
       const tx = db.transaction(() => {
-        applyV2(db);
+        ensureSyncColumns(db);
         recordVersion.run(2, Math.floor(Date.now() / 1000));
       });
       tx();
       applied.push(2);
+    } else {
+      // Already recorded as v2, but an earlier build may have done so before the
+      // full column set existed. Reconcile unconditionally — idempotent, so a
+      // complete database is a no-op and `applied` stays empty.
+      db.transaction(() => ensureSyncColumns(db))();
     }
 
     const toVersion = currentVersion(db);

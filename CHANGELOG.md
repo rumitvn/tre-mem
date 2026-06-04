@@ -4,6 +4,22 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] — 2026-06-04
+
+### Fixed
+
+- **`tre status` crash on upgraded databases** (`SqliteError: no such column:
+title`). Databases that recorded `schema_versions = 2` under an earlier build —
+  before the `title`/`body` snapshot columns were added to the v2 set — were never
+  topped up, because the `currentVersion < 2` gate skipped the additive DDL. The
+  v2 column reconciliation now runs **unconditionally and idempotently** on every
+  `migrate()`, self-healing affected `branch_pin`/`graduated` tables in place
+  (no version bump, no data loss). Fixes `tre status`, `tre export`, and any path
+  that reads pin/graduated snapshots. Just upgrade — the next `tre` command repairs
+  the database automatically.
+
+[0.3.1]: https://github.com/rumitvn/tre-mem/releases/tag/v0.3.1
+
 ## [0.3.0] — 2026-06-04
 
 **Local diagnostics log.** tre-mem now records its own runtime events to a

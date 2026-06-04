@@ -150,6 +150,52 @@ describe('migrate', () => {
       verify.close();
     }
   });
+
+  it('self-heals a db recorded at v2 before title/body columns existed', () => {
+    // Reproduce a device migrated to v2 by an early build: schema_versions=2 but
+    // branch_pin/graduated only have the first-wave sync columns, no title/body.
+    const db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+    db.exec(`
+      CREATE TABLE schema_versions (version INTEGER PRIMARY KEY, applied_at_epoch INTEGER NOT NULL);
+      CREATE TABLE branch_pin (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, project TEXT NOT NULL, branch TEXT NOT NULL,
+        observation_id INTEGER, note TEXT, created_at_epoch INTEGER NOT NULL,
+        content_hash TEXT, shared_at_epoch INTEGER
+      );
+      CREATE TABLE graduated (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, project TEXT NOT NULL, observation_id INTEGER NOT NULL,
+        graduated_from_branch TEXT NOT NULL, graduated_at_epoch INTEGER NOT NULL,
+        content_hash TEXT, shared_at_epoch INTEGER, UNIQUE(project, observation_id)
+      );
+      INSERT INTO schema_versions (version, applied_at_epoch) VALUES (1, 0), (2, 0);
+      INSERT INTO branch_pin (project, branch, observation_id, note, created_at_epoch)
+        VALUES ('p', 'feature/x', 7, 'keep me', 100);
+    `);
+    db.close();
+
+    const result = migrate(dbPath);
+    expect(result.fromVersion).toBe(2);
+    expect(result.toVersion).toBe(2);
+    expect(result.applied).toEqual([]); // version unchanged — columns reconciled in place
+
+    const verify = new Database(dbPath, { readonly: true });
+    try {
+      expect(columnNames(verify, 'branch_pin')).toEqual(expect.arrayContaining(['title', 'body']));
+      expect(columnNames(verify, 'graduated')).toEqual(expect.arrayContaining(['title', 'body']));
+      // The exact query that crashed `tre status` on the device must now work.
+      const pin = verify
+        .prepare(
+          'SELECT id, project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch, title, body FROM branch_pin WHERE observation_id = 7',
+        )
+        .get() as { note: string; title: string | null; body: string | null };
+      expect(pin.note).toBe('keep me');
+      expect(pin.title).toBeNull();
+      expect(pin.body).toBeNull();
+    } finally {
+      verify.close();
+    }
+  });
 });
 
 function columnNames(db: Database.Database, table: string): string[] {
