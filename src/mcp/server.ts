@@ -3,9 +3,11 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
 import { ClaudeMemAdapter } from '../adapter/claude-mem.js';
+import { claudeMemGuidance, diagnoseClaudeMem } from '../adapter/preflight.js';
 import { log, logError } from '../log/logger.js';
 import { migrate } from '../store/migrate.js';
 import { TreMemRepo } from '../store/repo.js';
+import { VERSION } from '../version.js';
 
 import { TOOL_DEFINITIONS, type ToolDeps, callTool } from './tools.js';
 
@@ -65,9 +67,16 @@ export function createMcpServer(opts: CreateServerOptions): Server {
 
 export async function runMcpServer(): Promise<void> {
   migrate();
+  const cm = diagnoseClaudeMem();
+  if (!cm.installed || !cm.compatible) {
+    logError('mcp', 'server_start_blocked', new Error(cm.reason), { reason: cm.reason });
+    process.stderr.write(`${claudeMemGuidance(cm, false)}\n`);
+    process.exitCode = 1;
+    return;
+  }
   const adapter = new ClaudeMemAdapter();
   const repo = new TreMemRepo();
-  const server = createMcpServer({ deps: { adapter, repo } });
+  const server = createMcpServer({ deps: { adapter, repo }, version: VERSION });
   const transport = new StdioServerTransport();
   const cleanup = (signal: string): void => {
     log({ level: 'info', component: 'mcp', event: 'server_stop', fields: { signal } });

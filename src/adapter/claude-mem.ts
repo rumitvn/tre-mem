@@ -1,10 +1,16 @@
 import Database from 'better-sqlite3';
 import { existsSync } from 'node:fs';
 
+import { log } from '../log/logger.js';
 import { CLAUDE_MEM_DB_PATH } from '../store/paths.js';
 
 import type { ListQuery, Observation, PendingMessage, SessionSummary } from './types.js';
 import { toSecondsEpoch } from './types.js';
+import {
+  CLAUDE_MEM_TESTED_SCHEMA,
+  missingObservationColumns,
+  readSchemaVersion,
+} from './version.js';
 
 const REQUIRED_TABLES = [
   'observations',
@@ -22,17 +28,25 @@ export interface AdapterOptions {
 export class ClaudeMemAdapter {
   readonly dbPath: string;
   readonly upstreamEpochUnit: EpochUnit;
+  /** claude-mem's effective schema version, or null if unknown. */
+  readonly schemaVersion: number | null;
   private readonly db: Database.Database;
   private closed = false;
 
   constructor(opts: AdapterOptions = {}) {
     this.dbPath = opts.dbPath ?? CLAUDE_MEM_DB_PATH;
     if (!existsSync(this.dbPath)) {
-      throw new Error(`tre-mem adapter: claude-mem.db not found at ${this.dbPath}`);
+      throw new Error(
+        `tre-mem adapter: claude-mem.db not found at ${this.dbPath}. ` +
+          `claude-mem may not be installed — run \`tre doctor\` for setup steps.`,
+      );
     }
     this.db = new Database(this.dbPath, { readonly: true, fileMustExist: true });
     this.db.pragma('query_only = ON');
     this.assertSchema();
+    this.assertColumns();
+    this.schemaVersion = readSchemaVersion(this.db);
+    this.warnIfNewerThanTested();
     this.upstreamEpochUnit = detectEpochUnit(this.db);
   }
 
@@ -55,6 +69,34 @@ export class ClaudeMemAdapter {
       throw new Error(
         `tre-mem adapter: claude-mem schema sanity check failed at ${this.dbPath}; missing [${missing.join(', ')}]`,
       );
+    }
+  }
+
+  /**
+   * Hard compatibility gate: every column the adapter SELECTs must exist. This
+   * catches a breaking claude-mem upgrade precisely (and version-proof), rather
+   * than letting it surface later as an opaque SQLite error mid-query.
+   */
+  assertColumns(): void {
+    const missing = missingObservationColumns(this.db);
+    if (missing.length > 0) {
+      throw new Error(
+        `tre-mem adapter: claude-mem schema is incompatible — observations is missing [${missing.join(
+          ', ',
+        )}]. Upgrade tre-mem: npm i -g tre-mem@latest`,
+      );
+    }
+  }
+
+  /** Soft signal: a newer-than-tested schema works but is worth flagging. */
+  private warnIfNewerThanTested(): void {
+    if (this.schemaVersion !== null && this.schemaVersion > CLAUDE_MEM_TESTED_SCHEMA) {
+      log({
+        level: 'warn',
+        component: 'store',
+        event: 'claude_mem_schema_newer_than_tested',
+        fields: { schemaVersion: this.schemaVersion, testedSchema: CLAUDE_MEM_TESTED_SCHEMA },
+      });
     }
   }
 

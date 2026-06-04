@@ -52,7 +52,12 @@ function seedClaudeMem(dbPath: string): void {
     db.pragma('journal_mode = WAL');
     db.exec(`
       CREATE TABLE sdk_sessions (id INTEGER PRIMARY KEY);
-      CREATE TABLE observations (id INTEGER PRIMARY KEY, project TEXT, created_at_epoch INTEGER);
+      CREATE TABLE observations (
+        id INTEGER PRIMARY KEY, memory_session_id TEXT, project TEXT, text TEXT,
+        type TEXT, title TEXT, subtitle TEXT, facts TEXT, narrative TEXT, concepts TEXT,
+        files_read TEXT, files_modified TEXT, prompt_number INTEGER,
+        created_at TEXT, created_at_epoch INTEGER
+      );
       CREATE TABLE session_summaries (id INTEGER PRIMARY KEY);
       CREATE TABLE pending_messages (id INTEGER PRIMARY KEY);
     `);

@@ -4,6 +4,38 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] — 2026-06-04
+
+**First-run guidance, a claude-mem compatibility guard, and a colored session
+digest.** Feedback from device installs surfaced three rough edges: nothing told
+first-time users that claude-mem must be installed, there was no guard against a
+breaking claude-mem upgrade, and the session output was a single plain line.
+
+### Added
+
+- **Onboarding guidance.** When claude-mem isn't installed, `tre status`,
+  `tre init`, `tre backfill`, `tre search`, and `tre export` now print friendly,
+  actionable setup steps instead of a cryptic error or a raw stack trace.
+- **`tre doctor`** — diagnoses claude-mem connectivity (install state, schema
+  version, compatibility) and tre-mem setup in one command; exits non-zero when
+  something needs attention.
+- **Colored SessionStart digest.** The hook now emits a bold/colored block
+  (header, legend, stats, and a short list of recent branch-tagged observations)
+  as the display `systemMessage`, while the model-facing `additionalContext`
+  stays plain ASCII. Degrades gracefully — a missing claude-mem never blocks a
+  session.
+
+### Changed
+
+- **claude-mem compatibility guard.** The adapter now verifies the exact
+  `observations` columns it reads (hard error with the precise missing column if
+  claude-mem's schema breaks) and records claude-mem's `schema_versions` version.
+  A newer-than-tested schema (tested up to **v32**) keeps working but logs a
+  non-fatal upgrade hint. The MCP server now fails with clear guidance instead of
+  the opaque `setup issue: MCP`.
+
+[0.3.2]: https://github.com/rumitvn/tre-mem/releases/tag/v0.3.2
+
 ## [0.3.1] — 2026-06-04
 
 ### Fixed

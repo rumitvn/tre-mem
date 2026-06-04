@@ -29,6 +29,56 @@ describe('ClaudeMemAdapter', () => {
     expect(() => new ClaudeMemAdapter({ dbPath })).toThrow(/schema sanity check failed/);
   });
 
+  it('throws a precise error when observations is missing a required column', () => {
+    const db = new Database(dbPath);
+    try {
+      // All required tables exist, but observations lacks `title`.
+      db.exec(`
+        CREATE TABLE sdk_sessions (id INTEGER PRIMARY KEY);
+        CREATE TABLE session_summaries (id INTEGER PRIMARY KEY);
+        CREATE TABLE pending_messages (id INTEGER PRIMARY KEY);
+        CREATE TABLE observations (
+          id INTEGER PRIMARY KEY, memory_session_id TEXT, project TEXT, text TEXT,
+          type TEXT, subtitle TEXT, facts TEXT, narrative TEXT, concepts TEXT,
+          files_read TEXT, files_modified TEXT, prompt_number INTEGER,
+          created_at TEXT, created_at_epoch INTEGER
+        );
+      `);
+    } finally {
+      db.close();
+    }
+    expect(() => new ClaudeMemAdapter({ dbPath })).toThrow(/incompatible.*title/);
+  });
+
+  it('reads claude-mem schema version and accepts a newer-than-tested schema', () => {
+    seedFixture(dbPath);
+    const db = new Database(dbPath);
+    try {
+      db.exec(
+        `CREATE TABLE schema_versions (id INTEGER PRIMARY KEY, version INTEGER UNIQUE NOT NULL, applied_at TEXT NOT NULL);
+         INSERT INTO schema_versions (version, applied_at) VALUES (32, 'x'), (33, 'x');`,
+      );
+    } finally {
+      db.close();
+    }
+    const adapter = new ClaudeMemAdapter({ dbPath });
+    try {
+      expect(adapter.schemaVersion).toBe(33);
+    } finally {
+      adapter.close();
+    }
+  });
+
+  it('reports a null schema version when schema_versions is absent', () => {
+    seedFixture(dbPath);
+    const adapter = new ClaudeMemAdapter({ dbPath });
+    try {
+      expect(adapter.schemaVersion).toBeNull();
+    } finally {
+      adapter.close();
+    }
+  });
+
   describe('with a populated fixture', () => {
     beforeEach(() => {
       seedFixture(dbPath);

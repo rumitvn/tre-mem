@@ -160,7 +160,7 @@ describe('runSessionStartHook', () => {
     );
 
     expect(result.imported_pins).toBe(1);
-    expect(result.message).toContain('imported=1pin');
+    expect(result.message).toContain('imported: 1pin/0grad');
     expect(repo.listPinsForBranch('workrepo', 'main')).toHaveLength(1);
 
     // idempotent: a second session imports nothing new
@@ -169,6 +169,42 @@ describe('runSessionStartHook', () => {
       { repo, now: () => 200 },
     );
     expect(second.imported_pins).toBe(0);
+  });
+
+  it('renders a recent-observation list and matching colored display', async () => {
+    const result = await runSessionStartHook(
+      { hook_event_name: 'SessionStart', cwd: repoDir },
+      {
+        repo,
+        now: () => 10,
+        recent: () => [
+          { id: 1882, type: 'refactor', title: 'Log utils extracted to src/log/read.ts' },
+          { id: 1880, type: 'feature', title: 'tre logs CLI command implemented' },
+        ],
+      },
+    );
+
+    expect(result.message).toContain('#1882');
+    expect(result.message).toContain('Log utils extracted');
+    expect(result.message).toContain('🔄');
+    expect(result.message).toContain('[tre-mem] recent context');
+    // plain context never carries ANSI escape codes
+    expect(result.message.includes(String.fromCharCode(27))).toBe(false);
+    expect(result.display).toContain('#1882');
+  });
+
+  it('degrades to a hint when the recent getter throws (claude-mem missing)', async () => {
+    const result = await runSessionStartHook(
+      { hook_event_name: 'SessionStart', cwd: repoDir },
+      {
+        repo,
+        now: () => 10,
+        recent: () => {
+          throw new Error('claude-mem.db not found');
+        },
+      },
+    );
+    expect(result.message).toContain('tre doctor');
   });
 
   it('skips auto-import when skipImport is set', async () => {

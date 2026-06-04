@@ -23,6 +23,9 @@ importers:
       chromadb:
         specifier: ^3.4.3
         version: 3.4.3
+      picocolors:
+        specifier: ^1.1.1
+        version: 1.1.1
       simple-git:
         specifier: ^3.36.0
         version: 3.36.0
