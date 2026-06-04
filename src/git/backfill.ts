@@ -1,4 +1,5 @@
 import type { ClaudeMemAdapter } from '../adapter/claude-mem.js';
+import { log } from '../log/logger.js';
 import type { TreMemRepo } from '../store/repo.js';
 
 import { readHeadReflog, resolveBranchAt } from './reflog.js';
@@ -68,6 +69,20 @@ export async function backfill(opts: BackfillOptions): Promise<BackfillResult> {
     });
     result.tagged += 1;
   }
+
+  log({
+    level: 'info',
+    component: 'backfill',
+    event: 'backfill',
+    fields: {
+      project: result.project,
+      transitions: result.transitions,
+      scanned: result.scanned,
+      tagged: result.tagged,
+      skippedAlreadyTagged: result.skippedAlreadyTagged,
+      skippedNoBranch: result.skippedNoBranch,
+    },
+  });
 
   return result;
 }

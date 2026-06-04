@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
+import { log } from '../log/logger.js';
 import type { TreMemRepo } from '../store/repo.js';
 
 import { parseSyncLine } from './format.js';
@@ -147,6 +148,16 @@ export function importDir(opts: ImportOptions): ImportResult {
     files.push(result);
     pins += p;
     graduated += g;
+  }
+  const errors = files.reduce((sum, f) => sum + f.errors, 0);
+  // Only log when something actually moved — keeps the per-session import quiet.
+  if (pins > 0 || graduated > 0 || errors > 0) {
+    log({
+      level: errors > 0 ? 'warn' : 'info',
+      component: 'sync',
+      event: 'import',
+      fields: { dir: basename(dir), pins, graduated, files: files.length, errors },
+    });
   }
   return { dir, pins, graduated, files };
 }

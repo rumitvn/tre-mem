@@ -3,6 +3,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
 import { ClaudeMemAdapter } from '../adapter/claude-mem.js';
+import { log, logError } from '../log/logger.js';
 import { migrate } from '../store/migrate.js';
 import { TreMemRepo } from '../store/repo.js';
 
@@ -36,14 +37,22 @@ export function createMcpServer(opts: CreateServerOptions): Server {
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const name = req.params.name;
     const args = (req.params.arguments ?? {}) as Record<string, unknown>;
+    const startedMs = Date.now();
     try {
       const result = await callTool(opts.deps, name, args);
+      log({
+        level: 'debug',
+        component: 'mcp',
+        event: 'tool_call',
+        fields: { tool: name, ms: Date.now() - startedMs },
+      });
       return {
         content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
         structuredContent: result as Record<string, unknown>,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      logError('mcp', 'tool_error', err, { tool: name });
       return {
         content: [{ type: 'text' as const, text: `tre-mem ${name}: ${message}` }],
         isError: true,
@@ -60,7 +69,8 @@ export async function runMcpServer(): Promise<void> {
   const repo = new TreMemRepo();
   const server = createMcpServer({ deps: { adapter, repo } });
   const transport = new StdioServerTransport();
-  const cleanup = (): void => {
+  const cleanup = (signal: string): void => {
+    log({ level: 'info', component: 'mcp', event: 'server_stop', fields: { signal } });
     try {
       adapter.close();
     } catch {
@@ -73,12 +83,13 @@ export async function runMcpServer(): Promise<void> {
     }
   };
   process.on('SIGINT', () => {
-    cleanup();
+    cleanup('SIGINT');
     process.exit(0);
   });
   process.on('SIGTERM', () => {
-    cleanup();
+    cleanup('SIGTERM');
     process.exit(0);
   });
+  log({ level: 'info', component: 'mcp', event: 'server_start', fields: {} });
   await server.connect(transport);
 }
