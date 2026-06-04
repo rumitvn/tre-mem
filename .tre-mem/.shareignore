@@ -1,0 +1,6 @@
+# .shareignore — block pins from being exported to this shared directory.
+# One glob per line; matched against a pin's note + title + body (case-insensitive).
+# Examples:
+# *password*
+# *internal-only*
+# *do-not-share*
