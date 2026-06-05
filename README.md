@@ -328,6 +328,28 @@ Works even **without claude-mem** (shared-memory-only mode: pins + graduated fro
 the sidecar/`.tre-mem/`, substring search). Full guide:
 [docs/WEB-UI.md](./docs/WEB-UI.md).
 
+## Beyond Claude Code — cross-tool (v0.6)
+
+tre-mem speaks **MCP**, so the git-shared team memory travels to every major
+harness. Wire them all at once:
+
+```bash
+tre setup --all                # claude-code (repo) + every installed harness
+tre setup --all --auto-inject  # also wire per-prompt context injection
+```
+
+Or one at a time: `tre setup codex` · `codex-desktop` · `gemini` · `cursor` ·
+`antigravity`. Each registers tre-mem's MCP server (and, for Codex/Gemini,
+SessionStart + opt-in prompt hooks) — idempotent and non-clobbering.
+
+**Two layers:** _consume_ (team memory + branch ranking) works on every harness
+via tre-mem's MCP; _ingest_ (recording observations) is **claude-mem's** job, and
+claude-mem v13+ ingests from Claude Code, Codex, Gemini, Cursor, and Antigravity
+into one shared DB. So full branch-aware search is available wherever claude-mem
+is installed + ingesting — run `tre doctor` to see this machine's mode
+(`full` / `shared-only`) and ingest health. Full guide:
+[docs/CROSS-TOOL.md](./docs/CROSS-TOOL.md).
+
 ## Architecture
 
 ```

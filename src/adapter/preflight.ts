@@ -5,6 +5,7 @@ import { colors } from '../format/colors.js';
 import { CLAUDE_MEM_DB_PATH } from '../store/paths.js';
 import { VERSION } from '../version.js';
 
+import { toSecondsEpoch } from './types.js';
 import {
   CLAUDE_MEM_TESTED_SCHEMA,
   missingObservationColumns,
@@ -129,4 +130,52 @@ export function claudeMemGuidance(status: ClaudeMemStatus, color = true): string
 
   const v = status.schemaVersion !== null ? `v${status.schemaVersion}` : 'unknown';
   return c.green(`claude-mem OK (schema ${v}, tested up to v${status.testedSchema}).`);
+}
+
+const STALE_AFTER_DAYS = 30;
+
+export type IngestHealth = 'none' | 'stale' | 'active';
+
+export interface ClaudeMemIngest {
+  /** Total observations claude-mem has recorded. */
+  observations: number;
+  /** Newest observation epoch (seconds), or null when there are none. */
+  newestEpoch: number | null;
+  /** Age in days of the newest observation, or null. */
+  ageDays: number | null;
+  /** `none` = nothing ingested, `stale` = nothing recent, `active` = fresh. */
+  health: IngestHealth;
+}
+
+/**
+ * Probe whether claude-mem is actually *ingesting* — not just installed.
+ *
+ * This matters because claude-mem only records sessions for the harness whose
+ * hooks it has wired (Claude Code). On another harness (Codex / Gemini /
+ * Antigravity) the DB may exist but receive no new observations, so tre-mem
+ * runs there in shared-memory-only mode. Returns null if the DB is absent or
+ * unreadable. Never throws.
+ */
+export function probeClaudeMemIngest(
+  dbPath: string = CLAUDE_MEM_DB_PATH,
+  nowEpoch: number = Math.floor(Date.now() / 1000),
+): ClaudeMemIngest | null {
+  if (!existsSync(dbPath)) return null;
+  let db: Database.Database | null = null;
+  try {
+    db = new Database(dbPath, { readonly: true, fileMustExist: true });
+    db.pragma('query_only = ON');
+    const row = db
+      .prepare('SELECT COUNT(*) AS n, MAX(created_at_epoch) AS newest FROM observations')
+      .get() as { n: number; newest: number | null };
+    const newestEpoch = row.newest !== null ? toSecondsEpoch(row.newest) : null;
+    const ageDays = newestEpoch !== null ? Math.max(0, (nowEpoch - newestEpoch) / 86400) : null;
+    const health: IngestHealth =
+      row.n === 0 || ageDays === null ? 'none' : ageDays > STALE_AFTER_DAYS ? 'stale' : 'active';
+    return { observations: row.n, newestEpoch, ageDays, health };
+  } catch {
+    return null;
+  } finally {
+    db?.close();
+  }
 }

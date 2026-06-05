@@ -78,20 +78,6 @@ describe('setupClaudeCode', () => {
 });
 
 describe('setupTool', () => {
-  test('cursor and codex are stubs returning "coming in V3"', () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'tre-setup2-'));
-    try {
-      for (const tool of ['cursor', 'codex']) {
-        const r = setupTool(tool, tmp);
-        expect(r.supported).toBe(false);
-        expect(r.message).toMatch(/V3/);
-      }
-      expect(existsSync(join(tmp, '.claude'))).toBe(false);
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
-    }
-  });
-
   test('unknown tool reports supported tools', () => {
     const r = setupTool('emacs', '/tmp');
     expect(r.supported).toBe(false);

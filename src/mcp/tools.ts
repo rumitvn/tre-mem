@@ -8,7 +8,9 @@ import { searchBranchContext } from '../retrieval/search.js';
 import type { TreMemRepo } from '../store/repo.js';
 
 export interface ToolDeps {
-  adapter: ClaudeMemAdapter;
+  /** Null in shared-memory-only mode (claude-mem absent): full-text/observation
+   *  signals are skipped; pins + graduated still surface from the sidecar. */
+  adapter: ClaudeMemAdapter | null;
   repo: TreMemRepo;
   defaultCwd?: string;
   resolveBranch?: (cwd: string) => Promise<string>;
@@ -260,7 +262,7 @@ export async function getBranchTimeline(
 
   const tags = deps.repo.listBranchTagsForBranch(project, input.branch, limit);
   const ids = tags.map((t) => t.observation_id);
-  const observations = ids.length > 0 ? deps.adapter.getObservationsByIds(ids) : [];
+  const observations = deps.adapter && ids.length > 0 ? deps.adapter.getObservationsByIds(ids) : [];
   const byId = new Map(observations.map((o) => [o.id, o]));
 
   const entries: GetBranchTimelineResult['entries'] = [];
