@@ -649,7 +649,10 @@ cli
   );
 
 cli
-  .command('setup <tool>', 'Wire tre-mem into a tool (tool=claude-code; cursor/codex stubbed)')
+  .command(
+    'setup <tool>',
+    'Wire tre-mem into a tool (claude-code | codex | codex-desktop | gemini)',
+  )
   .option('--cwd <path>', 'Repo root to write config into (defaults to current dir)')
   .option('--with-action', 'Also write the .github graduate-on-merge workflow')
   .option(

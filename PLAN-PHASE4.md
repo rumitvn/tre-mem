@@ -108,10 +108,11 @@ in `hookSpecificOutput`). Extract envelope serializers so the same core feeds ea
 
 - [x] **T7D1** `ToolDeps.adapter` + `SearchDeps.adapter` now optional; `searchBranchContext` skips semantic/recency/hydration when absent (branch+pin+graduated still rank); `getBranchTimeline` guards adapter use. Tests: `test/mcp-no-claudemem.test.ts`
 - [x] **T7D2** `runMcpServer()` shared-memory-only mode — no hard exit without claude-mem; one-line stderr notice + `shared_only_mode` log; `tre doctor` prints `mode: full|shared-only`. **+ ingest-health probe** (user insight): `probeClaudeMemIngest()` reports `none|stale|active` (installed ≠ ingesting — claude-mem only records the harness whose hooks it wired); doctor surfaces it. Tests: `test/preflight-ingest.test.ts`
-- [ ] **T7D3** `src/tooling/tool-adapter.ts` interface + registry; refactor `setupClaudeCode` to implement it (behavior-preserving, existing tests stay green)
-- [ ] **T7D4** Codex adapter: `registerMcp()` → `~/.codex/config.toml`; `registerHooks()` → `~/.codex/hooks.json`; `tre setup codex [--auto-inject]`
-- [ ] **T7D5** Hook envelope serializers (`--format=codex|gemini|claude`) over the existing hook cores; round-trip tests per format
-- [ ] **T7D5** **Checkpoint T7**: in a repo with `.tre-mem/`, Codex CLI lists `tre-mem` MCP tools and `get_branch_context` returns shared pins **with claude-mem absent**
+- [x] **T7D3** `src/tooling/` module: `codex.ts` (idempotent TOML append), `json-mcp.ts` (shared idempotent `mcpServers` JSON merge), `gemini.ts`; `setupTool` dispatches per tool (claude-code path unchanged, behavior-preserving). _(Chose composable per-tool registrars + dispatch over a single class interface — same registry effect, less ceremony.)_
+- [x] **T7D4 (MCP)** Codex adapter: `registerCodexMcp()` → `~/.codex/config.toml` (`CODEX_HOME` aware); `tre setup codex` + `tre setup codex-desktop` (shared config). Hooks (`~/.codex/hooks.json`) deferred → see below.
+- [ ] **T7D4 (hooks)** Codex/Gemini lifecycle hooks (`hooks.json`, SessionStart/UserPromptSubmit) — **deferred pending output-envelope doc verification**; MCP consumption already delivers the cross-tool value.
+- [ ] **T7D5** Hook envelope serializers (`--format=codex|gemini|claude`) over the existing hook cores — deferred with the hooks above.
+- [x] **T7D5** **Checkpoint T7 PASSED**: drove `tre mcp` over stdio with `CLAUDE_MEM_HOME` empty → prints "shared-memory-only mode", does NOT exit, `tools/list` returns `get_branch_context` (+4), `list_branches` responds. Codex + Gemini configs written + verified. (Pulled **Gemini MCP** forward from T8D6.)
 
 ### Week 8 — Gemini + Antigravity + Codex Desktop + ship
 

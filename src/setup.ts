@@ -1,10 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { registerCodexMcp } from './tooling/codex.js';
+import { registerGeminiMcp } from './tooling/gemini.js';
+
 const SESSION_START_COMMAND = 'tre hook session-start';
 const USER_PROMPT_COMMAND = 'tre hook user-prompt-submit';
 
-export type SetupTool = 'claude-code' | 'cursor' | 'codex';
+export type SetupTool = 'claude-code' | 'cursor' | 'codex' | 'codex-desktop' | 'gemini';
 
 export interface SetupOptions {
   withAction?: boolean;
@@ -143,15 +146,48 @@ export function setupClaudeCode(cwd: string, opts: SetupOptions = {}): SetupResu
   };
 }
 
+/**
+ * Build a SetupResult for an MCP-only tool registration. Consume-only: every
+ * harness can read the git-shared team memory over MCP, even though observation
+ * *ingest* stays Claude-Code-only.
+ */
+function mcpOnlyResult(
+  tool: SetupTool,
+  surface: string,
+  reg: { path: string; changed: boolean },
+): SetupResult {
+  const lines = [
+    reg.changed
+      ? `tre setup ${tool}: registered the tre-mem MCP server for ${surface}.`
+      : `tre setup ${tool}: tre-mem MCP server already registered for ${surface}.`,
+    reg.changed ? `  Restart ${surface}; tre-mem tools become available over MCP.` : '',
+    '  Note: this enables *consuming* git-shared team memory (pins + graduated).',
+    "  Observation ingest stays Claude-Code-only — run `tre doctor` to see this harness's mode.",
+  ].filter((l) => l !== '');
+  return {
+    tool,
+    supported: true,
+    settingsPath: reg.path,
+    hookAdded: false,
+    workflowAdded: false,
+    message: lines.join('\n'),
+  };
+}
+
 export function setupTool(tool: string, cwd: string, opts: SetupOptions = {}): SetupResult {
   if (tool === 'claude-code') return setupClaudeCode(cwd, opts);
-  if (tool === 'cursor' || tool === 'codex') {
+  if (tool === 'codex') return mcpOnlyResult('codex', 'Codex CLI', registerCodexMcp());
+  if (tool === 'codex-desktop') {
+    return mcpOnlyResult('codex-desktop', 'Codex Desktop', registerCodexMcp());
+  }
+  if (tool === 'gemini') return mcpOnlyResult('gemini', 'Gemini CLI', registerGeminiMcp());
+  if (tool === 'cursor') {
     return {
       tool,
       supported: false,
       hookAdded: false,
       workflowAdded: false,
-      message: `tre setup: ${tool} support is coming in V3. Today only "claude-code" is wired.`,
+      message: `tre setup: cursor support is coming. Today: claude-code, codex, codex-desktop, gemini.`,
     };
   }
   return {
@@ -159,6 +195,6 @@ export function setupTool(tool: string, cwd: string, opts: SetupOptions = {}): S
     supported: false,
     hookAdded: false,
     workflowAdded: false,
-    message: `tre setup: unknown tool "${tool}". Supported: claude-code (cursor/codex coming in V3).`,
+    message: `tre setup: unknown tool "${tool}". Supported: claude-code, codex, codex-desktop, gemini (cursor/antigravity coming).`,
   };
 }
