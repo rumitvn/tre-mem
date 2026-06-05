@@ -3,7 +3,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
 import { ClaudeMemAdapter } from '../adapter/claude-mem.js';
-import { claudeMemGuidance, diagnoseClaudeMem } from '../adapter/preflight.js';
+import { diagnoseClaudeMem } from '../adapter/preflight.js';
 import { log, logError } from '../log/logger.js';
 import { migrate } from '../store/migrate.js';
 import { TreMemRepo } from '../store/repo.js';
@@ -68,20 +68,41 @@ export function createMcpServer(opts: CreateServerOptions): Server {
 export async function runMcpServer(): Promise<void> {
   migrate();
   const cm = diagnoseClaudeMem();
-  if (!cm.installed || !cm.compatible) {
-    logError('mcp', 'server_start_blocked', new Error(cm.reason), { reason: cm.reason });
-    process.stderr.write(`${claudeMemGuidance(cm, false)}\n`);
-    process.exitCode = 1;
-    return;
+
+  // claude-mem is OPTIONAL. When it's present + compatible we run in FULL mode
+  // (semantic + observation signals). When it's absent/incompatible — the common
+  // case on non-Claude-Code harnesses where claude-mem can't ingest — we run in
+  // SHARED-MEMORY-ONLY mode (pins + graduated from the sidecar / .tre-mem) rather
+  // than refusing to start. Either way every harness can consume team memory.
+  let adapter: ClaudeMemAdapter | null = null;
+  if (cm.installed && cm.compatible) {
+    try {
+      adapter = new ClaudeMemAdapter();
+    } catch (err) {
+      logError('mcp', 'adapter_open_failed', err, {});
+      adapter = null;
+    }
   }
-  const adapter = new ClaudeMemAdapter();
+  if (!adapter) {
+    process.stderr.write(
+      `tre-mem: ${cm.reason} — running in shared-memory-only mode ` +
+        `(pins + graduated only; full search needs claude-mem).\n`,
+    );
+    log({
+      level: 'warn',
+      component: 'mcp',
+      event: 'shared_only_mode',
+      fields: { reason: cm.reason },
+    });
+  }
+
   const repo = new TreMemRepo();
   const server = createMcpServer({ deps: { adapter, repo }, version: VERSION });
   const transport = new StdioServerTransport();
   const cleanup = (signal: string): void => {
     log({ level: 'info', component: 'mcp', event: 'server_stop', fields: { signal } });
     try {
-      adapter.close();
+      adapter?.close();
     } catch {
       /* noop */
     }

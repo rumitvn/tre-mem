@@ -23,6 +23,11 @@ tre-mem already implements — and **Codex CLI + Gemini CLI also expose lifecycl
   `tre setup <tool>`, and their agent instantly knows the team's pinned decisions + graduated facts.
 - **Antigravity has no native memory** → strongest wedge; an MCP memory server is its intended
   extension point.
+- **Installed ≠ ingesting (user insight).** claude-mem only records the harness whose hooks it has
+  wired (Claude Code). On another harness the DB may exist but stay empty, so tre-mem runs there in
+  shared-only mode. `tre doctor` and `tre setup <tool>` must **detect and honestly report** ingest
+  health (`probeClaudeMemIngest` → `none|stale|active`) instead of implying full mode works
+  everywhere.
 
 **Decisions locked with user:**
 
@@ -101,8 +106,8 @@ in `hookSpecificOutput`). Extract envelope serializers so the same core feeds ea
 
 ### Week 7 — decouple + Codex
 
-- [ ] **T7D1** Make `ToolDeps.adapter` optional in `src/mcp/tools.ts`; handlers degrade to shared-memory signals when absent (unit tests for null-adapter path)
-- [ ] **T7D2** `runMcpServer()` shared-memory-only mode — no hard exit without claude-mem; one-line stderr notice; `tre doctor` reports mode
+- [x] **T7D1** `ToolDeps.adapter` + `SearchDeps.adapter` now optional; `searchBranchContext` skips semantic/recency/hydration when absent (branch+pin+graduated still rank); `getBranchTimeline` guards adapter use. Tests: `test/mcp-no-claudemem.test.ts`
+- [x] **T7D2** `runMcpServer()` shared-memory-only mode — no hard exit without claude-mem; one-line stderr notice + `shared_only_mode` log; `tre doctor` prints `mode: full|shared-only`. **+ ingest-health probe** (user insight): `probeClaudeMemIngest()` reports `none|stale|active` (installed ≠ ingesting — claude-mem only records the harness whose hooks it wired); doctor surfaces it. Tests: `test/preflight-ingest.test.ts`
 - [ ] **T7D3** `src/tooling/tool-adapter.ts` interface + registry; refactor `setupClaudeCode` to implement it (behavior-preserving, existing tests stay green)
 - [ ] **T7D4** Codex adapter: `registerMcp()` → `~/.codex/config.toml`; `registerHooks()` → `~/.codex/hooks.json`; `tre setup codex [--auto-inject]`
 - [ ] **T7D5** Hook envelope serializers (`--format=codex|gemini|claude`) over the existing hook cores; round-trip tests per format

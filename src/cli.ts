@@ -5,7 +5,7 @@ import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 
 import { ClaudeMemAdapter } from './adapter/claude-mem.js';
-import { claudeMemGuidance, diagnoseClaudeMem } from './adapter/preflight.js';
+import { claudeMemGuidance, diagnoseClaudeMem, probeClaudeMemIngest } from './adapter/preflight.js';
 import { auto as theme } from './format/colors.js';
 import type { PinnedFact, RecentObs } from './format/digest.js';
 import { backfill } from './git/backfill.js';
@@ -116,9 +116,42 @@ cli.command('doctor', 'Diagnose claude-mem connectivity and tre-mem setup').acti
   console.log(`  version: ${VERSION}`);
   console.log(`  home:    ${TRE_MEM_HOME}`);
   console.log(`  db:      ${TRE_MEM_DB_PATH}`);
-  console.log('');
   const cm = diagnoseClaudeMem();
+  const mode = cm.installed && cm.compatible ? 'full' : 'shared-only';
+  console.log(`  mode:    ${mode === 'full' ? theme.green('full') : theme.yellow('shared-only')}`);
+  console.log('');
   console.log(claudeMemGuidance(cm, theme.isColorSupported));
+
+  // Ingest health — installed ≠ ingesting. claude-mem only records the harness
+  // whose hooks it wired (Claude Code); elsewhere the DB may exist but stay empty.
+  if (cm.installed && cm.compatible) {
+    const ingest = probeClaudeMemIngest();
+    console.log('');
+    if (!ingest || ingest.health === 'none') {
+      console.log(
+        theme.yellow('  ⚠ claude-mem is installed but has no observations yet — tre-mem will run'),
+      );
+      console.log(
+        '    in shared-only mode here until claude-mem ingests a session on this harness.',
+      );
+      console.log(
+        `    (claude-mem ingests via hooks; today that's Claude Code. See ${theme.cyan('docs/CROSS-TOOL.md')}.)`,
+      );
+    } else if (ingest.health === 'stale') {
+      const days = Math.round(ingest.ageDays ?? 0);
+      console.log(
+        theme.yellow(
+          `  ⚠ ${ingest.observations} observations, but newest is ${days}d old — ingest may have stopped.`,
+        ),
+      );
+    } else {
+      const days = Math.round(ingest.ageDays ?? 0);
+      const when = days <= 0 ? 'today' : `${days}d ago`;
+      console.log(
+        theme.green(`  ✓ ingesting: ${ingest.observations} observations, newest ${when}.`),
+      );
+    }
+  }
   process.exitCode = cm.installed && cm.compatible ? 0 : 1;
 });
 

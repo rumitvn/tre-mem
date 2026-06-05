@@ -31,7 +31,10 @@ export interface SearchOptions {
 }
 
 export interface SearchDeps {
-  adapter: ClaudeMemAdapter;
+  /** Optional: when null (claude-mem absent) search degrades to shared-only —
+   *  the semantic + recency signals and observation hydration are skipped, and
+   *  results come from branch tags + shared pins + graduated snapshots. */
+  adapter: ClaudeMemAdapter | null;
   repo: TreMemRepo;
 }
 
@@ -92,15 +95,15 @@ export function searchBranchContext(deps: SearchDeps, opts: SearchOptions): Sear
   const windowDays = opts.recencyWindowDays ?? DEFAULT_RECENCY_WINDOW_DAYS;
   const sinceEpoch = nowEpoch - windowDays * SECONDS_PER_DAY;
 
-  const searcher = opts.semantic ?? new Fts5SemanticSearcher(deps.adapter);
+  const searcher = opts.semantic ?? (deps.adapter ? new Fts5SemanticSearcher(deps.adapter) : null);
 
-  const semHits = searcher.search({ query: opts.query, project: opts.project, k: fetchK });
+  const semHits = searcher
+    ? searcher.search({ query: opts.query, project: opts.project, k: fetchK })
+    : [];
   const branchTags = deps.repo.listBranchTagsForBranch(opts.project, opts.branch, fetchK);
-  const recentObs = deps.adapter.getObservations({
-    project: opts.project,
-    sinceEpoch,
-    limit: fetchK,
-  });
+  const recentObs = deps.adapter
+    ? deps.adapter.getObservations({ project: opts.project, sinceEpoch, limit: fetchK })
+    : [];
 
   // Pins: a free-text pin (no observation) still surfaces, via a stable
   // negative synthetic id so it flows through the id-keyed reranker.
@@ -128,7 +131,9 @@ export function searchBranchContext(deps: SearchDeps, opts: SearchOptions): Sear
   if (ranked.length === 0) return [];
 
   const positiveIds = ranked.map((r) => r.observationId).filter((id) => id > 0);
-  const byId = new Map(deps.adapter.getObservationsByIds(positiveIds).map((o) => [o.id, o]));
+  const byId = new Map(
+    (deps.adapter ? deps.adapter.getObservationsByIds(positiveIds) : []).map((o) => [o.id, o]),
+  );
 
   const out: SearchHit[] = [];
   for (const r of ranked) {
