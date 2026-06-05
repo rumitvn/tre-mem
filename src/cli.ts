@@ -12,12 +12,19 @@ import { backfill } from './git/backfill.js';
 import { prHeadBranch } from './git/github.js';
 import { gitAuthor } from './git/identity.js';
 import { NO_GIT, currentBranch, isDetached } from './git/resolver.js';
+import {
+  type HookFormat,
+  emptyEnvelope,
+  parseHookFormat,
+  promptEnvelope,
+  sessionStartEnvelope,
+} from './hooks/envelope.js';
 import { type SessionStartInput, runSessionStartHook } from './hooks/session-start.js';
 import { type UserPromptSubmitInput, runUserPromptSubmitHook } from './hooks/user-prompt-submit.js';
 import { log, logError, logFilePath } from './log/logger.js';
 import { readLogTail } from './log/read.js';
 import { runMcpServer } from './mcp/server.js';
-import { setupTool } from './setup.js';
+import { detectTools, setupAll, setupTool } from './setup.js';
 import { searchBranchContext, type SearchHit } from './retrieval/search.js';
 import { migrate } from './store/migrate.js';
 import { SYNC_DIR_NAME, ensureSyncScaffold } from './sync/layout.js';
@@ -122,8 +129,9 @@ cli.command('doctor', 'Diagnose claude-mem connectivity and tre-mem setup').acti
   console.log('');
   console.log(claudeMemGuidance(cm, theme.isColorSupported));
 
-  // Ingest health — installed ≠ ingesting. claude-mem only records the harness
-  // whose hooks it wired (Claude Code); elsewhere the DB may exist but stay empty.
+  // Ingest health — installed ≠ ingesting. claude-mem ingests from the harnesses
+  // it wired (Claude Code, Codex, Gemini, Cursor, Antigravity), into one shared DB;
+  // the DB can exist yet hold no observations, in which case tre-mem is shared-only.
   if (cm.installed && cm.compatible) {
     const ingest = probeClaudeMemIngest();
     console.log('');
@@ -132,10 +140,10 @@ cli.command('doctor', 'Diagnose claude-mem connectivity and tre-mem setup').acti
         theme.yellow('  ⚠ claude-mem is installed but has no observations yet — tre-mem will run'),
       );
       console.log(
-        '    in shared-only mode here until claude-mem ingests a session on this harness.',
+        '    in shared-only mode until claude-mem ingests a session (any wired harness).',
       );
       console.log(
-        `    (claude-mem ingests via hooks; today that's Claude Code. See ${theme.cyan('docs/CROSS-TOOL.md')}.)`,
+        `    (claude-mem ingests from Claude Code, Codex, Gemini, Cursor, Antigravity. See ${theme.cyan('docs/CROSS-TOOL.md')}.)`,
       );
     } else if (ingest.health === 'stale') {
       const days = Math.round(ingest.ageDays ?? 0);
@@ -201,6 +209,13 @@ cli
       console.log(
         `  .tre-mem/: ${hasSyncDir ? syncDir : pins.length === 0 && graduatedCount === 0 ? '(not present — pin a fact first, then `tre export`)' : '(not present — run `tre export`)'}`,
       );
+
+      // Cross-tool wiring (Phase 4): which harnesses are installed + wired.
+      const present = detectTools(cwd).filter((t) => t.installed);
+      if (present.length > 0) {
+        const summary = present.map((t) => `${t.tool}${t.wired ? '✓' : '·'}`).join('  ');
+        console.log(`  tools: ${summary}   ${theme.dim('(✓ wired · = run `tre setup <tool>`)')}`);
+      }
     } finally {
       repo.close();
     }
@@ -275,15 +290,17 @@ cli
 cli
   .command(
     'hook <event>',
-    'Run a Claude Code hook (event=session-start | user-prompt-submit). Reads JSON from stdin.',
+    'Run a session hook (event=session-start | user-prompt-submit). Reads JSON from stdin.',
   )
-  .action(async (event: string) => {
+  .option('--format <tool>', 'Output envelope: claude (default) | codex | gemini')
+  .action(async (event: string, flags: { format?: string }) => {
+    const format = parseHookFormat(flags.format);
     if (event === 'session-start') {
-      await runSessionStartHookCli();
+      await runSessionStartHookCli(format);
       return;
     }
     if (event === 'user-prompt-submit') {
-      await runUserPromptSubmitHookCli();
+      await runUserPromptSubmitHookCli(format);
       return;
     }
     process.stderr.write(
@@ -650,27 +667,46 @@ cli
 
 cli
   .command(
-    'setup <tool>',
-    'Wire tre-mem into a tool (claude-code | codex | codex-desktop | gemini)',
+    'setup [tool]',
+    'Wire tre-mem into a tool (claude-code|codex|codex-desktop|gemini|cursor|antigravity | --all)',
   )
+  .option('--all', 'Set up every installed harness (+ claude-code for this repo)')
   .option('--cwd <path>', 'Repo root to write config into (defaults to current dir)')
   .option('--with-action', 'Also write the .github graduate-on-merge workflow')
-  .option(
-    '--auto-inject',
-    'Also wire the UserPromptSubmit hook (injects branch memory into prompts)',
-  )
-  .action((tool: string, flags: { cwd?: string; withAction?: boolean; autoInject?: boolean }) => {
-    const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
-    const result = setupTool(tool, cwd, {
-      withAction: flags.withAction ?? false,
-      autoInject: flags.autoInject ?? false,
-    });
-    console.log(result.message);
-    if (result.settingsPath) console.log(`  settings: ${result.settingsPath}`);
-    if (result.workflowPath && result.workflowAdded)
-      console.log(`  workflow: ${result.workflowPath}`);
-    if (!result.supported) process.exit(2);
-  });
+  .option('--auto-inject', 'Also wire the prompt-time inject hook (Codex/Gemini/Claude)')
+  .action(
+    (
+      tool: string | undefined,
+      flags: { all?: boolean; cwd?: string; withAction?: boolean; autoInject?: boolean },
+    ) => {
+      const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
+      const opts = {
+        withAction: flags.withAction ?? false,
+        autoInject: flags.autoInject ?? false,
+      };
+
+      if (flags.all || tool === 'all') {
+        const results = setupAll(cwd, opts);
+        for (const r of results) {
+          console.log(r.message);
+          console.log('');
+        }
+        return;
+      }
+
+      if (!tool) {
+        console.error('tre setup: specify a tool or pass --all. See `tre setup --help`.');
+        process.exit(2);
+      }
+
+      const result = setupTool(tool, cwd, opts);
+      console.log(result.message);
+      if (result.settingsPath) console.log(`  settings: ${result.settingsPath}`);
+      if (result.workflowPath && result.workflowAdded)
+        console.log(`  workflow: ${result.workflowPath}`);
+      if (!result.supported) process.exit(2);
+    },
+  );
 
 cli.command('mcp', 'Start the tre-mem MCP server on stdio').action(async () => {
   await runMcpServer();
@@ -935,7 +971,7 @@ function pinnedFacts(repo: TreMemRepo, project: string, branch: string): PinnedF
   });
 }
 
-async function runSessionStartHookCli(): Promise<void> {
+async function runSessionStartHookCli(format: HookFormat): Promise<void> {
   try {
     const input = await readStdinJson<SessionStartInput>();
     migrate();
@@ -947,11 +983,7 @@ async function runSessionStartHookCli(): Promise<void> {
         pinned: ({ project, branch }) => pinnedFacts(repo, project, branch),
       });
       process.stdout.write(
-        `${JSON.stringify({
-          continue: true,
-          hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: result.message },
-          systemMessage: result.display,
-        })}\n`,
+        `${JSON.stringify(sessionStartEnvelope(format, result.message, result.display))}\n`,
       );
     } finally {
       repo.close();
@@ -960,33 +992,26 @@ async function runSessionStartHookCli(): Promise<void> {
     const msg = err instanceof Error ? err.message : String(err);
     logError('hook', 'hook_error', err, { event: 'session-start' });
     process.stderr.write(`tre hook session-start: ${msg}\n`);
-    process.stdout.write(`${JSON.stringify({ continue: true })}\n`);
+    process.stdout.write(`${JSON.stringify(emptyEnvelope(format))}\n`);
   }
 }
 
-async function runUserPromptSubmitHookCli(): Promise<void> {
+async function runUserPromptSubmitHookCli(format: HookFormat): Promise<void> {
   try {
     const input = await readStdinJson<UserPromptSubmitInput>();
     migrate();
-    const adapter = new ClaudeMemAdapter();
+    // claude-mem is optional here too — on a non-Claude-Code harness we inject
+    // from shared pins + graduated only (adapter null → shared-only search).
+    const cm = diagnoseClaudeMem();
+    const adapter = cm.installed && cm.compatible ? new ClaudeMemAdapter() : null;
     const repo = new TreMemRepo();
     try {
       const result = await runUserPromptSubmitHook(input, {
         getHits: (args) => searchBranchContext({ adapter, repo }, { ...args, k: 5 }),
       });
-      const payload =
-        result.context === ''
-          ? { continue: true }
-          : {
-              continue: true,
-              hookSpecificOutput: {
-                hookEventName: 'UserPromptSubmit',
-                additionalContext: result.context,
-              },
-            };
-      process.stdout.write(`${JSON.stringify(payload)}\n`);
+      process.stdout.write(`${JSON.stringify(promptEnvelope(format, result.context))}\n`);
     } finally {
-      adapter.close();
+      adapter?.close();
       repo.close();
     }
   } catch (err) {
@@ -994,7 +1019,7 @@ async function runUserPromptSubmitHookCli(): Promise<void> {
     const msg = err instanceof Error ? err.message : String(err);
     logError('hook', 'hook_error', err, { event: 'user-prompt-submit' });
     process.stderr.write(`tre hook user-prompt-submit: ${msg}\n`);
-    process.stdout.write(`${JSON.stringify({ continue: true })}\n`);
+    process.stdout.write(`${JSON.stringify(emptyEnvelope(format))}\n`);
   }
 }
 

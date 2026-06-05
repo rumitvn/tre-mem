@@ -78,17 +78,6 @@ describe('setupClaudeCode', () => {
 });
 
 describe('setupTool', () => {
-  test('cursor is still a stub', () => {
-    const tmp = mkdtempSync(join(tmpdir(), 'tre-setup2-'));
-    try {
-      const r = setupTool('cursor', tmp);
-      expect(r.supported).toBe(false);
-      expect(existsSync(join(tmp, '.claude'))).toBe(false);
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
-    }
-  });
-
   test('unknown tool reports supported tools', () => {
     const r = setupTool('emacs', '/tmp');
     expect(r.supported).toBe(false);

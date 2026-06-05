@@ -16,18 +16,21 @@ tre-mem already implements — and **Codex CLI + Gemini CLI also expose lifecycl
 
 **Honest value framing (state this plainly in docs):**
 
-- **Ingest stays Claude-Code-only.** claude-mem only observes Claude Code sessions; tre-mem cannot
-  create _new_ observations on other tools. We do not pretend otherwise.
+- **Ingest is claude-mem's job, and it's multi-harness** _(corrected 2026-06-05 from the v13.4.0
+  installer — the first draft wrongly said "Claude-Code-only")_. claude-mem installs capture into
+  Claude Code, Codex CLI, Gemini CLI, Cursor, and Antigravity, all into one shared `~/.claude-mem`
+  DB. tre-mem reads that DB, so **full branch-aware search is available wherever claude-mem is
+  installed + ingesting** — mode is per-**machine**, not per-harness.
 - **Consume is the cross-tool win.** Every tool can _read_ the git-shared team memory (pins +
-  graduated from `.tre-mem/`) via MCP. A teammate on Codex/Gemini/Antigravity clones the repo, runs
-  `tre setup <tool>`, and their agent instantly knows the team's pinned decisions + graduated facts.
+  graduated from `.tre-mem/`) via MCP. A teammate on Codex/Gemini/Cursor/Antigravity clones the
+  repo, runs `tre setup <tool>`, and their agent instantly knows the team's pinned decisions +
+  graduated facts. When claude-mem is absent, tre-mem degrades to shared-only — no silent full mode.
 - **Antigravity has no native memory** → strongest wedge; an MCP memory server is its intended
   extension point.
-- **Installed ≠ ingesting (user insight).** claude-mem only records the harness whose hooks it has
-  wired (Claude Code). On another harness the DB may exist but stay empty, so tre-mem runs there in
-  shared-only mode. `tre doctor` and `tre setup <tool>` must **detect and honestly report** ingest
-  health (`probeClaudeMemIngest` → `none|stale|active`) instead of implying full mode works
-  everywhere.
+- **Installed ≠ ingesting (user insight).** The claude-mem DB can exist yet hold no observations on
+  a machine, so tre-mem runs shared-only there. `tre doctor` + `tre status` **detect and honestly
+  report** ingest health (`probeClaudeMemIngest` → `none|stale|active`) instead of implying full
+  mode works everywhere.
 
 **Decisions locked with user:**
 
@@ -109,19 +112,18 @@ in `hookSpecificOutput`). Extract envelope serializers so the same core feeds ea
 - [x] **T7D1** `ToolDeps.adapter` + `SearchDeps.adapter` now optional; `searchBranchContext` skips semantic/recency/hydration when absent (branch+pin+graduated still rank); `getBranchTimeline` guards adapter use. Tests: `test/mcp-no-claudemem.test.ts`
 - [x] **T7D2** `runMcpServer()` shared-memory-only mode — no hard exit without claude-mem; one-line stderr notice + `shared_only_mode` log; `tre doctor` prints `mode: full|shared-only`. **+ ingest-health probe** (user insight): `probeClaudeMemIngest()` reports `none|stale|active` (installed ≠ ingesting — claude-mem only records the harness whose hooks it wired); doctor surfaces it. Tests: `test/preflight-ingest.test.ts`
 - [x] **T7D3** `src/tooling/` module: `codex.ts` (idempotent TOML append), `json-mcp.ts` (shared idempotent `mcpServers` JSON merge), `gemini.ts`; `setupTool` dispatches per tool (claude-code path unchanged, behavior-preserving). _(Chose composable per-tool registrars + dispatch over a single class interface — same registry effect, less ceremony.)_
-- [x] **T7D4 (MCP)** Codex adapter: `registerCodexMcp()` → `~/.codex/config.toml` (`CODEX_HOME` aware); `tre setup codex` + `tre setup codex-desktop` (shared config). Hooks (`~/.codex/hooks.json`) deferred → see below.
-- [ ] **T7D4 (hooks)** Codex/Gemini lifecycle hooks (`hooks.json`, SessionStart/UserPromptSubmit) — **deferred pending output-envelope doc verification**; MCP consumption already delivers the cross-tool value.
-- [ ] **T7D5** Hook envelope serializers (`--format=codex|gemini|claude`) over the existing hook cores — deferred with the hooks above.
-- [x] **T7D5** **Checkpoint T7 PASSED**: drove `tre mcp` over stdio with `CLAUDE_MEM_HOME` empty → prints "shared-memory-only mode", does NOT exit, `tools/list` returns `get_branch_context` (+4), `list_branches` responds. Codex + Gemini configs written + verified. (Pulled **Gemini MCP** forward from T8D6.)
+- [x] **T7D4** Codex: `registerCodexMcp()` → `[mcp_servers.tre-mem]` + `registerCodexHooks()` → `[[hooks.SessionStart]]` (+ `UserPromptSubmit` with `--auto-inject`) in `~/.codex/config.toml`. `tre setup codex` + `codex-desktop` (shared config).
+- [x] **T7D5** Hook envelope serializers (`src/hooks/envelope.ts`, `tre hook <event> --format=claude|codex|gemini`): Codex == Claude shape (`hookSpecificOutput.{hookEventName,additionalContext}`); Gemini omits `hookEventName` + uses `BeforeModel`. UserPromptSubmit hook made claude-mem-optional. Tests: `test/hook-envelope.test.ts`. Live-verified both envelopes.
+- [x] **T7D5** **Checkpoint T7 PASSED**: `tre mcp` over stdio with `CLAUDE_MEM_HOME` empty → "shared-memory-only mode", no exit, `tools/list` returns all 5 tools, `list_branches` responds.
 
-### Week 8 — Gemini + Antigravity + Codex Desktop + ship
+### Week 8 — Gemini + Antigravity + Cursor + ship
 
-- [ ] **T8D6** Gemini adapter: `registerMcp()` → `~/.gemini/settings.json`; `registerHooks()` (SessionStart/SessionEnd); `tre setup gemini [--auto-inject]`
-- [ ] **T8D7** Antigravity adapter: `registerMcp()` → `~/.gemini/.../mcp_config.json` (inject-only); `tre setup antigravity` + GEMINI.md-path collision guard
-- [ ] **T8D8** Codex Desktop: document shared `~/.codex` path; `tre setup codex-desktop` aliases the Codex MCP registration; verify both surfaces see the server
-- [ ] **T8D9** `tre setup --all` / auto-detect installed tools; `tre status` reports which tools are wired; cross-tool E2E matrix (MCP handshake per tool, mocked where binaries unavailable)
-- [ ] **T8D10** Polish: `docs/CROSS-TOOL.md` (per-tool setup + honest value framing), README + README.vi multi-tool section, version bump `0.5.x → 0.6.0`, CHANGELOG `[0.6.0]`, full pre-push gate, PR
-- [ ] **T8D10** **Checkpoint T8 (moment of truth)**: same `.tre-mem/` repo opened in ≥2 non-Claude tools; each agent answers "what did the team pin on this branch?" from shared memory
+- [x] **T8D6** Gemini: `registerGeminiMcp()` → `~/.gemini/settings.json` `mcpServers` + `registerGeminiHooks()` (SessionStart, BeforeModel w/ `--auto-inject`); `GEMINI_HOME` aware. Tests: `test/tooling-gemini.test.ts`.
+- [x] **T8D7** Antigravity: `registerAntigravityMcp()` → `~/.gemini/antigravity[-cli]/mcp_config.json` (IDE + CLI surfaces), inject-only (hooks are Python-SDK). Tests: `test/tooling-extra.test.ts`.
+- [x] **T8D8** Codex Desktop shares `~/.codex/config.toml`; `tre setup codex-desktop` reuses the Codex registration. **+ Cursor** added (`~/.cursor/mcp.json`, MCP) — claude-mem treats it first-class.
+- [x] **T8D9** `tre setup --all` (auto-detects installed harnesses + always does claude-code for the repo); `detectTools()` powers a per-tool wiring line in `tre status` (`codex✓ gemini· …`). Tests: `test/tooling-extra.test.ts`.
+- [x] **T8D10** Polish: `docs/CROSS-TOOL.md` (corrected ingest framing), README + README.vi multi-tool section, version `0.5.0 → 0.6.0`, CHANGELOG `[0.6.0]`, full gate, PR.
+- [ ] **T8D10** **Checkpoint T8 (moment of truth, user-gated)**: user wires a real non-Claude tool and confirms "what did the team pin on this branch?" works. (User will test from the PR.)
 
 ---
 
@@ -188,4 +190,9 @@ in `hookSpecificOutput`). Extract envelope serializers so the same core feeds ea
 
 - **2026-06-04** — Phase 4 planned. Depth: MCP on all 4 tools + hooks on Codex CLI & Gemini CLI;
   Antigravity/Codex Desktop inject-only. Foundation (claude-mem-optional) begins in Phase 3 and is
-  completed here. Value framing locked as **ingest = Claude-Code-only, consume = every harness**.
+  completed here.
+- **2026-06-05** — Shipped T7+T8 in one pass: claude-mem decoupling, ingest-health probe, and
+  `tre setup` for Codex CLI/Desktop, Gemini CLI, Cursor, Antigravity (+ hooks for Codex/Gemini,
+  `--all`, status detection). **Corrected the value framing** after the v13.4.0 installer showed
+  claude-mem ingests from all five harnesses (not Claude-Code-only): full mode is per-machine
+  (claude-mem installed + ingesting); consume works on every harness via MCP.

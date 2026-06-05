@@ -4,6 +4,47 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-06-05
+
+**Cross-tool: tre-mem now works beyond Claude Code.** It speaks MCP — the
+protocol every major AI coding harness shares — so the git-shared team memory is
+portable. `tre setup <tool>` wires tre-mem into Codex CLI, Codex Desktop, Gemini
+CLI, Cursor, and Antigravity, and claude-mem is no longer required to run.
+
+### Added
+
+- **`tre setup`** for **Codex CLI/Desktop** (`~/.codex/config.toml`), **Gemini CLI**
+  (`~/.gemini/settings.json`), **Cursor** (`~/.cursor/mcp.json`), and **Antigravity**
+  (`~/.gemini/antigravity[-cli]/mcp_config.json`). All idempotent, non-clobbering,
+  and env-aware (`CODEX_HOME` / `GEMINI_HOME` / `CURSOR_HOME`).
+- **`tre setup --all`** — detect every installed harness and wire each (plus
+  claude-code for the current repo). `tre status` now shows a per-tool wiring line.
+- **Lifecycle hooks for Codex + Gemini** (SessionStart always; per-prompt inject
+  with `--auto-inject` → Codex `UserPromptSubmit`, Gemini `BeforeModel`). New
+  `tre hook <event> --format=claude|codex|gemini` emits each harness's envelope
+  (Codex matches Claude's `hookSpecificOutput.{hookEventName,additionalContext}`;
+  Gemini omits `hookEventName`).
+- **`tre doctor` ingest health** — reports `mode: full | shared-only` and whether
+  claude-mem is actually ingesting (`active` / `stale` / none), since an installed
+  claude-mem DB can still be empty on a given machine.
+
+### Changed
+
+- **claude-mem is now optional.** The MCP server and search degrade to
+  **shared-memory-only mode** (pins + graduated from the sidecar / `.tre-mem/`)
+  instead of refusing to start. `ToolDeps.adapter` / `SearchDeps.adapter` are
+  nullable; the MCP server logs a one-line notice rather than exiting.
+
+### Notes
+
+- **Honest model:** _consume_ (team memory + branch ranking) works on every harness
+  via tre-mem's MCP; _ingest_ is claude-mem's job, and claude-mem (v13+) ingests
+  from Claude Code, Codex, Gemini, Cursor, and Antigravity into one shared DB — so
+  full search is available wherever claude-mem is installed + ingesting (per-machine,
+  not Claude-Code-only). See [docs/CROSS-TOOL.md](./docs/CROSS-TOOL.md).
+- Antigravity is inject-only over MCP (its lifecycle hooks are a Python SDK, not
+  declarative config). It has no native memory, making tre-mem a natural fit.
+
 ## [0.5.0] — 2026-06-04
 
 **`tre web` — a local dashboard for your team's shared roots.** Phase 2 made AI

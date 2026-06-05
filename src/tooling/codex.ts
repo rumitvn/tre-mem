@@ -58,3 +58,63 @@ export function registerCodexMcp(opts: CodexRegisterOptions = {}): CodexRegister
   writeFileSync(path, `${existing}${separator}${lead}${mcpBlock(command)}`, 'utf8');
   return { path, changed: true, alreadyPresent: false };
 }
+
+export interface CodexHooksOptions extends CodexRegisterOptions {
+  /** Also wire the UserPromptSubmit inject hook (not just SessionStart). */
+  autoInject?: boolean;
+}
+
+export interface CodexHooksResult {
+  path: string;
+  sessionStartAdded: boolean;
+  userPromptAdded: boolean;
+}
+
+function sessionStartHookBlock(cmd: string): string {
+  return (
+    `[[hooks.SessionStart]]\nmatcher = "startup|resume"\n\n` +
+    `[[hooks.SessionStart.hooks]]\ntype = "command"\ncommand = "${cmd}"\n`
+  );
+}
+
+function userPromptHookBlock(cmd: string): string {
+  return `[[hooks.UserPromptSubmit]]\n\n[[hooks.UserPromptSubmit.hooks]]\ntype = "command"\ncommand = "${cmd}"\n`;
+}
+
+/**
+ * Idempotently append Codex command hooks to config.toml. SessionStart auto-imports
+ * teammate `.tre-mem/` + injects branch context; UserPromptSubmit (opt-in via
+ * `autoInject`) injects branch-scoped memory per prompt. Codex's output contract
+ * matches Claude Code's (`hookSpecificOutput.{hookEventName,additionalContext}`).
+ */
+export function registerCodexHooks(opts: CodexHooksOptions = {}): CodexHooksResult {
+  const path = codexConfigPath(opts.home);
+  const base = opts.command ?? 'tre';
+  const sessionCmd = `${base} hook session-start --format=codex`;
+  const promptCmd = `${base} hook user-prompt-submit --format=codex`;
+
+  let content = existsSync(path) ? readFileSync(path, 'utf8') : '';
+  let sessionStartAdded = false;
+  let userPromptAdded = false;
+
+  const append = (block: string): void => {
+    const sep = content === '' || content.endsWith('\n') ? '' : '\n';
+    const lead = content === '' ? '' : '\n';
+    content = `${content}${sep}${lead}${block}`;
+  };
+
+  if (!content.includes(sessionCmd)) {
+    append(sessionStartHookBlock(sessionCmd));
+    sessionStartAdded = true;
+  }
+  if (opts.autoInject && !content.includes(promptCmd)) {
+    append(userPromptHookBlock(promptCmd));
+    userPromptAdded = true;
+  }
+
+  if (sessionStartAdded || userPromptAdded) {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, content, 'utf8');
+  }
+  return { path, sessionStartAdded, userPromptAdded };
+}

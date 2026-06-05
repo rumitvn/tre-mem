@@ -5,79 +5,87 @@ shares. That makes the team's git-shared memory portable: clone a repo, wire
 tre-mem into your tool, and your agent can read the team's pinned decisions and
 graduated facts — no lock-in to Claude Code.
 
-## The honest model: ingest vs consume
+## The model: consume (tre-mem) vs ingest (claude-mem)
 
-|                                 | Claude Code | Codex CLI | Codex Desktop | Gemini CLI | Antigravity |
-| ------------------------------- | :---------: | :-------: | :-----------: | :--------: | :---------: |
-| **Consume** shared memory (MCP) |     ✅      |    ✅     |      ✅       |     ✅     | ✅ _(soon)_ |
-| **Ingest** new observations     |     ✅      |    ❌     |      ❌       |     ❌     |     ❌      |
+Two layers, two responsibilities:
 
-- **Consume** = read git-shared pins + graduated facts (and, where claude-mem is
-  present, full branch-aware search). This works on every harness over MCP.
-- **Ingest** = recording new observations. That is **claude-mem's** job, and
-  claude-mem only wires its hooks into **Claude Code**. So on another harness
-  tre-mem runs in **shared-memory-only mode** — it surfaces what the team has
-  curated, but won't create new observations there.
+- **tre-mem = consume + branch-awareness.** It serves the git-shared team memory
+  (pins + graduated) and branch-aware ranking over MCP. You wire it per harness
+  with `tre setup <tool>`.
+- **claude-mem = ingest.** It records observations. claude-mem (v13+) installs
+  its capture into **Claude Code, Codex CLI, Gemini CLI, Cursor, and Antigravity**
+  and writes them all to **one shared `~/.claude-mem` DB**.
 
-> **Installed ≠ ingesting.** claude-mem's DB may exist on a machine yet receive
-> no new observations on a non-Claude-Code harness. Run **`tre doctor`** — it
-> reports `mode: full | shared-only` and the claude-mem **ingest health**
-> (`active` / `stale` / none), so you always know what a given harness will do.
+Because tre-mem reads that one shared DB, **full branch-aware search is available
+wherever claude-mem is installed and ingesting — it is _not_ Claude-Code-only.**
+When claude-mem is absent (or hasn't ingested yet), tre-mem still runs in
+**shared-only mode**: pins + graduated from the committed `.tre-mem/`, with a
+substring search. Mode is per-**machine**, not per-harness.
+
+| Harness       | `tre setup` wires                    | Ingest (claude-mem v13) |
+| ------------- | ------------------------------------ | :---------------------: |
+| Claude Code   | hooks + MCP (plugin)                 |           ✅            |
+| Codex CLI     | MCP + SessionStart/Prompt hooks      |           ✅            |
+| Codex Desktop | MCP (shares `~/.codex`)              |           ✅            |
+| Gemini CLI    | MCP + SessionStart/BeforeModel hooks |           ✅            |
+| Cursor        | MCP                                  |           ✅            |
+| Antigravity   | MCP (inject-only)                    |           ✅            |
+
+> **Installed ≠ ingesting.** The claude-mem DB can exist yet hold no observations
+> on a given machine. Run **`tre doctor`** — it reports `mode: full | shared-only`
+> and claude-mem **ingest health** (`active` / `stale` / none), so you always know
+> what you'll get.
 
 ## Setup
 
-All commands are idempotent and non-clobbering (they never overwrite your other
-config). They assume the `tre` binary is on your `PATH` (`npm i -g tre-mem`).
-
-### Codex CLI
+Idempotent and non-clobbering (your other config is preserved). Assumes `tre` is
+on your `PATH` (`npm i -g tre-mem`). Set up everything installed at once:
 
 ```bash
-tre setup codex
+tre setup --all                # claude-code (this repo) + every installed harness
+tre setup --all --auto-inject  # also wire the per-prompt inject hook where supported
 ```
 
-Adds `[mcp_servers.tre-mem]` to `~/.codex/config.toml` (override the dir with
-`CODEX_HOME`). Restart Codex; `get_branch_context`, `list_branches`, etc. appear.
+Or one at a time:
 
-### Codex Desktop / IDE
+| Command                   | Writes                                              | Notes                                                |
+| ------------------------- | --------------------------------------------------- | ---------------------------------------------------- |
+| `tre setup codex`         | `~/.codex/config.toml` (MCP + hooks)                | `CODEX_HOME` aware                                   |
+| `tre setup codex-desktop` | `~/.codex/config.toml`                              | shares Codex config                                  |
+| `tre setup gemini`        | `~/.gemini/settings.json` (MCP + hooks)             | `GEMINI_HOME` aware; prompt hook → `BeforeModel`     |
+| `tre setup cursor`        | `~/.cursor/mcp.json` (MCP)                          | `CURSOR_HOME` aware                                  |
+| `tre setup antigravity`   | `~/.gemini/antigravity[-cli]/mcp_config.json` (MCP) | inject-only; hooks are SDK-only                      |
+| `tre setup claude-code`   | `.claude/settings.json` (hooks)                     | per-repo; `--with-action` adds the graduate workflow |
 
-```bash
-tre setup codex-desktop
-```
+`--auto-inject` adds the prompt-time inject hook (Codex `UserPromptSubmit`,
+Gemini `BeforeModel`, Claude `UserPromptSubmit`). SessionStart is always wired.
 
-Codex Desktop shares `~/.codex/config.toml`, so this is the same registration —
-running either `codex` or `codex-desktop` wires both surfaces.
+## How hooks differ per harness
 
-### Gemini CLI
+`tre hook <event> --format=<tool>` emits the right output envelope for each:
 
-```bash
-tre setup gemini
-```
-
-Adds `tre-mem` to the `mcpServers` map in `~/.gemini/settings.json` (override the
-dir with `GEMINI_HOME`).
-
-### Antigravity
-
-_Coming next._ Antigravity registers MCP servers under `~/.gemini/…/mcp_config.json`
-and has **no native memory**, which makes an MCP memory server its intended
-extension point — a strong fit for tre-mem's consume model.
+- **Claude Code / Codex**: `{ hookSpecificOutput: { hookEventName, additionalContext } }`
+  (Codex's contract matches Claude's).
+- **Gemini**: `{ hookSpecificOutput: { additionalContext } }` — no `hookEventName`,
+  and there's no `UserPromptSubmit` event, so per-prompt injection maps to
+  `BeforeModel`.
 
 ## Verify
 
 ```bash
 tre doctor          # mode + claude-mem ingest health on this machine
-tre mcp             # start the server by hand; on a non-CC harness it prints
-                    #   "running in shared-memory-only mode" and still serves tools
+tre status          # per-tool wiring line: codex✓ gemini· cursor✓ …
+tre mcp             # start by hand; without claude-mem it prints "shared-memory-only mode"
 ```
 
-In the tool itself, list MCP tools — you should see `tre-mem`'s
-`get_branch_context`, `get_branch_timeline`, `list_branches`, `pin_fact`,
-`graduate_fact`. Ask: _"what has the team pinned on this branch?"_
+In the tool, list MCP tools — you should see `get_branch_context`,
+`get_branch_timeline`, `list_branches`, `pin_fact`, `graduate_fact`. Ask:
+_"what has the team pinned on this branch?"_
 
-## What's not here yet
+## Notes
 
-- **Lifecycle hooks** (auto-import teammate `.tre-mem/` + inject branch context on
-  session start) for Codex CLI and Gemini CLI — those harnesses expose hook
-  engines; wiring is in progress. Today the integration is **MCP consumption**,
-  which already delivers the cross-tool value.
-- **Antigravity** registration (inject-only via MCP; no session-hook API).
+- **Antigravity** has no native memory, which makes an MCP memory server its
+  intended extension point — a strong fit. Its lifecycle hooks are exposed via a
+  Python SDK (not declarative config), so tre-mem integrates there inject-only.
+- Codex/Gemini hook engines are young and evolving; if an envelope changes, the
+  serializer in `src/hooks/envelope.ts` is the single place to adjust.

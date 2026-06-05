@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { codexConfigPath, registerCodexMcp } from '../src/tooling/codex.js';
+import { codexConfigPath, registerCodexHooks, registerCodexMcp } from '../src/tooling/codex.js';
 import { setupTool } from '../src/setup.js';
 
 describe('registerCodexMcp', () => {
@@ -50,6 +50,46 @@ describe('registerCodexMcp', () => {
     registerCodexMcp({ home, command: 'node /opt/tre/cli.js' });
     const toml = readFileSync(codexConfigPath(home), 'utf8');
     expect(toml).toContain('command = "node /opt/tre/cli.js"');
+  });
+});
+
+describe('registerCodexHooks', () => {
+  let home: string;
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'tre-codex-hooks-'));
+  });
+
+  afterEach(() => {
+    rmSync(home, { recursive: true, force: true });
+  });
+
+  it('adds only SessionStart by default', () => {
+    const r = registerCodexHooks({ home });
+    expect(r.sessionStartAdded).toBe(true);
+    expect(r.userPromptAdded).toBe(false);
+    const toml = readFileSync(codexConfigPath(home), 'utf8');
+    expect(toml).toContain('[[hooks.SessionStart]]');
+    expect(toml).toContain('tre hook session-start --format=codex');
+    expect(toml).not.toContain('UserPromptSubmit');
+  });
+
+  it('adds UserPromptSubmit with autoInject and is idempotent', () => {
+    registerCodexHooks({ home, autoInject: true });
+    const second = registerCodexHooks({ home, autoInject: true });
+    expect(second.sessionStartAdded).toBe(false);
+    expect(second.userPromptAdded).toBe(false);
+    const toml = readFileSync(codexConfigPath(home), 'utf8');
+    expect(toml.match(/tre hook session-start --format=codex/g)).toHaveLength(1);
+    expect(toml).toContain('tre hook user-prompt-submit --format=codex');
+  });
+
+  it('coexists with the MCP section in one config.toml', () => {
+    registerCodexMcp({ home });
+    registerCodexHooks({ home });
+    const toml = readFileSync(codexConfigPath(home), 'utf8');
+    expect(toml).toContain('[mcp_servers.tre-mem]');
+    expect(toml).toContain('[[hooks.SessionStart]]');
   });
 });
 

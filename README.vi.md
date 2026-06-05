@@ -250,6 +250,27 @@ Hoạt động cả khi **không có claude-mem** (chế độ shared-memory-onl
 graduated từ sidecar/`.tre-mem/`, tìm kiếm substring). Hướng dẫn đầy đủ:
 [docs/WEB-UI.md](./docs/WEB-UI.md).
 
+## Vượt ra ngoài Claude Code — đa công cụ (v0.6)
+
+tre-mem nói **MCP**, nên memory nhóm chia sẻ qua git đi tới mọi harness lớn. Cấu
+hình tất cả cùng lúc:
+
+```bash
+tre setup --all                # claude-code (repo) + mọi harness đã cài
+tre setup --all --auto-inject  # bật cả inject context theo từng prompt
+```
+
+Hoặc từng cái: `tre setup codex` · `codex-desktop` · `gemini` · `cursor` ·
+`antigravity`. Mỗi lệnh đăng ký MCP server của tre-mem (và với Codex/Gemini thêm
+hook SessionStart + prompt tùy chọn) — idempotent, không ghi đè cấu hình khác.
+
+**Hai tầng:** _consume_ (memory nhóm + xếp hạng theo nhánh) chạy trên mọi harness
+qua MCP của tre-mem; _ingest_ (ghi observation) là việc của **claude-mem**, và
+claude-mem v13+ ingest từ Claude Code, Codex, Gemini, Cursor, Antigravity vào một
+DB chung. Vì vậy tìm kiếm branch-aware đầy đủ có sẵn ở bất cứ máy nào đã cài +
+đang ingest claude-mem — chạy `tre doctor` để xem chế độ máy này (`full` /
+`shared-only`) và tình trạng ingest. Hướng dẫn: [docs/CROSS-TOOL.md](./docs/CROSS-TOOL.md).
+
 ## Kiến trúc
 
 ```

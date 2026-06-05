@@ -4,7 +4,11 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { setupTool } from '../src/setup.js';
-import { geminiSettingsPath, registerGeminiMcp } from '../src/tooling/gemini.js';
+import {
+  geminiSettingsPath,
+  registerGeminiHooks,
+  registerGeminiMcp,
+} from '../src/tooling/gemini.js';
 
 describe('registerGeminiMcp', () => {
   let home: string;
@@ -44,6 +48,46 @@ describe('registerGeminiMcp', () => {
     mkdirSync(home, { recursive: true });
     writeFileSync(geminiSettingsPath(home), '{ not json');
     expect(() => registerGeminiMcp({ home })).toThrow(/invalid JSON/);
+  });
+});
+
+describe('registerGeminiHooks', () => {
+  let home: string;
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'tre-gemini-hooks-'));
+  });
+
+  afterEach(() => {
+    rmSync(home, { recursive: true, force: true });
+  });
+
+  it('adds SessionStart only by default; BeforeModel with autoInject', () => {
+    const r1 = registerGeminiHooks({ home });
+    expect(r1.sessionStartAdded).toBe(true);
+    expect(r1.beforeModelAdded).toBe(false);
+    let json = JSON.parse(readFileSync(geminiSettingsPath(home), 'utf8'));
+    expect(json.hooks.SessionStart[0].hooks[0].command).toBe(
+      'tre hook session-start --format=gemini',
+    );
+    expect(json.hooks.BeforeModel).toBeUndefined();
+
+    const r2 = registerGeminiHooks({ home, autoInject: true });
+    expect(r2.beforeModelAdded).toBe(true);
+    json = JSON.parse(readFileSync(geminiSettingsPath(home), 'utf8'));
+    expect(json.hooks.BeforeModel[0].hooks[0].command).toBe(
+      'tre hook user-prompt-submit --format=gemini',
+    );
+  });
+
+  it('is idempotent and preserves mcpServers added separately', () => {
+    registerGeminiMcp({ home });
+    registerGeminiHooks({ home });
+    const second = registerGeminiHooks({ home });
+    expect(second.sessionStartAdded).toBe(false);
+    const json = JSON.parse(readFileSync(geminiSettingsPath(home), 'utf8'));
+    expect(json.mcpServers['tre-mem']).toBeDefined();
+    expect(json.hooks.SessionStart).toHaveLength(1);
   });
 });
 

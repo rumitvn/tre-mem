@@ -18,12 +18,10 @@ export interface JsonMcpResult {
   alreadyPresent: boolean;
 }
 
-interface McpShape {
-  mcpServers?: Record<string, unknown>;
-  [key: string]: unknown;
-}
+export type JsonObject = Record<string, unknown>;
 
-function readJson(path: string): McpShape {
+/** Read a JSON object config, tolerating absent/empty files; throws on invalid JSON. */
+export function readJsonObject(path: string): JsonObject {
   if (!existsSync(path)) return {};
   const raw = readFileSync(path, 'utf8').trim();
   if (raw === '') return {};
@@ -36,20 +34,24 @@ function readJson(path: string): McpShape {
   if (parsed === null || typeof parsed !== 'object') {
     throw new Error(`tre setup: ${path} is not a JSON object`);
   }
-  return parsed as McpShape;
+  return parsed as JsonObject;
+}
+
+export function writeJsonObject(path: string, obj: JsonObject): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(obj, null, 2)}\n`, 'utf8');
 }
 
 export function registerJsonMcp(path: string, name: string, entry: JsonMcpEntry): JsonMcpResult {
-  const settings = readJson(path);
+  const settings = readJsonObject(path) as { mcpServers?: Record<string, unknown> } & JsonObject;
   const servers = settings.mcpServers ?? {};
   if (Object.prototype.hasOwnProperty.call(servers, name)) {
     return { path, changed: false, alreadyPresent: true };
   }
-  const next: McpShape = {
+  const next: JsonObject = {
     ...settings,
     mcpServers: { ...servers, [name]: { command: entry.command, args: entry.args } },
   };
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+  writeJsonObject(path, next);
   return { path, changed: true, alreadyPresent: false };
 }
