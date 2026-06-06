@@ -10,23 +10,7 @@ bộ rễ, đung đưa riêng trong gió nhưng đứng vững cùng nhau qua m�
 Các branch của một codebase cũng lớn lên như vậy: mỗi branch là một feature
 riêng, nhưng tất cả đều từ một dòng history chung.
 
-```
-                  ╲╱           ╲╱           ╲╱
-                  ╱╲           ╱╲           ╱╲
-                 ╱  ╲         ╱  ╲         ╱  ╲
-                 │  │         │  │         │  │
-                 ├──┤         ├──┤         ├──┤    ← đốt tre
-                 │  │         │  │         │  │
-                 ├──┤         ├──┤         ├──┤
-                 │  │         │  │         │  │
-                 ├──┤         ├──┤         ├──┤
-                 │  │         │  │         │  │
-              ═══╧══╧═════════╧══╧═════════╧══╧═══
-                  ╲      ╲    │    ╱      ╱
-                   ╲______╲___│___╱______╱
-                      gốc chung · shared roots
-                      các branch của một codebase
-```
+<img width="1376" height="768" alt="Gemini_Generated_Image_39r50l39r50l39r5" src="https://github.com/user-attachments/assets/231a353f-8725-42dd-90c5-c2ffddd46570" />
 
 Đó cũng là điều `tre-mem` mang đến cho AI assistant của bạn: mỗi branch có
 tiếng nói riêng, nhưng gốc rễ chung của codebase vẫn vẹn nguyên. Một tầng
