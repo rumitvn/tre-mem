@@ -14,23 +14,7 @@ system, swaying separately in the wind but standing together through every
 storm. The many branches of a codebase grow the same way: each its own
 feature, all from one shared history.
 
-```
-                  ╲╱           ╲╱           ╲╱
-                  ╱╲           ╱╲           ╱╲
-                 ╱  ╲         ╱  ╲         ╱  ╲
-                 │  │         │  │         │  │
-                 ├──┤         ├──┤         ├──┤    ← đốt tre (node)
-                 │  │         │  │         │  │
-                 ├──┤         ├──┤         ├──┤
-                 │  │         │  │         │  │
-                 ├──┤         ├──┤         ├──┤
-                 │  │         │  │         │  │
-              ═══╧══╧═════════╧══╧═════════╧══╧═══
-                  ╲      ╲    │    ╱      ╱
-                   ╲______╲___│___╱______╱
-                      gốc chung · shared roots
-                      branches of one codebase
-```
+<img width="1376" height="768" alt="Gemini_Generated_Image_tzzlu5tzzlu5tzzl" src="https://github.com/user-attachments/assets/fcac78df-b636-478c-9bdb-78334126055d" />
 
 That's what `tre-mem` gives your AI assistant: every branch gets its own
 voice, while the shared roots of the codebase stay intact. Branch-aware
