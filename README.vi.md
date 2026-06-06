@@ -157,9 +157,9 @@ Claude còn có thể tự viết ghi chú giúp bạn:
 | "Cho xem timeline của feature này."                            | `get_branch_timeline`                          |
 | "Branch này đã merge — đưa các quyết định lên phạm vi repo."   | `graduate_fact` (hoặc Action lúc merge tự làm) |
 
-Sau đó `tre export && git push` (hoặc để GitHub Action graduate lúc merge) và đồng
-đội tự động thừa hưởng pin trong phiên kế tiếp — hiện trong digest của họ với nhãn
-`[shared]` như trên.
+Sau đó chạy `tre share` (một lệnh: export + commit + push) và đồng đội tự động
+thừa hưởng pin trong phiên kế tiếp — hiện trong digest của họ với nhãn `[shared]`
+như trên.
 
 ## Bộ lệnh CLI
 
@@ -230,7 +230,7 @@ File tự xoay vòng sang `tre-mem.log.1` khi vượt 5 MB, nên không bao gi�
 
 Phase 2 đưa memory đi qua git; **v0.5 cho cả nhóm _nhìn thấy_ nó.** Chạy `tre web`
 để mở dashboard cục bộ, chỉ-đọc: cây nhánh (branch graph), các quyết định đã pin,
-fact đã graduated, và những gì đang chờ export — cập nhật trực tiếp khi repo và
+fact đã graduated, và những gì chưa được chia sẻ — cập nhật trực tiếp khi repo và
 sidecar thay đổi. Không tài khoản, không cloud; chỉ bind `127.0.0.1`.
 
 ```bash
@@ -241,7 +241,7 @@ tre web --background    # chạy nền; quản lý bằng `tre web status` / `tr
 - **Branch graph** — mỗi nhánh kèm số observation đã tag, số pin, lần hoạt động
   gần nhất, và `HEAD` hiện tại.
 - **Team memory** — ai đã pin gì và vì sao, kèm các fact đã graduated, với nhãn
-  `shared` / `pending export`.
+  `shared via git ✓` / `not shared yet`.
 - **Search** — theo nhánh, kèm phân rã điểm theo từng tín hiệu.
 - **Live** — phản ứng khi đổi nhánh, khi đồng đội `git pull` / `tre import`, và khi
   pin được ghi từ terminal khác (SSE).

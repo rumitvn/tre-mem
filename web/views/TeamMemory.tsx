@@ -23,6 +23,7 @@ export function TeamMemory({ project, refreshKey, onOpenBranch }: TeamMemoryProp
   const pinRows = pins.data?.pins ?? [];
   const gradRows = grad.data?.graduated ?? [];
   const loading = pins.loading || grad.loading;
+  const pendingCount = pinRows.filter((p) => !p.shared).length;
 
   return (
     <>
@@ -31,15 +32,23 @@ export function TeamMemory({ project, refreshKey, onOpenBranch }: TeamMemoryProp
       </h1>
       <p className="sub">
         What the team chose to remember about <strong>{project}</strong> — pinned decisions and the
-        facts that graduated to repo-wide knowledge. Shared rows travel through git.
+        facts that graduated to repo-wide knowledge. Shared rows live in <code>.tre-mem/</code> and
+        travel through git; run <code>tre share</code> to publish them.
       </p>
+
+      {!loading && pendingCount > 0 ? (
+        <p className="callout">
+          {pendingCount} pin{pendingCount === 1 ? '' : 's'} not shared yet — run{' '}
+          <code>tre share</code> to push {pendingCount === 1 ? 'it' : 'them'} to your team's git.
+        </p>
+      ) : null}
 
       {loading ? (
         <Skeletons n={5} />
       ) : pinRows.length === 0 && gradRows.length === 0 ? (
         <Empty
           title="No shared memory yet"
-          hint="Pin a decision, then `tre export` to share it with the team."
+          hint="Pin a decision, then run `tre share` to push it to your team's git."
         />
       ) : (
         <>
@@ -54,7 +63,7 @@ export function TeamMemory({ project, refreshKey, onOpenBranch }: TeamMemoryProp
                   <Badge kind="pin">pin</Badge>
                   <span className="entry-title">{p.title ?? p.note ?? '(pinned fact)'}</span>
                   <Badge kind={p.shared ? 'graduated' : 'pending'}>
-                    {p.shared ? 'shared' : 'pending export'}
+                    {p.shared ? 'shared via git ✓' : 'not shared yet'}
                   </Badge>
                 </div>
                 {p.body && p.body !== p.title ? <p className="entry-body">{p.body}</p> : null}

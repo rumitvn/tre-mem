@@ -27,14 +27,28 @@ them on \`git clone\`.
 ## Workflow
 
 \`\`\`bash
-tre export          # write your pins here, then: git add .tre-mem && git commit && git push
-tre import          # after git pull: pull teammates' pins into your local sidecar
+tre share           # one command: write your pins here + git add/commit/push to your team
+# teammates: git pull — the SessionStart hook auto-imports; or run \`tre import\`
 \`\`\`
 
+\`tre share\` works with any git remote (GitHub, GitLab, Bitbucket, a plain bare repo).
 Raw observations stay private on each machine — only pins + graduated facts are shared.
-\`tre export\` is fail-closed: it refuses to write detected secrets unless you pass \`--force\`.
+Sharing is fail-closed: it refuses to write detected secrets unless you pass \`--force\`.
+
+\`.gitattributes\` sets \`*.jsonl merge=union\` so two teammates sharing at once never
+hit a real merge conflict — git keeps both sides and \`tre import\` de-dupes on read.
 
 See the format spec: https://github.com/rumitvn/tre-mem/blob/main/docs/SYNC-FORMAT.md
+`;
+
+/**
+ * `merge=union` makes git auto-resolve concurrent appends to the append-only JSONL
+ * files by keeping both sides. Lines are independent JSON records and `tre import`
+ * de-dupes on content_hash, so "keep both" can never corrupt the shared memory.
+ */
+const GITATTRIBUTES = `# tre-mem shared memory — keep both sides on concurrent edits.
+# Records are append-only, independent JSON lines; tre import de-dupes on content_hash.
+*.jsonl merge=union
 `;
 
 const SHAREIGNORE = `# .shareignore — block pins from being exported to this shared directory.
@@ -45,13 +59,27 @@ const SHAREIGNORE = `# .shareignore — block pins from being exported to this s
 # *do-not-share*
 `;
 
-/** Create README.md + a starter .shareignore in the sync dir if missing. */
+/** Create README.md + a starter .shareignore + .gitattributes in the sync dir if missing. */
 export function ensureSyncScaffold(dir: string): void {
   mkdirSync(dir, { recursive: true });
   const readme = join(dir, 'README.md');
   if (!existsSync(readme)) writeFileSync(readme, README, 'utf8');
   const shareignore = join(dir, '.shareignore');
   if (!existsSync(shareignore)) writeFileSync(shareignore, SHAREIGNORE, 'utf8');
+  ensureGitattributes(dir);
+}
+
+/**
+ * Write `.tre-mem/.gitattributes` (`*.jsonl merge=union`) if missing. Split out so
+ * `tre share` can backfill it for repos initialized before this existed. Returns
+ * true when the file was created.
+ */
+export function ensureGitattributes(dir: string): boolean {
+  const path = join(dir, '.gitattributes');
+  if (existsSync(path)) return false;
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path, GITATTRIBUTES, 'utf8');
+  return true;
 }
 
 /**

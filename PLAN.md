@@ -8,7 +8,8 @@
 > **Phase plans (SSOT chain):** [`PLAN.md`](./PLAN.md) — Phase 1 (v0.1.x, branch-aware solo) ·
 > [`PLAN-PHASE2.md`](./PLAN-PHASE2.md) — Phase 2 (v0.2–v0.4.x, git-native team share) ·
 > [`PLAN-PHASE3.md`](./PLAN-PHASE3.md) — Phase 3 (v0.5.x, team web dashboard) ·
-> [`PLAN-PHASE4.md`](./PLAN-PHASE4.md) — Phase 4 (v0.6.x, cross-tool port). Current: **v0.4.0**.
+> [`PLAN-PHASE4.md`](./PLAN-PHASE4.md) — Phase 4 (v0.6.x, cross-tool port) ·
+> [`PLAN-PHASE5.md`](./PLAN-PHASE5.md) — Phase 5 (v0.7.x, "Share, made obvious"). Current: **v0.7.0**.
 
 ---
 

@@ -50,7 +50,7 @@ export function Overview({ project, branches, refreshKey, onOpenBranch }: Overvi
         </div>
         <div className="stat" style={{ ['--spine' as string]: 'var(--warn)' }}>
           <div className="n">{s ? s.pending_export : '—'}</div>
-          <div className="k">pins pending export</div>
+          <div className="k">pins not shared yet</div>
         </div>
       </div>
 

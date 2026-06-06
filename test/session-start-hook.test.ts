@@ -47,6 +47,8 @@ describe('runSessionStartHook', () => {
     expect(result.message).toContain('workrepo');
     expect(result.message).toContain('main');
 
+    expect(result.message).not.toContain('dashboard live');
+
     const state = repo.getBranchState(repoDir);
     expect(state).toEqual({
       cwd: repoDir,
@@ -54,6 +56,16 @@ describe('runSessionStartHook', () => {
       current_branch: 'main',
       updated_at_epoch: 5000,
     });
+  });
+
+  it('surfaces the dashboard URL in the digest when one is provided', async () => {
+    const result = await runSessionStartHook(
+      { hook_event_name: 'SessionStart', cwd: repoDir },
+      { repo, now: () => 5000, dashboardUrl: 'http://127.0.0.1:38700/' },
+    );
+    expect(result.message).toContain('dashboard live →');
+    expect(result.message).toContain('http://127.0.0.1:38700/');
+    expect(result.display).toContain('http://127.0.0.1:38700/');
   });
 
   it('reflects branch switch on subsequent invocations', async () => {

@@ -42,6 +42,11 @@ export interface SessionStartOptions {
    * branch has no pins.
    */
   pinned?: (args: { project: string; branch: string }) => PinnedFact[];
+  /**
+   * Live dashboard URL to surface in the digest. The CLI resolves this by
+   * auto-starting the background `tre web` daemon; left undefined in tests.
+   */
+  dashboardUrl?: string;
 }
 
 export interface SessionStartResult {
@@ -137,6 +142,7 @@ export async function runSessionStartHook(
       pinned,
       recent,
       note,
+      dashboardUrl: opts.dashboardUrl,
     });
     log({
       level: 'info',
