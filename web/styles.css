@@ -224,6 +224,21 @@ main {
   margin: 0 0 1.6rem;
 }
 
+.callout {
+  max-width: 56ch;
+  margin: 0 0 1.6rem;
+  padding: 0.65rem 0.85rem;
+  background: var(--accent-wash);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: var(--text-sm, 0.9rem);
+}
+
+.callout code {
+  font-weight: 600;
+}
+
 /* ---- controls / atoms ----------------------------------------------- */
 
 .select,

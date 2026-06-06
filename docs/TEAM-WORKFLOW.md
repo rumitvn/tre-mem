@@ -26,27 +26,36 @@ model, and the auto-lifecycle.
 
 ```bash
 npm i -g tre-mem
-tre setup claude-code --with-action     # SessionStart hook + graduate workflow
+tre setup claude-code                    # SessionStart hook (auto-import on pull)
+# optional: graduate pins automatically when a branch merges (no CI, any provider)
+tre setup claude-code --with-hook
 # optional: also inject branch memory into every prompt
 tre setup claude-code --auto-inject
 ```
 
-`--with-action` writes `.github/workflows/tre-mem-graduate.yml`. Commit it so
-graduation runs for the whole team.
+Works with **any git host** — GitHub, GitLab, Bitbucket, or a plain bare remote.
+Sharing is just files in your repo; nothing here is GitHub-specific. (`--with-hook`
+installs a local `post-merge` git hook — see [Graduate on merge](#graduate-on-merge)
+for that and the CI alternatives.)
 
 ## The daily loop
 
-### Share a decision
+### Share a decision — one command
 
 ```bash
 # while working on a branch
 tre pin 1234 --note "use Stripe webhook v3 for idempotency"
-tre export                              # writes .tre-mem/branches/<branch>.jsonl
-git add .tre-mem && git commit -m "share: webhook decision" && git push
+tre share                               # export + git add + commit + push, in one step
 ```
 
-`tre export` is idempotent — re-running adds nothing new. Use `--all` to export
-every branch with pins, `--dry-run` to preview.
+`tre share` writes your pins to `.tre-mem/`, commits them, and pushes to your
+team's remote. It's idempotent (re-running shares nothing new), and degrades
+honestly: `--no-push` to commit only, `--no-commit` to stage only, `--all` to
+share every branch with pins, `--dry-run` to preview. If your branch has no
+upstream yet, it commits and prints the exact `git push -u …` to run.
+
+> `tre export` still exists as the low-level "write files only" primitive if you
+> prefer to drive git yourself.
 
 ### Receive teammates' decisions
 
@@ -67,17 +76,57 @@ title/body snapshot travels in the JSONL.
 
 ### Graduate on merge
 
-When a PR merges, the `graduate-on-merge` Action promotes that branch's pins to
-`graduated.jsonl` automatically. To do it by hand:
+Graduating promotes a merged branch's pins to repo-wide `graduated.jsonl` (which
+then surfaces on **every** branch, weight 0.3). Pick whichever fits your setup —
+they all produce the same commit:
+
+**A. Local git hook (no CI, any provider).** `tre setup … --with-hook` installs a
+`post-merge` hook that runs `tre graduate-merge` after every merge/pull — it
+recovers the merged branch from the merge commit and graduates its pins:
 
 ```bash
-tre graduate-pr 42                      # resolves PR #42 → its branch via gh
-tre graduate-pr feature/payment --branch feature/payment   # or graduate a branch directly
-git add .tre-mem && git commit -m "graduate merged pins" && git push
+tre setup claude-code --with-hook
+# then, normally: git checkout main && git merge feature/payment
+#   → pins from feature/payment land in graduated.jsonl; run `tre share` to publish
 ```
 
-Graduated facts surface on **every** branch (weight 0.3), so repo-wide decisions
-flow across feature branches.
+**B. By hand (any provider).**
+
+```bash
+tre graduate-pr feature/payment --branch feature/payment   # graduate a branch directly
+tre graduate-pr 42                                          # or resolve GitHub PR #42 via gh
+tre share                                                  # publish graduated.jsonl
+```
+
+**C. CI.** Run `tre graduate-pr` from your pipeline, reading the branch from CI env:
+
+```yaml
+# GitLab CI (.gitlab-ci.yml) — runs on the default branch after a merge
+graduate:
+  rule: if: '$CI_COMMIT_BRANCH == "main"'
+  script:
+    - npx tre-mem graduate-pr --branch "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+    - git add .tre-mem && git commit -m "graduate merged pins" && git push
+```
+
+```yaml
+# Bitbucket Pipelines (bitbucket-pipelines.yml)
+pipelines:
+  branches:
+    main:
+      - step:
+          script:
+            - npx tre-mem graduate-pr --branch "$BITBUCKET_BRANCH"
+            - git add .tre-mem && git commit -m "graduate merged pins" && git push
+```
+
+`tre graduate-pr` reads the branch from `--branch`, then `gh` (GitHub), then CI env
+(`GITHUB_HEAD_REF` / `CI_MERGE_REQUEST_SOURCE_BRANCH_NAME` / `BITBUCKET_BRANCH` / …)
+— so it never hard-depends on GitHub.
+
+**D. GitHub Action (optional).** If you are on GitHub and want it fully managed,
+`tre setup … --with-action` writes `.github/workflows/tre-mem-graduate.yml`. This is
+just one option among A–C, not required.
 
 ## Privacy & safety
 
@@ -91,12 +140,18 @@ flow across feature branches.
 - **You review everything in the PR.** Because `.tre-mem/` is committed JSONL,
   shared memory shows up as a normal, human-readable diff.
 
-## Conflicts
+## Conflicts — "keep both", automatically
 
-Files are append-only and rows dedupe on `content_hash`, so git union-merges
-"just work". The one genuine edge case — two devs editing the _same_ pin's note
-— produces two rows; import resolves by latest `tagged_at_epoch`. Unparseable
-lines (e.g. a teammate on a newer schema) are preserved verbatim, never dropped.
+`.tre-mem/.gitattributes` ships with `*.jsonl merge=union`, so when two teammates
+share at the same time git **keeps both sides** instead of raising a conflict.
+Files are append-only and rows dedupe on `content_hash`, so the merged result is
+correct: any duplicate collapses to one row on `tre import`. The one genuine edge
+case — two devs editing the _same_ pin's note — produces two rows; import resolves
+by latest `tagged_at_epoch`. Unparseable lines (e.g. a teammate on a newer schema,
+or a stray conflict marker) are skipped on import, never dropped from the file.
+
+`tre share` scaffolds the `.gitattributes` for you; repos initialized before v0.7
+get it backfilled on the next `tre share`.
 
 ## Migrating from v0.1
 

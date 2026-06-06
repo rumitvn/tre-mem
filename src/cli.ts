@@ -3,14 +3,16 @@ import { cac } from 'cac';
 import { spawn } from 'node:child_process';
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
+import { simpleGit } from 'simple-git';
 
 import { ClaudeMemAdapter } from './adapter/claude-mem.js';
 import { claudeMemGuidance, diagnoseClaudeMem, probeClaudeMemIngest } from './adapter/preflight.js';
 import { auto as theme } from './format/colors.js';
 import type { PinnedFact, RecentObs } from './format/digest.js';
 import { backfill } from './git/backfill.js';
-import { prHeadBranch } from './git/github.js';
+import { branchFromCiEnv, prHeadBranch } from './git/github.js';
 import { gitAuthor } from './git/identity.js';
+import { mergedBranchFromSubject } from './git/merge.js';
 import { NO_GIT, currentBranch, isDetached } from './git/resolver.js';
 import {
   type HookFormat,
@@ -24,14 +26,15 @@ import { type UserPromptSubmitInput, runUserPromptSubmitHook } from './hooks/use
 import { log, logError, logFilePath } from './log/logger.js';
 import { readLogTail } from './log/read.js';
 import { runMcpServer } from './mcp/server.js';
-import { detectTools, setupAll, setupTool } from './setup.js';
+import { detectTools, installPostMergeHook, setupAll, setupTool } from './setup.js';
 import { searchBranchContext, type SearchHit } from './retrieval/search.js';
 import { migrate } from './store/migrate.js';
 import { SYNC_DIR_NAME, ensureSyncScaffold } from './sync/layout.js';
-import { exportSync } from './sync/export.js';
+import { exportSync, type SnapshotProvider } from './sync/export.js';
 import { graduateBranch } from './sync/graduate.js';
 import { importDir } from './sync/import.js';
 import { RedactionError } from './sync/redact.js';
+import { shareToGit, simpleGitShare } from './sync/share.js';
 import { loadShareignore } from './sync/shareignore.js';
 import { AdapterSnapshotProvider } from './sync/snapshot.js';
 import { TRE_MEM_DB_PATH, TRE_MEM_HOME } from './store/paths.js';
@@ -60,9 +63,9 @@ function printNothingToExportHint(opts: {
 
   if (projectPins.length === 0 && graduatedCount === 0) {
     console.log('');
-    console.log('  Nothing to share yet. `tre export` publishes the facts you curate —');
+    console.log('  Nothing to share yet. `tre share` publishes the facts you curate —');
     console.log('  pinned + graduated facts — not the local branch index (your branch_tag');
-    console.log('  rows stay on this machine). Curate something first, then re-run export:');
+    console.log('  rows stay on this machine). Curate something first, then run `tre share`:');
     console.log(
       `    ${theme.cyan('tre pin <observation-id>')}        mark a fact important for a branch`,
     );
@@ -77,11 +80,9 @@ function printNothingToExportHint(opts: {
   const onExported = projectPins.filter((p) => exportedBranches.includes(p.branch));
   if (onExported.length === 0 && projectPins.length > 0) {
     console.log('');
+    console.log(`  No pins on the current branch(es): ${exportedBranches.join(', ') || '(none)'}.`);
     console.log(
-      `  No pins on the exported branch(es): ${exportedBranches.join(', ') || '(none)'}.`,
-    );
-    console.log(
-      `  ${projectPins.length} pin(s) live on other branches — run ${theme.cyan('tre export --all')} to include them.`,
+      `  ${projectPins.length} pin(s) live on other branches — run ${theme.cyan('tre share --all')} to include them.`,
     );
     return;
   }
@@ -89,7 +90,7 @@ function printNothingToExportHint(opts: {
   const pendingOnExported = onExported.filter((p) => p.shared_at_epoch === null).length;
   if (pendingOnExported === 0) {
     console.log('');
-    console.log('  Everything is already exported — nothing new to add.');
+    console.log('  Everything is already shared — nothing new to add.');
   }
 }
 
@@ -199,15 +200,20 @@ cli
       const hasSyncDir = existsSync(syncDir);
       if (pins.length === 0 && graduatedCount === 0) {
         console.log(
-          `  shared: nothing pinned yet — ${theme.cyan('tre pin <id>')} / ${theme.cyan('tre graduate <id>')} curate facts, then ${theme.cyan('tre export')}`,
+          `  shared: nothing curated yet — ${theme.cyan('tre pin <id>')} / ${theme.cyan('tre graduate <id>')}, then ${theme.cyan('tre share')}`,
         );
       } else {
         console.log(
-          `  shared: ${sharedPins} pin(s) exported / ${pendingPins} pending export / ${graduatedCount} graduated`,
+          `  shared to git: ${sharedPins} pin(s) shared · ${pendingPins} not shared yet · ${graduatedCount} graduated`,
         );
+        if (pendingPins > 0) {
+          console.log(
+            `    → run ${theme.cyan('tre share')} to push ${pendingPins} unshared pin(s) to your team`,
+          );
+        }
       }
       console.log(
-        `  .tre-mem/: ${hasSyncDir ? syncDir : pins.length === 0 && graduatedCount === 0 ? '(not present — pin a fact first, then `tre export`)' : '(not present — run `tre export`)'}`,
+        `  .tre-mem/: ${hasSyncDir ? `${syncDir} (travels through git)` : pins.length === 0 && graduatedCount === 0 ? '(not present — curate a fact first, then `tre share`)' : '(not present — run `tre share`)'}`,
       );
 
       // Cross-tool wiring (Phase 4): which harnesses are installed + wired.
@@ -449,8 +455,138 @@ cli
     }
   });
 
+interface ExportFlags {
+  cwd?: string;
+  project?: string;
+  branch?: string;
+  all?: boolean;
+  out?: string;
+  author?: string;
+  force?: boolean;
+  dryRun?: boolean;
+}
+
+/**
+ * Run the export half of sharing — write curated pins + graduated facts into
+ * `.tre-mem/` and print the per-branch report. Returns the output dir + total rows
+ * added, or null when claude-mem is unavailable. Reused by both `tre export` and
+ * `tre share` so the two never drift. `quiet` suppresses the "commit to share" hint
+ * (the `tre share` caller does the git step itself and prints its own next-step).
+ */
+async function runExport(
+  flags: ExportFlags,
+  opts: { quiet?: boolean } = {},
+): Promise<{ dir: string; totalAdded: number; project: string } | null> {
+  const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
+  const project = flags.project ?? basename(cwd);
+  const dir = flags.out ? resolve(flags.out) : resolve(cwd, SYNC_DIR_NAME);
+  const author = flags.author ?? (await gitAuthor(cwd));
+
+  migrate();
+  // Sharing curated pins must work on any harness — claude-mem is OPTIONAL here.
+  // When it is present we hydrate live observation snapshots; when it is absent
+  // each pin falls back to its own stored title/body, so a teammate on Codex/Gemini
+  // can still share. (Other commands that need raw observations still require it.)
+  const cm = diagnoseClaudeMem();
+  const claudeMemReady = cm.installed && cm.compatible;
+  const adapter = claudeMemReady ? new ClaudeMemAdapter() : null;
+  const snapshots: SnapshotProvider = adapter
+    ? new AdapterSnapshotProvider(adapter)
+    : { getSnapshots: () => new Map() };
+  const repo = new TreMemRepo();
+  try {
+    if (!claudeMemReady) {
+      console.log(
+        `  ${theme.dim('claude-mem unavailable — sharing curated pins from the sidecar (snapshots limited).')}`,
+      );
+    }
+    let branches: string[];
+    if (flags.all) {
+      branches = repo.listPinBranches(project);
+    } else if (flags.branch) {
+      branches = [flags.branch];
+    } else {
+      const cur = await currentBranch(cwd);
+      branches = cur === NO_GIT || isDetached(cur) ? repo.listPinBranches(project) : [cur];
+    }
+
+    let result;
+    try {
+      result = exportSync({
+        repo,
+        snapshots,
+        project,
+        dir,
+        branches,
+        now: Math.floor(Date.now() / 1000),
+        author,
+        shareignore: loadShareignore(dir),
+        redact: flags.force ?? false,
+        dryRun: flags.dryRun ?? false,
+      });
+    } catch (err) {
+      if (err instanceof RedactionError) {
+        log({
+          level: 'warn',
+          component: 'sync',
+          event: 'export_redaction_blocked',
+          fields: {
+            project,
+            matches: err.matches.length,
+            rules: [...new Set(err.matches.map((m) => m.rule))],
+          },
+        });
+        process.stderr.write(`tre share blocked: ${err.matches.length} potential secret(s):\n`);
+        for (const m of err.matches) {
+          process.stderr.write(`  - ${m.rule} in ${m.field}: ${m.preview}\n`);
+        }
+        process.stderr.write(
+          `  Fix the source, add a .tre-mem/.shareignore pattern, or re-run with --force.\n`,
+        );
+        process.exit(2);
+      }
+      throw err;
+    }
+
+    const tag = result.dryRun ? ' (dry-run)' : '';
+    console.log(`tre-mem export${tag}: ${project} -> ${result.dir}`);
+    let totalAdded = 0;
+    for (const b of result.branches) {
+      console.log(`  ${b.branch}: +${b.added} (${b.total} total) ${b.file}`);
+      totalAdded += b.added;
+    }
+    console.log(`  graduated: +${result.graduated.added} (${result.graduated.total} total)`);
+    totalAdded += result.graduated.added;
+    if (result.ignored > 0) console.log(`  ignored (.shareignore): ${result.ignored}`);
+    if (result.redacted > 0) console.log(`  redacted secrets: ${result.redacted}`);
+    if (result.dryRun) {
+      console.log(`  would add ${totalAdded} row(s); run without --dry-run to write.`);
+    } else if (totalAdded > 0) {
+      ensureSyncScaffold(result.dir);
+      if (!opts.quiet) {
+        console.log(
+          `  added ${totalAdded} row(s). Run ${theme.cyan('tre share')} to push them to your team's git.`,
+        );
+      } else {
+        console.log(`  added ${totalAdded} row(s).`);
+      }
+    }
+    if (totalAdded === 0) {
+      printNothingToExportHint({
+        exportedBranches: result.branches.map((b) => b.branch),
+        projectPins: repo.listPinsForProject(project),
+        graduatedCount: repo.listGraduated(project).length,
+      });
+    }
+    return { dir: result.dir, totalAdded, project };
+  } finally {
+    adapter?.close();
+    repo.close();
+  }
+}
+
 cli
-  .command('export', 'Export pins + graduated facts to the committed .tre-mem/ directory')
+  .command('export', 'Write pins + graduated facts to .tre-mem/ (low-level; see `tre share`)')
   .option('--cwd <path>', 'Repo root to derive project + branch from (defaults to current dir)')
   .option('--project <slug>', 'Override project slug')
   .option('--branch <name>', 'Export a single branch (defaults to current branch)')
@@ -462,107 +598,77 @@ cli
     'Proceed past detected secrets by replacing them with [REDACTED:*] placeholders',
   )
   .option('--dry-run', 'Compute changes without writing files or marking pins shared')
-  .action(
-    async (flags: {
-      cwd?: string;
-      project?: string;
-      branch?: string;
-      all?: boolean;
-      out?: string;
-      author?: string;
-      force?: boolean;
-      dryRun?: boolean;
-    }) => {
-      const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
-      const project = flags.project ?? basename(cwd);
-      const dir = flags.out ? resolve(flags.out) : resolve(cwd, SYNC_DIR_NAME);
-      const author = flags.author ?? (await gitAuthor(cwd));
+  .action(async (flags: ExportFlags) => {
+    await runExport(flags);
+  });
 
-      migrate();
-      if (!ensureClaudeMemReady()) return;
-      const adapter = new ClaudeMemAdapter();
-      const repo = new TreMemRepo();
-      try {
-        let branches: string[];
-        if (flags.all) {
-          branches = repo.listPinBranches(project);
-        } else if (flags.branch) {
-          branches = [flags.branch];
-        } else {
-          const cur = await currentBranch(cwd);
-          branches = cur === NO_GIT || isDetached(cur) ? repo.listPinBranches(project) : [cur];
-        }
+cli
+  .command('share', 'Push your memory to git: export pins + graduated facts, then commit + push')
+  .option('--cwd <path>', 'Repo root to derive project + branch from (defaults to current dir)')
+  .option('--project <slug>', 'Override project slug')
+  .option('--branch <name>', 'Share a single branch (defaults to current branch)')
+  .option('--all', 'Share every branch that has pins')
+  .option('--out <dir>', 'Output directory (defaults to <cwd>/.tre-mem)')
+  .option('--author <name>', 'Attribution (defaults to git config user.name)')
+  .option('--message <msg>', 'Commit message (defaults to a generated summary)')
+  .option('--no-push', 'Commit .tre-mem/ but do not push')
+  .option('--no-commit', 'Stage .tre-mem/ but do not commit or push')
+  .option(
+    '--force',
+    'Proceed past detected secrets by replacing them with [REDACTED:*] placeholders',
+  )
+  .option('--dry-run', 'Compute export changes without writing, committing, or pushing')
+  .action(async (flags: ExportFlags & { message?: string; push?: boolean; commit?: boolean }) => {
+    const exported = await runExport(flags, { quiet: true });
+    if (exported === null) return; // claude-mem unavailable; runExport explained why
+    if (flags.dryRun) {
+      console.log(`  (dry-run) skipping git — re-run without --dry-run to commit + push.`);
+      return;
+    }
 
-        let result;
-        try {
-          result = exportSync({
-            repo,
-            snapshots: new AdapterSnapshotProvider(adapter),
-            project,
-            dir,
-            branches,
-            now: Math.floor(Date.now() / 1000),
-            author,
-            shareignore: loadShareignore(dir),
-            redact: flags.force ?? false,
-            dryRun: flags.dryRun ?? false,
-          });
-        } catch (err) {
-          if (err instanceof RedactionError) {
-            log({
-              level: 'warn',
-              component: 'sync',
-              event: 'export_redaction_blocked',
-              fields: {
-                project,
-                matches: err.matches.length,
-                rules: [...new Set(err.matches.map((m) => m.rule))],
-              },
-            });
-            process.stderr.write(
-              `tre export blocked: ${err.matches.length} potential secret(s):\n`,
-            );
-            for (const m of err.matches) {
-              process.stderr.write(`  - ${m.rule} in ${m.field}: ${m.preview}\n`);
-            }
-            process.stderr.write(
-              `  Fix the source, add a .tre-mem/.shareignore pattern, or re-run with --force.\n`,
-            );
-            process.exit(2);
-          }
-          throw err;
-        }
+    const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
+    // cac maps --no-push / --no-commit to push:false / commit:false (default true).
+    const doCommit = flags.commit !== false;
+    const doPush = flags.push !== false;
+    const message =
+      flags.message ??
+      `chore(tre-mem): share ${exported.totalAdded} memory fact(s) for ${exported.project}`;
 
-        const tag = result.dryRun ? ' (dry-run)' : '';
-        console.log(`tre-mem export${tag}: ${project} -> ${result.dir}`);
-        let totalAdded = 0;
-        for (const b of result.branches) {
-          console.log(`  ${b.branch}: +${b.added} (${b.total} total) ${b.file}`);
-          totalAdded += b.added;
-        }
-        console.log(`  graduated: +${result.graduated.added} (${result.graduated.total} total)`);
-        totalAdded += result.graduated.added;
-        if (result.ignored > 0) console.log(`  ignored (.shareignore): ${result.ignored}`);
-        if (result.redacted > 0) console.log(`  redacted secrets: ${result.redacted}`);
-        if (result.dryRun) {
-          console.log(`  would add ${totalAdded} row(s); run without --dry-run to write.`);
-        } else {
-          if (totalAdded > 0) ensureSyncScaffold(result.dir);
-          console.log(`  added ${totalAdded} row(s). Commit .tre-mem/ to share with your team.`);
-        }
-        if (totalAdded === 0) {
-          printNothingToExportHint({
-            exportedBranches: result.branches.map((b) => b.branch),
-            projectPins: repo.listPinsForProject(project),
-            graduatedCount: repo.listGraduated(project).length,
-          });
-        }
-      } finally {
-        adapter.close();
-        repo.close();
-      }
-    },
-  );
+    let result;
+    try {
+      result = await shareToGit({
+        git: simpleGitShare(cwd),
+        dir: exported.dir,
+        pathspec: SYNC_DIR_NAME,
+        message,
+        commit: doCommit,
+        push: doPush,
+      });
+    } catch (err) {
+      // Not a git repo / git missing: the export already landed on disk.
+      process.stderr.write(
+        `tre share: export written, but git steps were skipped (${err instanceof Error ? err.message.split('\n')[0] : 'git unavailable'}).\n` +
+          `  Initialize git and run: git add ${SYNC_DIR_NAME} && git commit && git push\n`,
+      );
+      process.exit(2);
+    }
+
+    console.log('');
+    if (result.note !== null && !result.committed && !result.pushed) {
+      console.log(`tre-mem share: ${result.note}`);
+    } else if (result.pushed) {
+      console.log(
+        `tre-mem share: ${theme.green('✓')} committed + pushed ${SYNC_DIR_NAME}/ to ${result.upstream} (${result.branch}).`,
+      );
+      console.log(
+        `  Teammates get it on ${theme.cyan('git pull')} — the SessionStart hook auto-imports.`,
+      );
+    } else if (result.committed) {
+      console.log(`tre-mem share: committed ${SYNC_DIR_NAME}/ on ${result.branch}.`);
+      if (result.note) console.log(`  ${result.note}`);
+      if (result.pushHint) console.log(`  To publish, run: ${theme.cyan(result.pushHint)}`);
+    }
+  });
 
 cli
   .command('import', "Import a teammate's committed .tre-mem/ into your local sidecar")
@@ -630,16 +736,24 @@ cli
       let branch = flags.branch;
       if (!branch) {
         if (/^\d+$/.test(ref)) {
-          branch = (await prHeadBranch(Number.parseInt(ref, 10), flags.repo)) ?? undefined;
+          // Numeric ref = a GitHub PR number. Try gh, then fall back to CI env
+          // vars (GitLab/Bitbucket pass the branch directly — no API needed).
+          branch =
+            (await prHeadBranch(Number.parseInt(ref, 10), flags.repo)) ??
+            branchFromCiEnv() ??
+            undefined;
           if (!branch) {
             process.stderr.write(
-              `tre graduate-pr: could not resolve PR #${ref} to a branch (is gh installed + authed?). ` +
-                `Pass --branch <name> to graduate directly.\n`,
+              `tre graduate-pr: could not resolve PR #${ref} to a branch.\n` +
+                `  • On GitHub, install + auth the gh CLI, or\n` +
+                `  • On GitLab/Bitbucket/any CI, run from the merge pipeline (branch is read from\n` +
+                `    CI env), or\n` +
+                `  • Pass --branch <name> to graduate a branch directly (works on any provider).\n`,
             );
             process.exit(2);
           }
         } else {
-          branch = ref; // non-numeric ref is treated as a branch name
+          branch = ref; // non-numeric ref is treated as a branch name (provider-agnostic)
         }
       }
 
@@ -667,22 +781,92 @@ cli
 
 cli
   .command(
+    'graduate-merge',
+    "Graduate the just-merged branch's pins (designed for a post-merge git hook)",
+  )
+  .option('--cwd <path>', 'Repo root that holds the .tre-mem/ directory (defaults to current dir)')
+  .option('--dir <path>', 'Sync directory (defaults to <cwd>/.tre-mem)')
+  .option('--author <name>', 'Attribution (defaults to git config user.name)')
+  .action(async (flags: { cwd?: string; dir?: string; author?: string }) => {
+    const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
+    const dir = flags.dir ? resolve(flags.dir) : resolve(cwd, SYNC_DIR_NAME);
+    try {
+      // A post-merge hook runs after `git merge`/`git pull`: HEAD is the merge
+      // commit. Recover the merged branch from its subject — silent no-op when
+      // HEAD is not a recognizable merge, so the hook never gets in the way.
+      const subject = (await simpleGit(cwd).raw(['log', '-1', '--format=%s'])).trim();
+      const branch = mergedBranchFromSubject(subject);
+      if (branch === null) return;
+
+      migrate();
+      const author = flags.author ?? (await gitAuthor(cwd));
+      const result = graduateBranch({
+        dir,
+        branch,
+        now: Math.floor(Date.now() / 1000),
+        author,
+        dryRun: false,
+      });
+      if (result.graduated > 0) {
+        console.log(`tre-mem: graduated ${result.graduated} fact(s) from merged branch ${branch}.`);
+        console.log(
+          `  run ${theme.cyan('tre share')} to publish ${SYNC_DIR_NAME}/graduated.jsonl to your team.`,
+        );
+      }
+    } catch {
+      // A hook must never block git — swallow everything.
+    }
+  });
+
+cli
+  .command(
     'setup [tool]',
     'Wire tre-mem into a tool (claude-code|codex|codex-desktop|gemini|cursor|antigravity | --all)',
   )
   .option('--all', 'Set up every installed harness (+ claude-code for this repo)')
   .option('--cwd <path>', 'Repo root to write config into (defaults to current dir)')
-  .option('--with-action', 'Also write the .github graduate-on-merge workflow')
+  .option(
+    '--with-hook',
+    'Also install a local post-merge git hook that graduates on merge (any provider, no CI)',
+  )
+  .option(
+    '--with-action',
+    'Also write a GitHub Actions graduate-on-merge workflow (optional; CI alternative to --with-hook)',
+  )
   .option('--auto-inject', 'Also wire the prompt-time inject hook (Codex/Gemini/Claude)')
   .action(
     (
       tool: string | undefined,
-      flags: { all?: boolean; cwd?: string; withAction?: boolean; autoInject?: boolean },
+      flags: {
+        all?: boolean;
+        cwd?: string;
+        withHook?: boolean;
+        withAction?: boolean;
+        autoInject?: boolean;
+      },
     ) => {
       const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
       const opts = {
         withAction: flags.withAction ?? false,
         autoInject: flags.autoInject ?? false,
+      };
+
+      const reportHook = (): void => {
+        if (!flags.withHook) return;
+        const hook = installPostMergeHook(cwd);
+        if (hook.status === 'created') {
+          console.log(`  ✓ installed post-merge git hook: ${hook.path}`);
+          console.log(`    graduates merged-branch pins locally — no CI, any git provider.`);
+        } else if (hook.status === 'present') {
+          console.log(`  · post-merge hook already wired: ${hook.path}`);
+        } else if (hook.status === 'foreign') {
+          console.log(
+            `  ⚠ a post-merge hook already exists and isn't tre-mem's: ${hook.path}\n` +
+              `    add this line yourself: tre graduate-merge >/dev/null 2>&1 || true`,
+          );
+        } else {
+          console.log(`  · skipped post-merge hook — ${cwd} is not a git repo`);
+        }
       };
 
       if (flags.all || tool === 'all') {
@@ -691,6 +875,7 @@ cli
           console.log(r.message);
           console.log('');
         }
+        reportHook();
         return;
       }
 
@@ -704,6 +889,7 @@ cli
       if (result.settingsPath) console.log(`  settings: ${result.settingsPath}`);
       if (result.workflowPath && result.workflowAdded)
         console.log(`  workflow: ${result.workflowPath}`);
+      reportHook();
       if (!result.supported) process.exit(2);
     },
   );

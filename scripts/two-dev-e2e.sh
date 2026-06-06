@@ -103,5 +103,35 @@ else
   printf '  \033[33m~ skipped search assertion (needs ~/.claude-mem present)\033[0m\n'
 fi
 
+# --- 7. (T9) one-command `tre share`: export + commit + push in a single step ---
+NOTE2="prefer pg_advisory_lock over SELECT FOR UPDATE"
+TRE_MEM_HOME="$(export_home alice)" node "$CLI" pin 99002 \
+  --project "$PROJECT" --branch "$BRANCH" --note "$NOTE2" >/dev/null
+SHARE_OUT="$(TRE_MEM_HOME="$(export_home alice)" node "$CLI" share \
+  --cwd "$ALICE" --project "$PROJECT" 2>/dev/null)"
+echo "$SHARE_OUT" | grep -q "committed + pushed" \
+  || fail "tre share did not commit+push in one step: $SHARE_OUT"
+[ -z "$(git -C "$ALICE" rev-list HEAD --not --remotes 2>/dev/null)" ] \
+  || fail "tre share left unpushed commits"
+pass "alice published a second pin with a single \`tre share\` (no manual git)"
+
+# `tre share` auto-creates .gitattributes (merge=union) for concurrent-edit safety
+grep -q '\*.jsonl merge=union' "$ALICE/.tre-mem/.gitattributes" \
+  || fail "tre share did not scaffold .gitattributes merge=union"
+pass "tre share scaffolded .gitattributes (\`*.jsonl merge=union\`)"
+
+# --- 8. (T9) concurrent edits to the same shared file auto-resolve (keep both) ---
+# bob is behind (has pin1 only); he appends a line locally, then pulls alice's pin2.
+# Without merge=union this is a conflict; with it, git keeps both sides.
+BFILE="$BOB/.tre-mem/branches/$BRANCH.jsonl"
+printf '{"schema":1,"kind":"pin","note":"bob-local-edit"}\n' >> "$BFILE"
+git -C "$BOB" commit -qam "bob local pin"
+git -C "$BOB" pull -q --no-rebase --no-edit origin "$BRANCH" || fail "union pull hit a hard conflict"
+grep -q '<<<<<<<' "$BFILE" && fail "merge left conflict markers (union driver not applied)"
+grep -q "$NOTE2" "$BFILE" || fail "alice's pin2 missing after union merge"
+grep -q "bob-local-edit" "$BFILE" || fail "bob's local edit missing after union merge"
+pass "concurrent same-file edits merged cleanly — kept both sides (merge=union)"
+
 echo ""
-echo "✅ Checkpoint T3 PASSED — sync foundation works through real git."
+echo "✅ Checkpoint T3 + T9 PASSED — git-native sharing works through real git:"
+echo "   one-command \`tre share\`, any remote, union-merge keeps both."

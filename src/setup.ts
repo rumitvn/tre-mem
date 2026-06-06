@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { antigravityMcpPaths, registerAntigravityMcp } from './tooling/antigravity.js';
@@ -332,6 +332,41 @@ export function detectTools(cwd: string): ToolPresence[] {
       configPath: cursorMcpPath(),
     },
   ];
+}
+
+const POST_MERGE_HOOK = `#!/bin/sh
+# tre-mem: after a merge/pull, graduate the just-merged branch's pins to
+# .tre-mem/graduated.jsonl. Provider-agnostic + CI-free. Never blocks git.
+tre graduate-merge >/dev/null 2>&1 || true
+`;
+
+const POST_MERGE_MARKER = 'tre graduate-merge';
+
+export interface HookInstallResult {
+  path: string;
+  status: 'created' | 'present' | 'foreign' | 'no-git';
+}
+
+/**
+ * Install a `.git/hooks/post-merge` hook that graduates merged-branch pins
+ * locally — the CI-free, any-provider alternative to the GitHub Action. Refuses
+ * to clobber a pre-existing non-tre-mem hook.
+ */
+export function installPostMergeHook(cwd: string): HookInstallResult {
+  const hooksDir = join(cwd, '.git', 'hooks');
+  const path = join(hooksDir, 'post-merge');
+  if (!existsSync(join(cwd, '.git'))) return { path, status: 'no-git' };
+
+  if (existsSync(path)) {
+    const existing = readFileSync(path, 'utf8');
+    if (existing.includes(POST_MERGE_MARKER)) return { path, status: 'present' };
+    return { path, status: 'foreign' };
+  }
+
+  mkdirSync(hooksDir, { recursive: true });
+  writeFileSync(path, POST_MERGE_HOOK, 'utf8');
+  chmodSync(path, 0o755);
+  return { path, status: 'created' };
 }
 
 /** Set up every installed harness (claude-code is always included for the repo). */

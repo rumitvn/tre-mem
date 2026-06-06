@@ -4,6 +4,43 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — 2026-06-06
+
+**Share, made obvious.** Team memory is tre-mem's headline feature, so v0.7 makes
+_"push your memory to your git"_ a single, legible command that works with any git
+host — no CI, no GitHub lock-in.
+
+### Added
+
+- **`tre share`** — one command that exports your pins + graduated facts, then
+  `git add .tre-mem` + commit + push. Flags: `--branch`/`--all`, `--message`,
+  `--no-push`, `--no-commit`, `--dry-run`. Degrades honestly: commits even when a
+  branch has no upstream (and prints the exact `git push -u …`), and never crashes
+  on a failed push. Works on GitHub, GitLab, Bitbucket, or a bare remote — plain
+  git only. `tre export` remains as the low-level "write files only" primitive.
+- **Claude-mem-optional sharing.** `tre share` / `tre export` no longer require
+  claude-mem — when it's absent, each pin falls back to its stored title/body, so a
+  teammate on Codex/Gemini/Cursor can still share.
+- **`.tre-mem/.gitattributes` (`*.jsonl merge=union`)** scaffolded automatically
+  (and backfilled on `tre share` for older repos): two teammates sharing at once
+  "keep both" instead of hitting a merge conflict; `tre import` de-dupes on read.
+- **CI-free, provider-agnostic graduation.** `tre graduate-merge` recovers the
+  just-merged branch from the merge commit and graduates its pins — wired by
+  `tre setup … --with-hook`, which installs a local `post-merge` git hook (any
+  provider, no CI). `tre graduate-pr` now resolves the branch from `--branch`, then
+  `gh`, then CI env (`GITHUB_HEAD_REF` / `CI_MERGE_REQUEST_SOURCE_BRANCH_NAME` /
+  `BITBUCKET_BRANCH` / …) — no hard GitHub dependency.
+
+### Changed
+
+- **Legibility.** Unified the vocabulary to "share". `tre status`, the web Team
+  Memory / Overview views, and the docs no longer show the unexplained
+  "pending export" — pins read `not shared yet` / `shared via git ✓`, and every
+  unshared state prints the exact command to run.
+- **Docs.** `docs/TEAM-WORKFLOW.md` and the README lead with the one-command loop,
+  document the local hook + generic GitLab/Bitbucket CI snippets, and reframe the
+  GitHub Action as one optional path among several.
+
 ## [0.6.0] — 2026-06-05
 
 **Cross-tool: tre-mem now works beyond Claude Code.** It speaks MCP — the

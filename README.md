@@ -164,9 +164,9 @@ write the note for you:
 | "Show me the timeline of this feature so far."                       | `get_branch_timeline`                         |
 | "This branch is merged — promote its decisions repo-wide."           | `graduate_fact` (or the merge Action does it) |
 
-Then `tre export && git push` (or let the GitHub Action graduate on merge) and
-your teammate inherits the pin automatically on their next session — surfaced in
-their digest with the `[shared]` tag shown above.
+Then run `tre share` (one command: export + commit + push) and your teammate
+inherits the pin automatically on their next session — surfaced in their digest
+with the `[shared]` tag shown above.
 
 ## CLI surface
 
@@ -181,11 +181,13 @@ tre list-branches [--project SLUG]
 tre logs [--tail 50 | --all] [--level warn] [--path]  # local diagnostics log
 tre mcp                                 # start MCP server (stdio)
 
-# --- team sync (v0.2) ---
-tre export [--branch B | --all] [--force] [--dry-run]   # write pins → .tre-mem/
+# --- team sharing ---
+tre share [--branch B | --all] [--message M] [--no-push] [--no-commit]  # push memory to git (one step)
+tre export [--branch B | --all] [--force] [--dry-run]   # low-level: write pins → .tre-mem/ only
 tre import [--from .tre-mem] [--force]                   # pull a teammate's pins
-tre graduate-pr <PR# | branch> [--dry-run]               # graduate a merged branch
-tre setup claude-code [--auto-inject] [--with-action]    # wire hooks + workflow
+tre graduate-pr <PR# | branch> [--dry-run]               # graduate a merged branch (any provider)
+tre graduate-merge                                       # graduate the just-merged branch (post-merge hook)
+tre setup claude-code [--auto-inject] [--with-hook] [--with-action]   # wire hooks (+ graduate hook/CI)
 tre hook session-start | user-prompt-submit              # invoked by Claude Code
 ```
 
@@ -259,48 +261,54 @@ Each line looks like:
 
 The file rotates to `tre-mem.log.1` once it passes 5 MB, so it never grows unbounded.
 
-## Team memory — "git for AI memory" (v0.2)
+## Team memory — push your memory to git (the headline feature)
 
-Phase 1 made memory branch-aware for one developer. **v0.2 makes it team-shared
-through git itself** — no server, no API keys. Pin a decision, `git push`, and
-your teammate's Claude Code inherits it on the next session.
+This is what tre-mem is _for_. Pin a decision, run **one command**, and it's in
+your team's git. Your teammate runs `git pull` and their AI already knows — Claude
+Code, Codex, Gemini, Cursor, whatever they use. **No server, no API keys, and no
+GitHub required**: GitHub, GitLab, Bitbucket, or a plain bare remote — if it's
+git, it works.
 
 ```
    alice@laptop                          bob@laptop
    ~/.tre-mem/  (private sidecar)         ~/.tre-mem/  (private sidecar)
-        │ tre export                            ▲ tre import (auto on SessionStart)
+        │ tre share                             ▲ tre import (auto on SessionStart)
         ▼                                       │
    repo/.tre-mem/  ── git push ── git pull ── repo/.tre-mem/
-        │ on PR merge → GitHub Action graduates pins to repo-wide facts
+        (merge=union: two sharers never conflict — git keeps both)
 ```
 
-One-time setup, then the loop is just your normal git workflow:
-
 ```bash
-tre setup claude-code --with-action      # writes the SessionStart hook + graduate workflow
-
 # alice, on feature/payment
 tre pin 1234 --note "use Stripe webhook v3"
-tre export                               # → .tre-mem/branches/feature-payment.jsonl
-git add .tre-mem && git commit -m "share decision" && git push
+tre share                                # export + git add + commit + push — one step
 
 # bob
 git pull                                 # tre import runs automatically on his next session
-#   → his Claude Code now surfaces alice's pin, tagged [shared]
+#   → his AI now surfaces alice's pin, tagged [shared]
 ```
+
+That's the whole loop. `tre share` writes your curated facts to `.tre-mem/`,
+commits, and pushes; if the branch has no upstream it prints the exact
+`git push -u …`. (`tre export` is still the low-level "write files only"
+primitive if you'd rather drive git yourself.)
 
 Key properties:
 
+- **One command, any git host.** `tre share` is plain git underneath — works with
+  GitHub, GitLab, Bitbucket, or a bare remote. Nothing is provider-locked.
 - **Only pins + graduated facts are shared.** Raw observations stay private in
   each developer's `~/.claude-mem/`.
-- **Fail-closed redaction.** `tre export` refuses to write detected secrets
+- **Fail-closed redaction.** Sharing refuses to write detected secrets
   (private keys, API tokens, JWTs…) unless you pass `--force` (which replaces
   them with `[REDACTED:*]`). Per-repo `.tre-mem/.shareignore` adds globs.
-- **Auto-lifecycle.** Merge a PR and the
-  [`graduate-on-merge`](./actions/graduate-on-merge) GitHub Action promotes that
-  branch's pins to repo-wide graduated facts.
-- **Conflict-free.** Append-only JSONL + content-hash dedupe → git union-merges
-  cleanly. Format frozen in [docs/SYNC-FORMAT.md](./docs/SYNC-FORMAT.md).
+- **"Keep both" conflicts.** `.tre-mem/.gitattributes` sets `*.jsonl merge=union`,
+  so two teammates sharing at once never hit a merge conflict — git keeps both
+  sides and `tre import` de-dupes on read.
+- **Graduate on merge, no CI required.** `tre setup … --with-hook` installs a local
+  `post-merge` git hook that promotes a merged branch's pins to repo-wide facts —
+  on any provider. CI snippets (GitLab/Bitbucket) and an optional GitHub Action are
+  also supported.
 
 Full guide: [docs/TEAM-WORKFLOW.md](./docs/TEAM-WORKFLOW.md). Upgrading from
 v0.1 is automatic — see [docs/MIGRATION-v1-v2.md](./docs/MIGRATION-v1-v2.md).
@@ -309,7 +317,7 @@ v0.1 is automatic — see [docs/MIGRATION-v1-v2.md](./docs/MIGRATION-v1-v2.md).
 
 Phase 2 made memory travel through git; **v0.5 lets your team _see_ it.** Run
 `tre web` for a local, read-only dashboard of the branch graph, pinned decisions,
-graduated facts, and what's pending export — updating live as the repo and sidecar
+graduated facts, and what's not shared yet — updating live as the repo and sidecar
 change. No account, no cloud; binds `127.0.0.1` only.
 
 ```bash
@@ -319,7 +327,7 @@ tre web --background    # run detached; manage with `tre web status` / `tre web 
 
 - **Branch graph** — every branch with tagged-count, pins, last-active, current `HEAD`.
 - **Team memory** — who pinned what and why, plus graduated facts, with a
-  `shared` / `pending export` marker.
+  `shared via git ✓` / `not shared yet` marker.
 - **Search** — branch-aware, with a per-signal score breakdown.
 - **Live** — reacts to branch switches, teammate `git pull` / `tre import`, and
   pins written from another terminal (SSE).
