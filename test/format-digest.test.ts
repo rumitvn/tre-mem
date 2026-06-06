@@ -70,6 +70,16 @@ describe('buildSessionDigest', () => {
     expect(context).toContain('run `tre doctor`');
   });
 
+  it('surfaces the live dashboard URL when provided, and omits it otherwise', () => {
+    const url = 'http://127.0.0.1:38700/';
+    const { display, context } = buildSessionDigest(base({ dashboardUrl: url }));
+    for (const out of [display, context]) {
+      expect(out).toContain('dashboard live →');
+      expect(out).toContain(url);
+    }
+    expect(buildSessionDigest(base()).context).not.toContain('dashboard live');
+  });
+
   it('truncates over-long titles', () => {
     const long = 'x'.repeat(200);
     const { context } = buildSessionDigest(

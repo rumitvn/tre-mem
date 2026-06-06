@@ -34,6 +34,8 @@ export interface SessionDigestParts {
   recent: RecentObs[];
   /** Optional trailing note (plain text), e.g. a claude-mem compatibility hint. */
   note?: string;
+  /** Live dashboard URL to surface (when the background `tre web` daemon is up). */
+  dashboardUrl?: string;
 }
 
 export interface SessionDigest {
@@ -85,6 +87,10 @@ function render(parts: SessionDigestParts, c: Palette): string {
   }
   stats += ` · ${c.dim(`source: ${parts.source}`)}`;
   lines.push(stats);
+
+  if (parts.dashboardUrl && parts.dashboardUrl.trim() !== '') {
+    lines.push(`${c.cyan('📊 dashboard live →')} ${parts.dashboardUrl}`);
+  }
 
   lines.push(...renderPinned(parts.pinned ?? [], c));
 

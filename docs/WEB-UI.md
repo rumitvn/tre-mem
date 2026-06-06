@@ -23,6 +23,20 @@ tre web --port 39000    # pin a specific port
 Build the bundled UI first if you're running from source: `pnpm build` (or
 `pnpm build:web` to only rebuild the SPA into `dist/web/public`).
 
+## Auto-start on session start
+
+When the SessionStart hook runs (any wired harness), tre-mem **auto-starts the
+dashboard in the background** if it isn't already up, and prints the live link in
+the session digest:
+
+```
+📊 dashboard live → http://127.0.0.1:38700/
+```
+
+It's a single global daemon (one `~/.tre-mem/web.pid`) shared by every project, so
+this is a fast no-op once it's running. To turn it off, set
+`TRE_MEM_WEB_AUTOSTART=0`. It's also skipped automatically in CI and test runs.
+
 ## Port
 
 Default is `TRE_MEM_WEB_PORT` if set, otherwise `38700 + (uid % 100)` — a

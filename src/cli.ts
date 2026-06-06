@@ -41,6 +41,7 @@ import { TRE_MEM_DB_PATH, TRE_MEM_HOME } from './store/paths.js';
 import { TreMemRepo } from './store/repo.js';
 import { VERSION } from './version.js';
 import { clearDaemon, reconcileDaemon, stopDaemon, writeDaemon } from './web/daemon.js';
+import { WEB_HOST, defaultPort, findAvailablePort } from './web/port.js';
 import { runWebServer } from './web/server.js';
 
 interface BackfillFlags {
@@ -965,10 +966,7 @@ cli
         );
         return;
       }
-      const args = [process.argv[1] as string, 'web', '__serve'];
-      if (port !== undefined) args.push('--port', String(port));
-      const child = spawn(process.execPath, args, { detached: true, stdio: 'ignore' });
-      child.unref();
+      spawnWebDaemon(port);
       console.log('tre web: starting in background — check `tre web status` in a moment.');
       return;
     }
@@ -1163,10 +1161,12 @@ async function runSessionStartHookCli(format: HookFormat): Promise<void> {
     migrate();
     const repo = new TreMemRepo();
     try {
+      const dashboardUrl = (await ensureWebDashboard()) ?? undefined;
       const result = await runSessionStartHook(input, {
         repo,
         recent: ({ project, branch }) => recentObservations(repo, project, branch),
         pinned: ({ project, branch }) => pinnedFacts(repo, project, branch),
+        dashboardUrl,
       });
       process.stdout.write(
         `${JSON.stringify(sessionStartEnvelope(format, result.message, result.display))}\n`,
@@ -1206,6 +1206,37 @@ async function runUserPromptSubmitHookCli(format: HookFormat): Promise<void> {
     logError('hook', 'hook_error', err, { event: 'user-prompt-submit' });
     process.stderr.write(`tre hook user-prompt-submit: ${msg}\n`);
     process.stdout.write(`${JSON.stringify(emptyEnvelope(format))}\n`);
+  }
+}
+
+/** Spawn the detached background dashboard server (`web __serve`). */
+function spawnWebDaemon(port?: number): void {
+  const args = [process.argv[1] as string, 'web', '__serve'];
+  if (port !== undefined) args.push('--port', String(port));
+  const child = spawn(process.execPath, args, { detached: true, stdio: 'ignore' });
+  child.unref();
+}
+
+/**
+ * Ensure the background dashboard is running and return its URL — auto-started
+ * from the SessionStart hook so the live link surfaces like claude-mem's. A
+ * single global daemon (one pidfile in ~/.tre-mem) serves every project, so this
+ * is a fast no-op once it's up. Best-effort: returns null (never throws), and is
+ * skipped in tests / CI / when TRE_MEM_WEB_AUTOSTART is turned off.
+ */
+async function ensureWebDashboard(): Promise<string | null> {
+  const flag = (process.env.TRE_MEM_WEB_AUTOSTART ?? '').trim().toLowerCase();
+  const disabled = flag === '0' || flag === 'false' || flag === 'off' || flag === 'no';
+  if (disabled || process.env.VITEST) return null;
+  if (process.env.CI && flag === '') return null; // off in CI unless explicitly enabled
+  try {
+    const existing = reconcileDaemon();
+    if (existing) return `http://${WEB_HOST}:${existing.port}/`;
+    const port = await findAvailablePort(defaultPort(), WEB_HOST);
+    spawnWebDaemon(port);
+    return `http://${WEB_HOST}:${port}/`;
+  } catch {
+    return null; // a convenience link must never break the hook
   }
 }
 

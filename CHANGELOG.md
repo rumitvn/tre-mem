@@ -24,6 +24,10 @@ host — no CI, no GitHub lock-in.
 - **`.tre-mem/.gitattributes` (`*.jsonl merge=union`)** scaffolded automatically
   (and backfilled on `tre share` for older repos): two teammates sharing at once
   "keep both" instead of hitting a merge conflict; `tre import` de-dupes on read.
+- **Dashboard auto-start on session start.** The SessionStart hook now launches the
+  `tre web` dashboard in the background (a single global daemon shared by every
+  project) and prints the live link in the digest (`📊 dashboard live → …`), like
+  claude-mem. Opt out with `TRE_MEM_WEB_AUTOSTART=0`; skipped in CI/tests.
 - **CI-free, provider-agnostic graduation.** `tre graduate-merge` recovers the
   just-merged branch from the merge commit and graduates its pins — wired by
   `tre setup … --with-hook`, which installs a local `post-merge` git hook (any
