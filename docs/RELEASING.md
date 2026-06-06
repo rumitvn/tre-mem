@@ -67,9 +67,6 @@ npm step:
   claimed forever, and unpublishing is heavily restricted after 72 hours.
 - Your repo can stay **private** while the npm package is public; they're
   independent.
-- The `graduate-on-merge` GitHub Action runs `npx tre-mem@…`, so it only works
-  for other people once the package is on public npm. For your own private use
-  you can skip npm and install from git instead.
 
 If you'd rather not use npm yet, do nothing — the Release workflow still gives
 you a versioned GitHub Release with a downloadable tarball.

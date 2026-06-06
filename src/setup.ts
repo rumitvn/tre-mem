@@ -28,7 +28,6 @@ export type SetupTool =
   | 'antigravity';
 
 export interface SetupOptions {
-  withAction?: boolean;
   /** Also wire the (conservative-by-default) UserPromptSubmit auto-inject hook. */
   autoInject?: boolean;
 }
@@ -38,8 +37,6 @@ export interface SetupResult {
   supported: boolean;
   settingsPath?: string;
   hookAdded: boolean;
-  workflowPath?: string;
-  workflowAdded: boolean;
   message: string;
 }
 
@@ -55,25 +52,6 @@ interface ClaudeSettings {
   } & Record<string, unknown>;
   [key: string]: unknown;
 }
-
-const WORKFLOW_YML = `name: tre-mem graduate
-on:
-  pull_request:
-    types: [closed]
-
-permissions:
-  contents: write
-
-jobs:
-  graduate:
-    if: github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: \${{ github.event.pull_request.base.ref }}
-      - uses: rumitvn/tre-mem/actions/graduate-on-merge@v0.2
-`;
 
 function readSettings(path: string): ClaudeSettings {
   if (!existsSync(path)) return {};
@@ -131,17 +109,6 @@ export function setupClaudeCode(cwd: string, opts: SetupOptions = {}): SetupResu
     writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
   }
 
-  let workflowPath: string | undefined;
-  let workflowAdded = false;
-  if (opts.withAction) {
-    workflowPath = join(cwd, '.github', 'workflows', 'tre-mem-graduate.yml');
-    if (!existsSync(workflowPath)) {
-      mkdirSync(dirname(workflowPath), { recursive: true });
-      writeFileSync(workflowPath, WORKFLOW_YML, 'utf8');
-      workflowAdded = true;
-    }
-  }
-
   const parts = [added ? 'added SessionStart hook' : 'SessionStart hook already present'];
   if (opts.autoInject) {
     parts.push(
@@ -150,16 +117,11 @@ export function setupClaudeCode(cwd: string, opts: SetupOptions = {}): SetupResu
         : 'auto-inject hook already present',
     );
   }
-  if (opts.withAction) {
-    parts.push(workflowAdded ? 'wrote graduate workflow' : 'graduate workflow already present');
-  }
   return {
     tool: 'claude-code',
     supported: true,
     settingsPath,
     hookAdded: added,
-    workflowPath,
-    workflowAdded,
     message: `tre-mem: ${parts.join('; ')}.`,
   };
 }
@@ -182,7 +144,6 @@ function mcpOnlyResult(
     supported: true,
     settingsPath: reg.path,
     hookAdded: false,
-    workflowAdded: false,
     message: parts.join('\n'),
   };
 }
@@ -209,7 +170,6 @@ function setupCodexTool(tool: 'codex' | 'codex-desktop', opts: SetupOptions): Se
     supported: true,
     settingsPath: mcp.path,
     hookAdded: hooks.sessionStartAdded || hooks.userPromptAdded,
-    workflowAdded: false,
     message: parts.join('\n'),
   };
 }
@@ -233,7 +193,6 @@ function setupGeminiTool(opts: SetupOptions): SetupResult {
     supported: true,
     settingsPath: mcp.path,
     hookAdded: hooks.sessionStartAdded || hooks.beforeModelAdded,
-    workflowAdded: false,
     message: parts.join('\n'),
   };
 }
@@ -253,7 +212,6 @@ function setupAntigravityTool(): SetupResult {
     supported: true,
     settingsPath: reg.results[0]?.path,
     hookAdded: false,
-    workflowAdded: false,
     message: parts.join('\n'),
   };
 }
@@ -268,7 +226,6 @@ export function setupTool(tool: string, cwd: string, opts: SetupOptions = {}): S
     tool: tool as SetupTool,
     supported: false,
     hookAdded: false,
-    workflowAdded: false,
     message: `tre setup: unknown tool "${tool}". Supported: claude-code, codex, codex-desktop, gemini, cursor, antigravity.`,
   };
 }

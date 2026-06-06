@@ -48,14 +48,14 @@ tre setup --all --auto-inject  # also wire the per-prompt inject hook where supp
 
 Or one at a time:
 
-| Command                   | Writes                                              | Notes                                                |
-| ------------------------- | --------------------------------------------------- | ---------------------------------------------------- |
-| `tre setup codex`         | `~/.codex/config.toml` (MCP + hooks)                | `CODEX_HOME` aware                                   |
-| `tre setup codex-desktop` | `~/.codex/config.toml`                              | shares Codex config                                  |
-| `tre setup gemini`        | `~/.gemini/settings.json` (MCP + hooks)             | `GEMINI_HOME` aware; prompt hook → `BeforeModel`     |
-| `tre setup cursor`        | `~/.cursor/mcp.json` (MCP)                          | `CURSOR_HOME` aware                                  |
-| `tre setup antigravity`   | `~/.gemini/antigravity[-cli]/mcp_config.json` (MCP) | inject-only; hooks are SDK-only                      |
-| `tre setup claude-code`   | `.claude/settings.json` (hooks)                     | per-repo; `--with-action` adds the graduate workflow |
+| Command                   | Writes                                              | Notes                                                         |
+| ------------------------- | --------------------------------------------------- | ------------------------------------------------------------- |
+| `tre setup codex`         | `~/.codex/config.toml` (MCP + hooks)                | `CODEX_HOME` aware                                            |
+| `tre setup codex-desktop` | `~/.codex/config.toml`                              | shares Codex config                                           |
+| `tre setup gemini`        | `~/.gemini/settings.json` (MCP + hooks)             | `GEMINI_HOME` aware; prompt hook → `BeforeModel`              |
+| `tre setup cursor`        | `~/.cursor/mcp.json` (MCP)                          | `CURSOR_HOME` aware                                           |
+| `tre setup antigravity`   | `~/.gemini/antigravity[-cli]/mcp_config.json` (MCP) | inject-only; hooks are SDK-only                               |
+| `tre setup claude-code`   | `.claude/settings.json` (hooks)                     | per-repo; `--with-hook` adds the local graduate-on-merge hook |
 
 `--auto-inject` adds the prompt-time inject hook (Codex `UserPromptSubmit`,
 Gemini `BeforeModel`, Claude `UserPromptSubmit`). SessionStart is always wired.

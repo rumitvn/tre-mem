@@ -124,9 +124,9 @@ pipelines:
 (`GITHUB_HEAD_REF` / `CI_MERGE_REQUEST_SOURCE_BRANCH_NAME` / `BITBUCKET_BRANCH` / …)
 — so it never hard-depends on GitHub.
 
-**D. GitHub Action (optional).** If you are on GitHub and want it fully managed,
-`tre setup … --with-action` writes `.github/workflows/tre-mem-graduate.yml`. This is
-just one option among A–C, not required.
+> tre-mem deliberately ships **no GitHub Action**: graduation is git-native (the local
+> post-merge hook) or a few lines in whatever CI you already run. Nothing binds your
+> team's memory to one vendor's CI.
 
 ## Privacy & safety
 
@@ -160,5 +160,4 @@ Automatic and lossless — see [MIGRATION-v1-v2.md](./MIGRATION-v1-v2.md).
 ## Reference
 
 - On-disk format: [SYNC-FORMAT.md](./SYNC-FORMAT.md)
-- The GitHub Action: [../actions/graduate-on-merge/README.md](../actions/graduate-on-merge/README.md)
 - Hooks: [HOOKS.md](./HOOKS.md)

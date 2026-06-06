@@ -4,6 +4,19 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] — 2026-06-06
+
+**Removed the GitHub Action — graduation is now fully vendor-neutral.** The
+provider-locked CI path was at odds with tre-mem's git-native, any-host design.
+
+### Removed
+
+- Deleted the `graduate-on-merge` GitHub composite action and the `--with-action`
+  flag / workflow scaffold from `tre setup`. Graduation is now **only** git-native:
+  the local `post-merge` hook (`tre setup … --with-hook` → `tre graduate-merge`), or
+  a few lines of CI (GitLab/Bitbucket/any runner) calling `tre graduate-pr`. Docs
+  updated accordingly.
+
 ## [0.7.0] — 2026-06-06
 
 **Share, made obvious.** Team memory is tre-mem's headline feature, so v0.7 makes

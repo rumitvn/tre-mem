@@ -1,6 +1,6 @@
 {
   "name": "tre-mem",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Branch-aware shared memory layer for AI coding tools. Sidecar on top of claude-mem.",
   "keywords": [
     "claude-code",
