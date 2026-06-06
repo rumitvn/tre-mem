@@ -85,12 +85,12 @@ export function GraphCanvas({
       .map((e) => ({ source: e.source as string, target: e.target as string, kind: e.kind }));
 
     const colors = {
-      root: token('--bark'),
+      root: token('--bamboo'),
       branch: token('--branch'),
       contributor: token('--branch'),
       growth: token('--growth'),
       pin: token('--pin'),
-      contrib: token('--bark-ink'),
+      contrib: token('--bamboo-deep'),
       line: token('--line-strong'),
       ink: token('--ink'),
       paper: token('--surface'),

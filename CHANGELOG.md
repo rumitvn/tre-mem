@@ -4,11 +4,12 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.0] — 2026-06-07
+## [0.9.0] — 2026-06-07
 
-**The Grove — a second-brain contributor graph for your repo's memory.** A new
+**The Grove — a second-brain contributor graph, plus a Vietnamese dashboard.** A new
 `tre web` tab visualizes the team's shared knowledge as an Obsidian-style force
-graph (trunk + branches + contributors + facts) and ranks who grew it.
+graph (trunk + branches + contributors + facts) and ranks who grew it, and the
+whole dashboard now speaks Vietnamese with a Vietnamese-friendly type system.
 
 ### Added
 
@@ -32,6 +33,48 @@ graph (trunk + branches + contributors + facts) and ranks who grew it.
   (project-scoped), plus a read-only `.tre-mem/` JSONL reader (`src/sync/read.ts`)
   — contributor attribution lives in the committed JSONL `author` field, so no
   schema migration was needed.
+- **Vietnamese (VI) localization** of the entire dashboard with an EN ⇄ VI toggle
+  (persisted, auto-detects Vietnamese browsers) and a deliberately casual, fun
+  Vietnamese voice. `timeAgo` is localized too.
+
+### Changed
+
+- **Type system → Vietnamese-friendly fonts.** Display/headings now use Baloo 2
+  (cute, rounded) and body uses Be Vietnam Pro (a Vietnamese-native typeface),
+  both with full diacritics and system fallbacks — fixing the diacritic stacking
+  the previous serif had on Vietnamese text.
+
+### Fixed
+
+- Dashboard shell grid declared two rows for three children, so the nav row
+  ballooned and pushed content down on low-content pages; now `auto auto 1fr`.
+
+## [0.8.0] — 2026-06-07
+
+**Bamboo — the green identity.** `tre` means _bamboo_ in Vietnamese, but the tool
+read amber-and-cyan. v0.8 gives tre-mem a real, documented design system and makes
+both surfaces a user sees — the `tre web` dashboard and the SessionStart digest —
+unmistakably green.
+
+### Added
+
+- **`docs/BRAND.md`** — the design-system single source of truth: the bamboo OKLCH
+  palette with its terminal-ANSI mapping, the five-color semantic spine legend
+  (bamboo / branch / growth / pin / warn), typography, motion, and the 🎋 motif.
+- A bamboo-culm mark (two nodes — _đốt tre_ — and a leaf) before the `tre`
+  wordmark, plus a 🎋 favicon, on the web dashboard.
+
+### Changed
+
+- **Web dashboard fully re-themed to bamboo.** Primary went amber → jade green
+  (`--bark` renamed to `--bamboo`), the paper/ink ramp now carries a faint green
+  tint, and the semantic spines were re-hued into a coordinated grove palette
+  (sky / young-shoot / lacquer-gold / clay-red). Both light and dark intentional;
+  token-only change, no component restructure, JS bundle unchanged.
+- **SessionStart digest + CLI now read green.** The digest header (`🎋 tre-mem ·
+recent context`), the live-dashboard link, and the pinned-section header are
+  bamboo green; `tre web` / `tre doctor` carry the 🎋 mark. The plain
+  model-facing context string stays ANSI-free.
 
 ## [0.7.1] — 2026-06-06
 

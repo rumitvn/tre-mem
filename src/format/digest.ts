@@ -1,4 +1,4 @@
-import { type Palette, colors, forced } from './colors.js';
+import { BAMBOO, type Palette, brand, colors, forced } from './colors.js';
 import { iconFor, legendLine } from './icons.js';
 
 export interface RecentObs {
@@ -57,7 +57,7 @@ function truncate(s: string, max: number): string {
 /** The pinned/shared block — curated facts (and their notes) float above recents. */
 function renderPinned(pinned: PinnedFact[], c: Palette): string[] {
   if (pinned.length === 0) return [];
-  const lines: string[] = ['', c.bold(`📌 Pinned on this branch`)];
+  const lines: string[] = ['', brand(c)(`📌 Pinned on this branch`)];
   for (const p of pinned.slice(0, PIN_MAX)) {
     const { emoji } = iconFor(p.type);
     const id = c.dim(p.id !== null ? `#${p.id}` : '#—');
@@ -75,7 +75,7 @@ function render(parts: SessionDigestParts, c: Palette): string {
   const lines: string[] = [];
 
   lines.push(
-    `${c.bold(c.cyan('[tre-mem] recent context'))} · ${c.bold(parts.branch)} · ${parts.project} · ${c.dim(
+    `${brand(c)(`${BAMBOO} tre-mem`)} · recent context · ${c.bold(parts.branch)} · ${parts.project} · ${c.dim(
       parts.timeLabel,
     )}`,
   );
@@ -89,7 +89,7 @@ function render(parts: SessionDigestParts, c: Palette): string {
   lines.push(stats);
 
   if (parts.dashboardUrl && parts.dashboardUrl.trim() !== '') {
-    lines.push(`${c.cyan('📊 dashboard live →')} ${parts.dashboardUrl}`);
+    lines.push(`${c.green('📊 dashboard live →')} ${parts.dashboardUrl}`);
   }
 
   lines.push(...renderPinned(parts.pinned ?? [], c));

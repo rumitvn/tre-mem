@@ -1,28 +1,29 @@
-/* tre-mem dashboard — "shared roots" system.
-   Ink on warm paper, a cute rounded display (Baloo 2) + a Vietnamese-native body
-   (Be Vietnam Pro), a colored spine for the branch graph. Both themes
-   intentional. Compositor-only motion. */
+/* tre-mem dashboard — "shared roots" bamboo system.
+   tre = bamboo (Vietnamese): ink on green-tinted rice paper, a cute rounded
+   display (Baloo 2) + a Vietnamese-native body (Be Vietnam Pro), a jade spine for
+   the branch graph. Both themes intentional. Compositor-only motion. The full
+   token contract lives in docs/BRAND.md. */
 
 :root {
-  /* paper + ink */
-  --paper: oklch(98.4% 0.006 95);
-  --paper-2: oklch(96.2% 0.008 95);
-  --surface: oklch(100% 0 0);
-  --ink: oklch(24% 0.02 60);
-  --ink-soft: oklch(44% 0.02 60);
-  --muted: oklch(60% 0.015 60);
-  --line: oklch(88% 0.01 80);
-  --line-strong: oklch(80% 0.015 80);
+  /* paper + ink — faint bamboo-green tint, not neutral grey */
+  --paper: oklch(98.5% 0.008 140);
+  --paper-2: oklch(96.5% 0.01 140);
+  --surface: oklch(99.5% 0.004 140);
+  --ink: oklch(24% 0.02 150);
+  --ink-soft: oklch(44% 0.02 150);
+  --muted: oklch(58% 0.018 150);
+  --line: oklch(88% 0.012 150);
+  --line-strong: oklch(80% 0.016 150);
 
-  /* semantic accents */
-  --bark: oklch(52% 0.11 55); /* primary / brand */
-  --bark-ink: oklch(38% 0.1 52);
-  --branch: oklch(58% 0.1 215); /* branch-local */
-  --growth: oklch(60% 0.13 150); /* graduated */
-  --pin: oklch(70% 0.14 75); /* pinned */
-  --warn: oklch(62% 0.16 35);
+  /* semantic accents — bamboo grove (≥~30° apart or strong L contrast) */
+  --bamboo: oklch(48% 0.12 152); /* primary / brand / current branch (jade) */
+  --bamboo-deep: oklch(38% 0.1 152);
+  --branch: oklch(60% 0.1 235); /* branch-local (sky) */
+  --growth: oklch(72% 0.15 130); /* graduated (young shoot) */
+  --pin: oklch(72% 0.13 80); /* pinned (lacquer gold) */
+  --warn: oklch(56% 0.16 32); /* warning (clay red) */
 
-  --accent-wash: oklch(52% 0.11 55 / 0.08);
+  --accent-wash: oklch(48% 0.12 152 / 0.08);
 
   /* type — cute rounded display + a Vietnamese-native body, both with full
      diacritics. System fallbacks (system-ui = SF/Segoe) also render VN well. */
@@ -50,22 +51,23 @@
 }
 
 [data-theme='dark'] {
-  --paper: oklch(20% 0.012 260);
-  --paper-2: oklch(23% 0.014 260);
-  --surface: oklch(25% 0.014 260);
-  --ink: oklch(94% 0.01 90);
-  --ink-soft: oklch(80% 0.012 90);
-  --muted: oklch(66% 0.012 90);
-  --line: oklch(34% 0.012 260);
-  --line-strong: oklch(42% 0.014 260);
+  /* night grove — deep green-black, not blue-slate */
+  --paper: oklch(20% 0.014 150);
+  --paper-2: oklch(23% 0.016 150);
+  --surface: oklch(25% 0.016 150);
+  --ink: oklch(94% 0.01 140);
+  --ink-soft: oklch(80% 0.014 140);
+  --muted: oklch(66% 0.016 140);
+  --line: oklch(34% 0.016 150);
+  --line-strong: oklch(42% 0.018 150);
 
-  --bark: oklch(72% 0.1 60);
-  --bark-ink: oklch(80% 0.09 62);
-  --branch: oklch(72% 0.1 220);
-  --growth: oklch(74% 0.12 152);
-  --pin: oklch(80% 0.12 80);
-  --warn: oklch(72% 0.15 38);
-  --accent-wash: oklch(72% 0.1 60 / 0.12);
+  --bamboo: oklch(74% 0.13 150); /* leaf green, lifted for dark */
+  --bamboo-deep: oklch(82% 0.1 150);
+  --branch: oklch(74% 0.1 235);
+  --growth: oklch(80% 0.15 130);
+  --pin: oklch(82% 0.12 82);
+  --warn: oklch(70% 0.16 34);
+  --accent-wash: oklch(74% 0.13 150 / 0.14);
   --shadow-1: 0 1px 2px oklch(0% 0 0 / 0.3);
   --shadow-2: 0 8px 30px oklch(0% 0 0 / 0.4);
 }
@@ -148,8 +150,14 @@ code,
   letter-spacing: -0.02em;
 }
 
+.wordmark-mark {
+  align-self: center;
+  color: var(--bamboo);
+  flex: none;
+}
+
 .wordmark b {
-  color: var(--bark);
+  color: var(--bamboo);
 }
 
 .wordmark span {
@@ -191,7 +199,7 @@ code,
 
 .tab[aria-current='true'] {
   color: var(--ink);
-  border-bottom-color: var(--bark);
+  border-bottom-color: var(--bamboo);
 }
 
 .tab .count {
@@ -218,7 +226,7 @@ main {
 
 .lede em {
   font-style: normal;
-  color: var(--bark);
+  color: var(--bamboo);
 }
 
 .sub {
@@ -262,7 +270,7 @@ main {
 .icon-btn:focus-visible,
 .tab:focus-visible,
 .branch-row:focus-visible {
-  outline: 2px solid var(--bark);
+  outline: 2px solid var(--bamboo);
   outline-offset: 2px;
 }
 
@@ -296,9 +304,9 @@ main {
   font-size: var(--text-xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--bark-ink);
+  color: var(--bamboo-deep);
   background: var(--accent-wash);
-  border: 1px solid color-mix(in oklch, var(--bark) 30%, transparent);
+  border: 1px solid color-mix(in oklch, var(--bamboo) 30%, transparent);
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
 }
@@ -429,7 +437,7 @@ main {
 }
 
 .branch-row.current {
-  --spine: var(--bark);
+  --spine: var(--bamboo);
 }
 
 .branch-node {
@@ -487,8 +495,8 @@ main {
 .branch-name .you {
   font-family: var(--font-sans);
   font-size: var(--text-xs);
-  color: var(--bark);
-  border: 1px solid color-mix(in oklch, var(--bark) 40%, transparent);
+  color: var(--bamboo);
+  border: 1px solid color-mix(in oklch, var(--bamboo) 40%, transparent);
   border-radius: 999px;
   padding: 0 0.4rem;
 }
@@ -581,7 +589,7 @@ main {
 }
 
 .entry-meta .who {
-  color: var(--bark-ink);
+  color: var(--bamboo-deep);
   font-weight: 600;
 }
 
@@ -725,7 +733,7 @@ main {
 
 .grove-promo-title em {
   font-style: normal;
-  color: var(--bark);
+  color: var(--bamboo);
 }
 
 .grove-promo-sub {
@@ -737,7 +745,7 @@ main {
   margin-left: auto;
   flex: none;
   font-size: 1.4rem;
-  color: var(--bark);
+  color: var(--bamboo);
   transition: transform var(--dur-fast) var(--ease);
 }
 
@@ -771,7 +779,7 @@ main {
 }
 
 .btn-share:focus-visible {
-  outline: 2px solid var(--bark);
+  outline: 2px solid var(--bamboo);
   outline-offset: 2px;
 }
 
@@ -847,7 +855,7 @@ main {
 }
 
 .lb-card.active {
-  border-color: var(--bark);
+  border-color: var(--bamboo);
   box-shadow: var(--shadow-2);
 }
 
@@ -886,7 +894,7 @@ main {
 
 .lb-culm i {
   width: 100%;
-  background: linear-gradient(var(--growth), var(--bark));
+  background: linear-gradient(var(--growth), var(--bamboo));
   border-radius: 999px;
   display: block;
 }
@@ -944,7 +952,7 @@ main {
 .lb-badge {
   font-size: var(--text-xs);
   font-weight: 600;
-  color: var(--bark-ink);
+  color: var(--bamboo-deep);
   background: var(--accent-wash);
   border-radius: 999px;
   padding: 0.1rem 0.5rem;
@@ -961,7 +969,7 @@ main {
   font: inherit;
   font-size: var(--text-xs);
   font-weight: 600;
-  color: var(--bark-ink);
+  color: var(--bamboo-deep);
   background: var(--paper-2);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -970,7 +978,7 @@ main {
 }
 
 .lb-branches .who:hover {
-  border-color: var(--bark);
+  border-color: var(--bamboo);
 }
 
 @media (prefers-reduced-motion: reduce) {

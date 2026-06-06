@@ -119,6 +119,12 @@ disciplined contrast; the **branch graph is the hero data-viz**, part of the des
 motion (`transform`/`opacity`). Light + dark both intentional. Semantic HTML, keyboard-navigable,
 reduced-motion respected. Bundle target < 80kb JS gzipped (microsite budget).
 
+> **Update (2026-06-07, v0.8.0):** the primary accent is now **bamboo green**
+> (`--bark` → `--bamboo`, jade on green-tinted rice paper), not the original
+> amber/bark. `tre` = bamboo, so the identity reads green across both the
+> dashboard and the terminal. The full token contract moved to its own SSOT,
+> [`docs/BRAND.md`](./docs/BRAND.md).
+
 ### Daemon lifecycle (`tre web`)
 
 - `tre web` — foreground; derive port; auto-open browser (shell `open`/`xdg-open`/`start`, no dep);

@@ -44,7 +44,7 @@ export function ShareCard({ project, contributors, source, facts, branches }: Sh
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const bark = token('--bark', '#7a5b2e');
+    const bamboo = token('--bamboo', '#2e7d52');
     const growth = token('--growth', '#3aa35a');
     const paper = token('--surface', '#ffffff');
     const ink = token('--ink', '#1c1c1c');
@@ -55,7 +55,7 @@ export function ShareCard({ project, contributors, source, facts, branches }: Sh
     // bamboo side-stripe
     ctx.fillStyle = growth;
     ctx.fillRect(0, 0, 16, H);
-    ctx.fillStyle = bark;
+    ctx.fillStyle = bamboo;
     ctx.fillRect(16, 0, 6, H);
 
     const display = "'Baloo 2', system-ui, sans-serif";

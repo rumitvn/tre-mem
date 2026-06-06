@@ -2,7 +2,8 @@
 
 > Sibling plan to [`PLAN.md`](./PLAN.md) (v0.1), [`PLAN-PHASE2.md`](./PLAN-PHASE2.md) (v0.2–v0.4),
 > [`PLAN-PHASE3.md`](./PLAN-PHASE3.md) (v0.5), [`PLAN-PHASE4.md`](./PLAN-PHASE4.md) (v0.6),
-> [`PLAN-PHASE5.md`](./PLAN-PHASE5.md) (v0.7.x). This file is the **Phase 6 SSOT** (v0.8.0).
+> [`PLAN-PHASE5.md`](./PLAN-PHASE5.md) (v0.7.x). This file is the **Phase 6 SSOT** (v0.9.0;
+> rebased onto the v0.8.0 bamboo identity).
 
 ## Context
 
@@ -36,8 +37,8 @@ solo/unshared repos fall back to `git log` authors so the grove is never empty; 
       tokens, bamboo sizing, hover tooltip, click-to-drill, `cutoffEpoch` for time-lapse.
 - [x] **Share card + time-lapse** — `web/views/ShareCard.tsx` (canvas → PNG) and the time-lapse
       scrubber/playback in `Grove.tsx`.
-- [x] **Docs + release** — `docs/WEB-UI.md` (Grove tab + endpoints), `CHANGELOG.md` `[0.8.0]`,
-      version bump `package.json` + `src/version.ts` → `0.8.0`.
+- [x] **Docs + release** — `docs/WEB-UI.md` (Grove tab + endpoints), `CHANGELOG.md` `[0.9.0]`,
+      version bump `package.json` + `src/version.ts` → `0.9.0`.
 
 ## Notes
 

@@ -125,7 +125,7 @@ export function Overview({
                   </span>
                   <span
                     className="barline"
-                    style={{ ['--spine' as string]: isCurrent ? 'var(--bark)' : 'var(--branch)' }}
+                    style={{ ['--spine' as string]: isCurrent ? 'var(--bamboo)' : 'var(--branch)' }}
                   >
                     <i style={{ width: `${Math.round((b.count / maxCount) * 100)}%` }} />
                   </span>
