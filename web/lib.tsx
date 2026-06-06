@@ -100,6 +100,72 @@ export interface SearchResponse {
   hits: SearchHit[];
 }
 
+/* ---- grove (contributor graph + leaderboard) ------------------------ */
+
+export type BadgeId = 'gardener_of_week' | 'most_rooted' | 'longest_streak' | 'first_sprout';
+export type GroveSource = 'shared' | 'git-fallback';
+
+export interface ContributorStat {
+  author: string;
+  attributed: boolean;
+  pins: number;
+  graduated: number;
+  facts_total: number;
+  commits: number;
+  branches: string[];
+  branches_touched: number;
+  first_activity_epoch: number;
+  last_activity_epoch: number;
+  streak_days: number;
+  value_score: number;
+  breakdown: { pin: number; graduated: number };
+  badges: BadgeId[];
+}
+
+export interface ContributorsResponse {
+  project: string;
+  source: GroveSource;
+  contributors: ContributorStat[];
+  attributed_total: number;
+  unattributed_total: number;
+  has_sync_dir: boolean;
+}
+
+export type GraphNodeKind = 'root' | 'branch' | 'contributor' | 'fact';
+
+export interface GraphNode {
+  id: string;
+  kind: GraphNodeKind;
+  label: string;
+  factKind?: 'pin' | 'graduated';
+  author?: string | null;
+  branch?: string;
+  observation_id?: number | null;
+  epoch?: number;
+  weight?: number;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  kind: 'authored' | 'lives_on' | 'graduates_into' | 'committed';
+}
+
+export interface GraphResponse {
+  project: string;
+  source: GroveSource;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  has_sync_dir: boolean;
+}
+
+export const BADGE_META: Record<BadgeId, { icon: string; label: string }> = {
+  gardener_of_week: { icon: '🌱', label: 'Gardener of the week' },
+  most_rooted: { icon: '🎋', label: 'Most rooted' },
+  longest_streak: { icon: '🔥', label: 'Longest streak' },
+  first_sprout: { icon: '🌿', label: 'First sprout' },
+};
+
 /* ---- fetching ------------------------------------------------------- */
 
 export async function api<T>(path: string): Promise<T> {
@@ -165,6 +231,13 @@ export function useSse(onChange: (event: string) => void): boolean {
 
 /* ---- format helpers ------------------------------------------------- */
 
+// Lightweight locale hook for timeAgo so the many existing call sites don't need
+// to thread `lang` through. Set by the LanguageProvider whenever the language changes.
+let timeLang: 'en' | 'vi' = 'en';
+export function setTimeLang(lang: 'en' | 'vi'): void {
+  timeLang = lang;
+}
+
 export function timeAgo(epochSeconds: number | null): string {
   if (!epochSeconds) return '—';
   const secs = Math.max(0, Math.floor(Date.now() / 1000) - epochSeconds);
@@ -177,10 +250,13 @@ export function timeAgo(epochSeconds: number | null): string {
   ];
   let prev = 1;
   for (const [limit, label] of units) {
-    if (secs < limit) return `${Math.floor(secs / prev)}${label} ago`;
+    if (secs < limit) {
+      const v = `${Math.floor(secs / prev)}${label}`;
+      return timeLang === 'vi' ? `${v} trước` : `${v} ago`;
+    }
     prev = limit;
   }
-  return 'just now';
+  return timeLang === 'vi' ? 'vừa nãy' : 'just now';
 }
 
 export function clsx(...parts: Array<string | false | null | undefined>): string {

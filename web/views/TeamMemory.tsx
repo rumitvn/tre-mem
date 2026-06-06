@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n.js';
 import { Badge, Empty, Skeletons, timeAgo, useApi, type Graduated, type Pin } from '../lib.js';
 
 interface TeamMemoryProps {
@@ -16,6 +17,7 @@ interface GradResponse {
 }
 
 export function TeamMemory({ project, refreshKey, onOpenBranch }: TeamMemoryProps) {
+  const { t } = useI18n();
   const q = `project=${encodeURIComponent(project)}`;
   const pins = useApi<PinsResponse>(`/api/pins?${q}`, refreshKey);
   const grad = useApi<GradResponse>(`/api/graduated?${q}`, refreshKey);
@@ -28,48 +30,50 @@ export function TeamMemory({ project, refreshKey, onOpenBranch }: TeamMemoryProp
   return (
     <>
       <h1 className="lede" style={{ fontSize: 'var(--text-xl)' }}>
-        Team memory
+        {t('tm.title')}
       </h1>
       <p className="sub">
-        What the team chose to remember about <strong>{project}</strong> — pinned decisions and the
-        facts that graduated to repo-wide knowledge. Shared rows live in <code>.tre-mem/</code> and
-        travel through git; run <code>tre share</code> to publish them.
+        {t('tm.sub.a')}
+        <strong>{project}</strong>
+        {t('tm.sub.b')}
+        <code>.tre-mem/</code>
+        {t('tm.sub.c')}
+        <code>tre share</code>
+        {t('tm.sub.d')}
       </p>
 
       {!loading && pendingCount > 0 ? (
         <p className="callout">
-          {pendingCount} pin{pendingCount === 1 ? '' : 's'} not shared yet — run{' '}
-          <code>tre share</code> to push {pendingCount === 1 ? 'it' : 'them'} to your team's git.
+          {t('tm.callout.a', { n: pendingCount })}
+          <code>tre share</code>
+          {t('tm.callout.b')}
         </p>
       ) : null}
 
       {loading ? (
         <Skeletons n={5} />
       ) : pinRows.length === 0 && gradRows.length === 0 ? (
-        <Empty
-          title="No shared memory yet"
-          hint="Pin a decision, then run `tre share` to push it to your team's git."
-        />
+        <Empty title={t('tm.empty.title')} hint={t('tm.empty.hint')} />
       ) : (
         <>
           <div className="section-head">
-            <h2>Pinned decisions</h2>
+            <h2>{t('tm.pinned')}</h2>
             <span className="hint">{pinRows.length}</span>
           </div>
           <div className="feed">
             {pinRows.map((p) => (
               <article key={p.id} className="entry pin">
                 <div className="entry-head">
-                  <Badge kind="pin">pin</Badge>
-                  <span className="entry-title">{p.title ?? p.note ?? '(pinned fact)'}</span>
+                  <Badge kind="pin">{t('entry.pin')}</Badge>
+                  <span className="entry-title">{p.title ?? p.note ?? t('entry.pinnedfact')}</span>
                   <Badge kind={p.shared ? 'graduated' : 'pending'}>
-                    {p.shared ? 'shared via git ✓' : 'not shared yet'}
+                    {p.shared ? t('entry.shared.git') : t('entry.notshared')}
                   </Badge>
                 </div>
                 {p.body && p.body !== p.title ? <p className="entry-body">{p.body}</p> : null}
                 {p.note && p.note !== p.title ? (
                   <p className="entry-body">
-                    <span className="who">note</span> · {p.note}
+                    <span className="who">{t('entry.note')}</span> · {p.note}
                   </p>
                 ) : null}
                 <div className="entry-meta">
@@ -86,25 +90,22 @@ export function TeamMemory({ project, refreshKey, onOpenBranch }: TeamMemoryProp
           </div>
 
           <div className="section-head" style={{ marginTop: '1.6rem' }}>
-            <h2>Graduated facts</h2>
+            <h2>{t('tm.graduated')}</h2>
             <span className="hint">{gradRows.length}</span>
           </div>
           {gradRows.length === 0 ? (
-            <Empty
-              title="Nothing graduated yet"
-              hint="Merge a PR (or `tre graduate`) to promote a fact repo-wide."
-            />
+            <Empty title={t('tm.grad.empty.title')} hint={t('tm.grad.empty.hint')} />
           ) : (
             <div className="feed">
               {gradRows.map((g) => (
                 <article key={g.id} className="entry graduated">
                   <div className="entry-head">
-                    <Badge kind="graduated">graduated</Badge>
+                    <Badge kind="graduated">{t('entry.graduated')}</Badge>
                     <span className="entry-title">{g.title ?? `#${g.observation_id}`}</span>
                   </div>
                   {g.body ? <p className="entry-body">{g.body}</p> : null}
                   <div className="entry-meta">
-                    <span>from</span>
+                    <span>{t('entry.from')}</span>
                     <button className="who" onClick={() => onOpenBranch(g.from_branch)}>
                       {g.from_branch}
                     </button>

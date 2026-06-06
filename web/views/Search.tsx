@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { useI18n } from '../i18n.js';
 import { Badge, Empty, clsx, api, type SearchResponse, type Breakdown } from '../lib.js';
 
 interface SearchProps {
@@ -10,6 +11,7 @@ interface SearchProps {
 const SIGNALS: Array<keyof Breakdown> = ['semantic', 'branch', 'recency', 'graduated', 'pin'];
 
 export function Search({ project, branch }: SearchProps) {
+  const { t } = useI18n();
   const [q, setQ] = useState('');
   const [res, setRes] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,43 +43,43 @@ export function Search({ project, branch }: SearchProps) {
   return (
     <>
       <h1 className="lede" style={{ fontSize: 'var(--text-xl)' }}>
-        Search
+        {t('s.title')}
       </h1>
       <p className="sub">
-        Branch-aware retrieval
+        {t('s.sub.a')}
         {branch ? (
           <>
-            {' '}
-            on <span className="mono">{branch}</span>
+            {t('s.sub.on')}
+            <span className="mono">{branch}</span>
           </>
         ) : null}
-        . Each hit shows why it ranked — semantic, branch, recency, graduated, pin.
+        {t('s.sub.b')}
       </p>
 
       <div className="search-bar">
         <input
           className="search-input"
           type="search"
-          placeholder="Search this codebase's memory…"
+          placeholder={t('s.placeholder')}
           value={q}
           autoFocus
-          aria-label="Search memory"
+          aria-label={t('s.title')}
           onChange={(e) => setQ(e.target.value)}
         />
       </div>
 
       {res && res.mode === 'shared-only' ? (
         <p className="sub" style={{ marginTop: '-0.8rem' }}>
-          claude-mem not detected — searching shared pins + graduated only.
+          {t('s.sharedonly')}
         </p>
       ) : null}
 
       {q.trim() === '' ? (
-        <Empty title="Type to search" hint="Results are reranked for the active branch." />
+        <Empty title={t('s.empty.type.title')} hint={t('s.empty.type.hint')} />
       ) : loading && hits.length === 0 ? (
-        <Empty title="Searching…" />
+        <Empty title={t('s.searching')} />
       ) : hits.length === 0 ? (
-        <Empty title="No matches" hint="Try a different term or branch." />
+        <Empty title={t('s.nomatch.title')} hint={t('s.nomatch.hint')} />
       ) : (
         <div className="feed">
           {hits.map((h, i) => (
