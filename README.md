@@ -336,6 +336,16 @@ Works even **without claude-mem** (shared-memory-only mode: pins + graduated fro
 the sidecar/`.tre-mem/`, substring search). Full guide:
 [docs/WEB-UI.md](./docs/WEB-UI.md).
 
+## Brand & design — bamboo green (v0.8)
+
+`tre` means _bamboo_, so as of v0.8 tre-mem **looks** like bamboo. The dashboard is
+re-themed around a jade-green primary on green-tinted rice paper, with a
+coordinated grove palette for the branch graph (light + dark both intentional);
+the SessionStart digest and CLI read green too — `🎋 tre-mem · recent context …`.
+The whole identity — OKLCH palette with its terminal-ANSI mapping, the semantic
+spine legend, typography, and motion — is documented as a single source of truth
+in [docs/BRAND.md](./docs/BRAND.md).
+
 ## Beyond Claude Code — cross-tool (v0.6)
 
 tre-mem speaks **MCP**, so the git-shared team memory travels to every major

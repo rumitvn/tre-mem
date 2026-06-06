@@ -120,6 +120,7 @@ build must still pass).
 
 ## Where things live
 
+- Brand & design system (bamboo green): `docs/BRAND.md` — SSOT for web tokens + terminal colors
 - This project: `/Users/rumnv/Documents/tre-mem/`
 - Sidecar data: `~/.tre-mem/` (created by `tre init`)
 - Upstream data we read: `~/.claude-mem/claude-mem.db`, `~/.claude-mem/chroma/`

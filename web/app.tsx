@@ -53,6 +53,7 @@ export function App() {
     <div className="shell">
       <header className="topbar">
         <div className="wordmark">
+          <BambooMark />
           <b>tre</b>
           <span>shared roots</span>
         </div>
@@ -125,6 +126,27 @@ export function App() {
         )}
       </main>
     </div>
+  );
+}
+
+/** A bamboo culm with two nodes (đốt tre) and a leaf — tre's mark, tinted --bamboo. */
+function BambooMark() {
+  return (
+    <svg
+      className="wordmark-mark"
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <g stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" fill="none">
+        <path d="M10 21 V4" />
+        <path d="M7.5 8.5 H12.5" />
+        <path d="M7.5 14.5 H12.5" />
+      </g>
+      <path d="M12 7 C16 5 19 6 20 8 C16 9.5 13 9 12 7 Z" fill="currentColor" stroke="none" />
+    </svg>
   );
 }
 

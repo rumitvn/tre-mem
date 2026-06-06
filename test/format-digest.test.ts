@@ -25,7 +25,8 @@ describe('buildSessionDigest', () => {
   it('renders header, legend, and stats in both display and context', () => {
     const { display, context } = buildSessionDigest(base());
     for (const out of [display, context]) {
-      expect(out).toContain('[tre-mem] recent context');
+      expect(out).toContain('🎋 tre-mem');
+      expect(out).toContain('recent context');
       expect(out).toContain('main');
       expect(out).toContain('179 on branch');
       expect(out).toContain('232 on project');
