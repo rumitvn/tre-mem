@@ -830,10 +830,6 @@ cli
     '--with-hook',
     'Also install a local post-merge git hook that graduates on merge (any provider, no CI)',
   )
-  .option(
-    '--with-action',
-    'Also write a GitHub Actions graduate-on-merge workflow (optional; CI alternative to --with-hook)',
-  )
   .option('--auto-inject', 'Also wire the prompt-time inject hook (Codex/Gemini/Claude)')
   .action(
     (
@@ -842,13 +838,11 @@ cli
         all?: boolean;
         cwd?: string;
         withHook?: boolean;
-        withAction?: boolean;
         autoInject?: boolean;
       },
     ) => {
       const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
       const opts = {
-        withAction: flags.withAction ?? false,
         autoInject: flags.autoInject ?? false,
       };
 
@@ -888,8 +882,6 @@ cli
       const result = setupTool(tool, cwd, opts);
       console.log(result.message);
       if (result.settingsPath) console.log(`  settings: ${result.settingsPath}`);
-      if (result.workflowPath && result.workflowAdded)
-        console.log(`  workflow: ${result.workflowPath}`);
       reportHook();
       if (!result.supported) process.exit(2);
     },

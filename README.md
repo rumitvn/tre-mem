@@ -187,7 +187,7 @@ tre export [--branch B | --all] [--force] [--dry-run]   # low-level: write pins 
 tre import [--from .tre-mem] [--force]                   # pull a teammate's pins
 tre graduate-pr <PR# | branch> [--dry-run]               # graduate a merged branch (any provider)
 tre graduate-merge                                       # graduate the just-merged branch (post-merge hook)
-tre setup claude-code [--auto-inject] [--with-hook] [--with-action]   # wire hooks (+ graduate hook/CI)
+tre setup claude-code [--auto-inject] [--with-hook]      # wire hooks (+ local graduate-on-merge hook)
 tre hook session-start | user-prompt-submit              # invoked by Claude Code
 ```
 
@@ -307,8 +307,8 @@ Key properties:
   sides and `tre import` de-dupes on read.
 - **Graduate on merge, no CI required.** `tre setup … --with-hook` installs a local
   `post-merge` git hook that promotes a merged branch's pins to repo-wide facts —
-  on any provider. CI snippets (GitLab/Bitbucket) and an optional GitHub Action are
-  also supported.
+  on any provider. Prefer CI? A few lines of GitLab/Bitbucket/any-runner YAML calling
+  `tre graduate-pr` does the same. No vendor-locked GitHub Action.
 
 Full guide: [docs/TEAM-WORKFLOW.md](./docs/TEAM-WORKFLOW.md). Upgrading from
 v0.1 is automatic — see [docs/MIGRATION-v1-v2.md](./docs/MIGRATION-v1-v2.md).
@@ -393,7 +393,7 @@ for the full design.
 ## Status
 
 **v0.2 — team-shared memory via git.** Phase 1 (branch-aware retrieval + MCP)
-and Phase 2 (export/import, redaction, graduate-on-merge, retrieval-v2, hooks)
+and Phase 2 (export/import, redaction, branch graduation, retrieval-v2, hooks)
 are shipped and covered by 165 tests. The two-dev sync path is verified
 end-to-end through a real git remote in `scripts/two-dev-e2e.sh`.
 [CHANGELOG.md](./CHANGELOG.md) tracks releases.

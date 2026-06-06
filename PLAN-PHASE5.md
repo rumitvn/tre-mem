@@ -172,3 +172,7 @@ dedupe (`src/sync/format.ts`) · `ensureSyncScaffold` / `writeFileAtomic` (`src/
   conflicts. Model-powered curation deferred. **Dogfood decision:** keep the GitHub Action workflow
   (`.github/workflows/tre-mem-graduate.yml`) committed for this repo as the _documented optional-CI
   example_, but demote it from "the" graduation path to one option among local-hook + generic CI.
+- **2026-06-06 (v0.7.1)** — **Reversed the dogfood decision: removed the GitHub Action entirely.**
+  Per owner ("never GitHub Action — too locked-in, hard to scale"), deleted `actions/graduate-on-merge/`,
+  the `--with-action` flag + workflow scaffold, and the dogfood workflow. Graduation is now git-native
+  only (local `post-merge` hook) or provider-neutral CI snippets calling `tre graduate-pr`.

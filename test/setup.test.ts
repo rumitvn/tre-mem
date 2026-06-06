@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
@@ -66,14 +66,6 @@ describe('setupClaudeCode', () => {
     expect(upsCmds).toContain('tre hook user-prompt-submit');
     // without auto-inject, UserPromptSubmit is absent
     expect(settings.hooks.SessionStart).toHaveLength(1);
-  });
-
-  test('--with-action writes the graduate workflow', () => {
-    const result = setupClaudeCode(tmp, { withAction: true });
-    expect(result.workflowAdded).toBe(true);
-    const wf = readFileSync(join(tmp, '.github', 'workflows', 'tre-mem-graduate.yml'), 'utf8');
-    expect(wf).toContain('graduate-on-merge');
-    expect(wf).toContain('pull_request');
   });
 });
 
