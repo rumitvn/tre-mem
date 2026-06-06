@@ -250,6 +250,16 @@ Hoạt động cả khi **không có claude-mem** (chế độ shared-memory-onl
 graduated từ sidecar/`.tre-mem/`, tìm kiếm substring). Hướng dẫn đầy đủ:
 [docs/WEB-UI.md](./docs/WEB-UI.md).
 
+## Thương hiệu & thiết kế — xanh tre (v0.8)
+
+`tre` nghĩa là _bamboo_ (cây tre), nên từ v0.8 tre-mem **trông** như tre. Dashboard
+được đổi tông sang xanh jade làm màu chính trên nền giấy dó ngả xanh, với một bảng
+màu "lũy tre" thống nhất cho branch graph (cả light + dark đều có chủ đích); digest
+lúc SessionStart và CLI cũng ngả xanh — `🎋 tre-mem · recent context …`. Toàn bộ bộ
+nhận diện — bảng màu OKLCH kèm ánh xạ sang ANSI cho terminal, chú giải spine ngữ
+nghĩa, typography và chuyển động — được ghi lại như nguồn chân lý duy nhất trong
+[docs/BRAND.md](./docs/BRAND.md).
+
 ## Vượt ra ngoài Claude Code — đa công cụ (v0.6)
 
 tre-mem nói **MCP**, nên memory nhóm chia sẻ qua git đi tới mọi harness lớn. Cấu

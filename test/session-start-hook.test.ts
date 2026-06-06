@@ -199,7 +199,8 @@ describe('runSessionStartHook', () => {
     expect(result.message).toContain('#1882');
     expect(result.message).toContain('Log utils extracted');
     expect(result.message).toContain('🔄');
-    expect(result.message).toContain('[tre-mem] recent context');
+    expect(result.message).toContain('🎋 tre-mem');
+    expect(result.message).toContain('recent context');
     // plain context never carries ANSI escape codes
     expect(result.message.includes(String.fromCharCode(27))).toBe(false);
     expect(result.display).toContain('#1882');

@@ -22,3 +22,19 @@ export const auto: Palette = pc.createColors(pc.isColorSupported);
 
 /** Always-colored palette (unless `NO_COLOR`), for piped hook display strings. */
 export const forced: Palette = colors(true);
+
+/**
+ * The bamboo motif — tre's mark in terminal output. `tre` means _bamboo_ in
+ * Vietnamese; the brand color is green (the closest ANSI bridge to the web
+ * dashboard's `--bamboo` jade). See docs/BRAND.md.
+ */
+export const BAMBOO = '🎋';
+
+/**
+ * Brand styling: bamboo green + bold. Use for tre's name and section headers in
+ * terminal output so the identity reads green everywhere. With a no-color
+ * palette this is an identity passthrough (plain text).
+ */
+export function brand(c: Palette): (s: string) => string {
+  return (s) => c.bold(c.green(s));
+}

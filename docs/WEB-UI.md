@@ -58,6 +58,14 @@ in `~/.tre-mem/web.pid` (self-healing: a stale pidfile is cleared automatically)
   (semantic · branch · recency · graduated · pin) and a source badge
   (observation / shared-pin / graduated).
 
+## Theme
+
+The dashboard wears tre-mem's **bamboo green** identity (v0.8): a jade primary on
+green-tinted rice paper, with a coordinated grove palette for the branch-graph
+spines. Both **light and dark** are intentional — toggle with the ☾/☀ button
+(top-right); the choice persists and falls back to your OS preference. The full
+token contract is documented in [BRAND.md](./BRAND.md).
+
 ## Live updates
 
 The page subscribes to a Server-Sent-Events stream (`/api/events`) and refetches

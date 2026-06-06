@@ -33,6 +33,10 @@ const html = `<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <title>tre · shared roots</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctext y='20' font-size='20'%3E%F0%9F%8E%8B%3C/text%3E%3C/svg%3E"
+    />
     <script>${themeBoot}</script>
     <link rel="stylesheet" href="/app.css" />
   </head>

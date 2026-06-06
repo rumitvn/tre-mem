@@ -7,7 +7,7 @@ import { simpleGit } from 'simple-git';
 
 import { ClaudeMemAdapter } from './adapter/claude-mem.js';
 import { claudeMemGuidance, diagnoseClaudeMem, probeClaudeMemIngest } from './adapter/preflight.js';
-import { auto as theme } from './format/colors.js';
+import { BAMBOO, auto as theme, brand } from './format/colors.js';
 import type { PinnedFact, RecentObs } from './format/digest.js';
 import { backfill } from './git/backfill.js';
 import { branchFromCiEnv, prHeadBranch } from './git/github.js';
@@ -121,7 +121,7 @@ cli.command('init', 'Initialize ~/.tre-mem/ and run schema migrations').action((
 });
 
 cli.command('doctor', 'Diagnose claude-mem connectivity and tre-mem setup').action(() => {
-  console.log(theme.bold('tre-mem doctor'));
+  console.log(brand(theme)(`${BAMBOO} tre-mem doctor`));
   console.log(`  version: ${VERSION}`);
   console.log(`  home:    ${TRE_MEM_HOME}`);
   console.log(`  db:      ${TRE_MEM_DB_PATH}`);
@@ -964,7 +964,9 @@ cli
     }
 
     const running = await runWebServer({ port, open: flags.open !== false });
-    console.log(`tre web: ${theme.bold(running.mode)} mode → ${theme.cyan(running.url)}`);
+    console.log(
+      `${brand(theme)(`${BAMBOO} tre web`)}: ${theme.bold(running.mode)} mode → ${theme.cyan(running.url)}`,
+    );
     console.log('  press Ctrl-C to stop.');
     const shutdown = (): void => {
       void running.close().then(() => process.exit(0));
