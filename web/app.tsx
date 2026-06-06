@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useI18n } from './i18n.js';
 import { clsx, useApi, useSse, type BranchesResponse, type Health } from './lib.js';
 import { BranchDetail } from './views/BranchDetail.js';
+import { Grove } from './views/Grove.js';
 import { Overview } from './views/Overview.js';
 import { Search } from './views/Search.js';
 import { TeamMemory } from './views/TeamMemory.js';
 
-type Tab = 'overview' | 'team' | 'search';
+type Tab = 'overview' | 'grove' | 'team' | 'search';
 
 interface ProjectsResponse {
   current: string;
@@ -14,6 +16,7 @@ interface ProjectsResponse {
 }
 
 export function App() {
+  const { t } = useI18n();
   const health = useApi<Health>('/api/health', 'init');
   const projects = useApi<ProjectsResponse>('/api/projects', 'init');
 
@@ -55,7 +58,7 @@ export function App() {
         <div className="wordmark">
           <BambooMark />
           <b>tre</b>
-          <span>shared roots</span>
+          <span>{t('wordmark.tagline')}</span>
         </div>
         <div className="topbar-spacer" />
         {mode ? <span className="mode-badge">{mode}</span> : null}
@@ -78,9 +81,10 @@ export function App() {
         ) : null}
         <span
           className={clsx('dot', connected && 'live')}
-          title={connected ? 'live' : 'disconnected'}
-          aria-label={connected ? 'live updates connected' : 'disconnected'}
+          title={connected ? t('topbar.live') : t('topbar.disconnected')}
+          aria-label={connected ? t('topbar.live') : t('topbar.disconnected')}
         />
+        <LangToggle />
         <ThemeToggle />
       </header>
 
@@ -90,19 +94,22 @@ export function App() {
           aria-current={tab === 'overview' && !branch}
           onClick={() => go('overview')}
         >
-          Overview
+          {t('nav.overview')}
+        </button>
+        <button className="tab" aria-current={tab === 'grove'} onClick={() => go('grove')}>
+          {t('nav.grove')}
         </button>
         <button className="tab" aria-current={tab === 'team'} onClick={() => go('team')}>
-          Team memory
+          {t('nav.team')}
         </button>
         <button className="tab" aria-current={tab === 'search'} onClick={() => go('search')}>
-          Search
+          {t('nav.search')}
         </button>
       </nav>
 
       <main>
         {health.error ? (
-          <p className="sub">Could not reach the dashboard server: {health.error}</p>
+          <p className="sub">{t('err.server', { error: health.error })}</p>
         ) : !project ? (
           <div className="skeleton" style={{ height: '6rem' }} />
         ) : branch ? (
@@ -118,7 +125,10 @@ export function App() {
             branches={branches}
             refreshKey={refreshKey}
             onOpenBranch={openBranch}
+            onOpenGrove={() => go('grove')}
           />
+        ) : tab === 'grove' ? (
+          <Grove project={project} refreshKey={refreshKey} onOpenBranch={openBranch} />
         ) : tab === 'team' ? (
           <TeamMemory project={project} refreshKey={refreshKey} onOpenBranch={openBranch} />
         ) : (
@@ -151,6 +161,7 @@ function BambooMark() {
 }
 
 function ThemeToggle() {
+  const { t } = useI18n();
   const [theme, setTheme] = useState<string>(
     () => document.documentElement.dataset.theme ?? 'light',
   );
@@ -165,8 +176,29 @@ function ThemeToggle() {
     setTheme(next);
   }, [theme]);
   return (
-    <button className="icon-btn" onClick={toggle} aria-label="Toggle theme" title="Toggle theme">
+    <button
+      className="icon-btn"
+      onClick={toggle}
+      aria-label={t('theme.toggle')}
+      title={t('theme.toggle')}
+    >
       {theme === 'dark' ? '☀' : '☾'}
+    </button>
+  );
+}
+
+/** EN ⇄ VI toggle. Shows the language you'll switch TO. */
+function LangToggle() {
+  const { lang, setLang, t } = useI18n();
+  const next = lang === 'vi' ? 'en' : 'vi';
+  return (
+    <button
+      className="icon-btn lang-toggle"
+      onClick={() => setLang(next)}
+      aria-label={t('lang.toggle')}
+      title={t('lang.toggle')}
+    >
+      {lang === 'vi' ? 'VI' : 'EN'}
     </button>
   );
 }

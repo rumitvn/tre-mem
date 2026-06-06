@@ -2,10 +2,19 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { Observation } from '../adapter/types.js';
+import { branchAuthors } from '../git/identity.js';
 import { searchBranchContext } from '../retrieval/search.js';
 import type { BranchPin, Graduated, TreMemRepo } from '../store/repo.js';
 import { SYNC_DIR_NAME } from '../sync/layout.js';
+import { readSyncRecords } from '../sync/read.js';
 
+import {
+  aggregateContributors,
+  buildGitContributors,
+  buildGitGraph,
+  buildGraph,
+  type BranchAuthors,
+} from './grove.js';
 import { sendError, sendJson } from './respond.js';
 import { type Route, type RouteCtx, webMode } from './types.js';
 
@@ -66,6 +75,27 @@ function snippet(text: string | null, max = 200): string | null {
   if (!text) return null;
   const flat = text.replace(/\s+/g, ' ').trim();
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
+}
+
+/** `?fallback=git` (default on) lets solo/unshared repos light up via git authors. */
+function fallbackEnabled(ctx: RouteCtx): boolean {
+  const q = ctx.query.get('fallback');
+  return q === null || q === '' || q === 'git' || q === '1' || q === 'true';
+}
+
+/** Commit authors for every branch tre-mem knows about — the git-fallback source. */
+async function gitBranchAuthors(
+  repo: TreMemRepo,
+  cwd: string,
+  project: string,
+): Promise<BranchAuthors[]> {
+  const branches = repo.listBranchesForProject(project).map((b) => b.branch);
+  const out: BranchAuthors[] = [];
+  for (const branch of branches) {
+    const authors = await branchAuthors(cwd, branch);
+    if (authors.length > 0) out.push({ branch, authors });
+  }
+  return out;
 }
 
 const ROUTES: Route[] = [
@@ -240,6 +270,73 @@ const ROUTES: Route[] = [
         query,
         mode: 'shared-only',
         hits: degradedSearch(ctx.deps.repo, project, branch, query, k),
+      });
+    },
+  },
+  {
+    method: 'GET',
+    pattern: '/api/contributors',
+    handler: async (_req, res, ctx) => {
+      const project = resolveProject(ctx);
+      const dir = join(ctx.deps.cwd, SYNC_DIR_NAME);
+      const records = readSyncRecords(dir);
+      const { contributors, attributed_total, unattributed_total } = aggregateContributors(
+        records,
+        project,
+        ctx.deps.now(),
+      );
+      if (attributed_total === 0 && fallbackEnabled(ctx)) {
+        const perBranch = await gitBranchAuthors(ctx.deps.repo, ctx.deps.cwd, project);
+        if (perBranch.length > 0) {
+          return sendJson(res, 200, {
+            project,
+            source: 'git-fallback',
+            contributors: buildGitContributors(perBranch, ctx.deps.now()),
+            attributed_total: 0,
+            unattributed_total,
+            has_sync_dir: existsSync(dir),
+          });
+        }
+      }
+      return sendJson(res, 200, {
+        project,
+        source: 'shared',
+        contributors,
+        attributed_total,
+        unattributed_total,
+        has_sync_dir: existsSync(dir),
+      });
+    },
+  },
+  {
+    method: 'GET',
+    pattern: '/api/graph',
+    handler: async (_req, res, ctx) => {
+      const project = resolveProject(ctx);
+      const dir = join(ctx.deps.cwd, SYNC_DIR_NAME);
+      const records = readSyncRecords(dir);
+      const hasFacts = records.some((r) => r.project === project);
+      if (!hasFacts && fallbackEnabled(ctx)) {
+        const perBranch = await gitBranchAuthors(ctx.deps.repo, ctx.deps.cwd, project);
+        if (perBranch.length > 0) {
+          const { nodes, edges } = buildGitGraph(perBranch, project);
+          return sendJson(res, 200, {
+            project,
+            source: 'git-fallback',
+            nodes,
+            edges,
+            has_sync_dir: existsSync(dir),
+          });
+        }
+      }
+      const extraBranches = ctx.deps.repo.listBranchesForProject(project).map((b) => b.branch);
+      const { nodes, edges } = buildGraph(records, extraBranches, project);
+      return sendJson(res, 200, {
+        project,
+        source: 'shared',
+        nodes,
+        edges,
+        has_sync_dir: existsSync(dir),
       });
     },
   },

@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n.js';
 import {
   Badge,
   Empty,
@@ -15,6 +16,7 @@ interface BranchDetailProps {
 }
 
 export function BranchDetail({ project, branch, refreshKey, onBack }: BranchDetailProps) {
+  const { t } = useI18n();
   const q = `project=${encodeURIComponent(project)}`;
   const detail = useApi<BranchDetailData>(
     `/api/branch/${encodeURIComponent(branch)}?${q}`,
@@ -25,33 +27,37 @@ export function BranchDetail({ project, branch, refreshKey, onBack }: BranchDeta
   return (
     <>
       <button className="icon-btn" onClick={onBack} style={{ marginBottom: '1rem' }}>
-        ← branches
+        {t('bd.back')}
       </button>
       <h1 className="lede" style={{ fontSize: 'var(--text-xl)' }}>
         <span className="mono">{branch}</span>
       </h1>
       <p className="sub">
-        Curated knowledge and tagged activity on this branch of <strong>{project}</strong>.
+        {t('bd.sub.a')}
+        <strong>{project}</strong>
+        {t('bd.sub.b')}
       </p>
 
       {detail.loading ? (
         <Skeletons n={4} />
       ) : !d ? (
-        <Empty title="Branch not found" />
+        <Empty title={t('bd.notfound')} />
       ) : (
         <>
-          <Section title="Pinned decisions" count={d.pins.length}>
+          <Section title={t('tm.pinned')} count={d.pins.length}>
             {d.pins.length === 0 ? (
-              <Empty title="No pins on this branch" hint="Pin a fact to share it with the team." />
+              <Empty title={t('bd.pins.empty.title')} hint={t('bd.pins.empty.hint')} />
             ) : (
               <div className="feed">
                 {d.pins.map((p) => (
                   <article key={p.id} className="entry pin">
                     <div className="entry-head">
-                      <Badge kind="pin">pin</Badge>
-                      <span className="entry-title">{p.title ?? p.note ?? '(pinned fact)'}</span>
+                      <Badge kind="pin">{t('entry.pin')}</Badge>
+                      <span className="entry-title">
+                        {p.title ?? p.note ?? t('entry.pinnedfact')}
+                      </span>
                       <Badge kind={p.shared ? 'graduated' : 'pending'}>
-                        {p.shared ? 'shared' : 'local'}
+                        {p.shared ? t('entry.shared') : t('entry.local')}
                       </Badge>
                     </div>
                     {p.body && p.body !== p.title ? <p className="entry-body">{p.body}</p> : null}
@@ -59,7 +65,7 @@ export function BranchDetail({ project, branch, refreshKey, onBack }: BranchDeta
                       {p.observation_id !== null ? (
                         <span className="mono">#{p.observation_id}</span>
                       ) : (
-                        <span>free-text</span>
+                        <span>{t('entry.freetext')}</span>
                       )}
                       <span>{timeAgo(p.created_at_epoch)}</span>
                     </div>
@@ -69,15 +75,15 @@ export function BranchDetail({ project, branch, refreshKey, onBack }: BranchDeta
             )}
           </Section>
 
-          <Section title="Graduated from here" count={d.graduated.length}>
+          <Section title={t('bd.gradhere')} count={d.graduated.length}>
             {d.graduated.length === 0 ? (
-              <Empty title="Nothing graduated from this branch" />
+              <Empty title={t('bd.gradhere.empty')} />
             ) : (
               <div className="feed">
                 {d.graduated.map((g) => (
                   <article key={g.id} className="entry graduated">
                     <div className="entry-head">
-                      <Badge kind="graduated">graduated</Badge>
+                      <Badge kind="graduated">{t('entry.graduated')}</Badge>
                       <span className="entry-title">{g.title ?? `#${g.observation_id}`}</span>
                     </div>
                     {g.body ? <p className="entry-body">{g.body}</p> : null}
@@ -91,21 +97,21 @@ export function BranchDetail({ project, branch, refreshKey, onBack }: BranchDeta
             )}
           </Section>
 
-          <Section title="Tagged activity" count={d.timeline.length}>
+          <Section title={t('bd.activity')} count={d.timeline.length}>
             {d.timeline.length === 0 ? (
-              <Empty title="No tagged observations" />
+              <Empty title={t('bd.activity.empty')} />
             ) : (
               <div className="feed">
-                {d.timeline.map((t) => (
-                  <article key={t.observation_id} className="entry observation">
+                {d.timeline.map((row) => (
+                  <article key={row.observation_id} className="entry observation">
                     <div className="entry-head">
-                      <Badge kind="observation">{t.type ?? 'observation'}</Badge>
-                      <span className="entry-title">{t.title ?? `#${t.observation_id}`}</span>
+                      <Badge kind="observation">{row.type ?? t('entry.observation')}</Badge>
+                      <span className="entry-title">{row.title ?? `#${row.observation_id}`}</span>
                     </div>
                     <div className="entry-meta">
-                      <span className="mono">#{t.observation_id}</span>
-                      <span>{t.source}</span>
-                      <span>{timeAgo(t.tagged_at_epoch)}</span>
+                      <span className="mono">#{row.observation_id}</span>
+                      <span>{row.source}</span>
+                      <span>{timeAgo(row.tagged_at_epoch)}</span>
                     </div>
                   </article>
                 ))}

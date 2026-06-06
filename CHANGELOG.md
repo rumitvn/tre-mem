@@ -4,6 +4,51 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-06-07
+
+**The Grove — a second-brain contributor graph, plus a Vietnamese dashboard.** A new
+`tre web` tab visualizes the team's shared knowledge as an Obsidian-style force
+graph (trunk + branches + contributors + facts) and ranks who grew it, and the
+whole dashboard now speaks Vietnamese with a Vietnamese-friendly type system.
+
+### Added
+
+- **Grove tab** in the dashboard: an interactive `d3-force` + canvas graph of the
+  repo's shared memory. The project trunk (`root`), each branch, each contributor,
+  and each fact (pins = young shoots, graduated facts = mature culms) are nodes;
+  edges wire authorship, where a fact lives, and how branches graduate into the
+  trunk. Bamboo palette driven by the existing theme tokens (light/dark aware).
+  Hover for a tooltip; click a branch/fact to drill into Branch detail, click a
+  contributor to highlight their shoots.
+- **Contributor leaderboard** with a weighted value score (branch-local pins ×1,
+  graduated/rooted facts ×3) plus playful badges & streaks — Gardener of the week,
+  Most rooted, Longest streak, First sprout.
+- **Shareable grove card**: one click exports a bamboo-framed PNG of your grove's
+  headline stats — the viral, post-it-anywhere artifact.
+- **Growth time-lapse**: scrub or play back how the grove grew over time.
+- **Solo/unshared fallback**: when nothing has been shared yet, the grove backfills
+  contributors from `git log` authors per branch (flagged as `git-fallback`) so a
+  fresh repo is never empty. Toggle with `?fallback=` on the new endpoints.
+- New read-only endpoints `GET /api/contributors` and `GET /api/graph`
+  (project-scoped), plus a read-only `.tre-mem/` JSONL reader (`src/sync/read.ts`)
+  — contributor attribution lives in the committed JSONL `author` field, so no
+  schema migration was needed.
+- **Vietnamese (VI) localization** of the entire dashboard with an EN ⇄ VI toggle
+  (persisted, auto-detects Vietnamese browsers) and a deliberately casual, fun
+  Vietnamese voice. `timeAgo` is localized too.
+
+### Changed
+
+- **Type system → Vietnamese-friendly fonts.** Display/headings now use Baloo 2
+  (cute, rounded) and body uses Be Vietnam Pro (a Vietnamese-native typeface),
+  both with full diacritics and system fallbacks — fixing the diacritic stacking
+  the previous serif had on Vietnamese text.
+
+### Fixed
+
+- Dashboard shell grid declared two rows for three children, so the nav row
+  ballooned and pushed content down on low-content pages; now `auto auto 1fr`.
+
 ## [0.8.0] — 2026-06-07
 
 **Bamboo — the green identity.** `tre` means _bamboo_ in Vietnamese, but the tool

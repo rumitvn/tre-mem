@@ -49,6 +49,15 @@ in `~/.tre-mem/web.pid` (self-healing: a stale pidfile is cleared automatically)
 - **Overview** — a branch graph: every branch with its tagged-observation count,
   pin count, last-active time, and the current `HEAD` highlighted. Click a branch
   to drill in.
+- **Grove** — the second-brain view: an Obsidian-style force graph of the repo's
+  shared memory (the project trunk + branches + contributors + facts) beside a
+  contributor leaderboard. Facts are sized as young shoots (pins) and mature culms
+  (graduated facts); contributor node size tracks their value score (pins ×1,
+  graduated ×3). Earns playful badges (Gardener of the week, Most rooted, Longest
+  streak, First sprout), exports a shareable PNG card, and replays grove growth
+  over time. Hover for tooltips; click a branch/fact to drill into **Branch
+  detail**, click a contributor to highlight their shoots. When nothing has been
+  shared yet, it falls back to `git log` authors so the grove is never empty.
 - **Branch detail** — pinned decisions, facts graduated from that branch, and the
   tagged activity timeline.
 - **Team memory** — the point of the dashboard: every pinned decision and
@@ -97,6 +106,8 @@ The SPA is served over a dependency-light `node:http` server. Endpoints, all
 | `/api/pins`              | all pins for the project                        |
 | `/api/graduated`         | all graduated facts for the project             |
 | `/api/share-status`      | pending export / shared / graduated counts      |
+| `/api/contributors`      | contributor leaderboard (value score + badges)  |
+| `/api/graph`             | force-graph nodes + edges for the Grove view    |
 | `/api/search?q=&branch=` | branch-aware search (full or degraded)          |
 | `/api/observation/:id`   | observation detail (`full` mode only)           |
 | `/api/events`            | SSE live-update stream                          |
