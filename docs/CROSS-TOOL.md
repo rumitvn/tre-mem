@@ -68,7 +68,22 @@ Gemini `BeforeModel`, Claude `UserPromptSubmit`). SessionStart is always wired.
   (Codex's contract matches Claude's).
 - **Gemini**: `{ hookSpecificOutput: { additionalContext } }` — no `hookEventName`,
   and there's no `UserPromptSubmit` event, so per-prompt injection maps to
-  `BeforeModel`.
+  `BeforeModel`. tre-mem sends **plain-text `additionalContext` only** to Codex
+  and Gemini — only Claude Code interprets ANSI in `systemMessage`, and Gemini
+  would otherwise print the color codes literally.
+
+## Banner ordering (harness-controlled on Codex/Gemini)
+
+On **Claude Code**, tre-mem briefly defers its SessionStart banner so it renders
+_below_ claude-mem's (Claude Code renders hooks in completion order). On **Codex
+and Gemini this isn't possible from tre-mem's side**: they collect every
+session-start hook and emit them together in a fixed order they choose
+(config-defined hooks before plugin hooks), independent of timing. So tre-mem's
+banner may appear above claude-mem's there, and a defer would be pure latency —
+hence tre-mem only auto-defers on Claude Code. If you still want to force a wait
+on any harness, set `TRE_MEM_HOOK_DELAY_MS=<ms>`. (The duplicated claude-mem
+block some users see on Gemini is claude-mem emitting to both `systemMessage` and
+`additionalContext` — that's claude-mem's output, not tre-mem's.)
 
 ## Verify
 

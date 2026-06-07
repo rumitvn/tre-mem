@@ -1402,6 +1402,7 @@ async function runSessionStartHookCli(format: HookFormat): Promise<void> {
       // Defer so claude-mem's banner lands first — longer on the first session,
       // whose onboarding banner is slower to render (see sessionDeferMs).
       const delay = sessionDeferMs({
+        format,
         claudeMemPresent: existsSync(CLAUDE_MEM_DB_PATH),
         claudeMemHasProject: claudeMemHasProject(result.project),
         envOverride: process.env.TRE_MEM_HOOK_DELAY_MS,
