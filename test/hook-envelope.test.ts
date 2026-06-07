@@ -31,11 +31,12 @@ describe('sessionStartEnvelope', () => {
     });
   });
 
-  it('gemini: additionalContext WITHOUT hookEventName + systemMessage', () => {
-    expect(sessionStartEnvelope('gemini', 'CTX', 'DISP')).toEqual({
-      hookSpecificOutput: { additionalContext: 'CTX' },
-      systemMessage: 'DISP',
-    });
+  it('gemini: additionalContext only — no hookEventName, no ANSI systemMessage', () => {
+    // Gemini prints systemMessage's ANSI literally AND echoes additionalContext,
+    // so it gets the plain context only (no `systemMessage`, no duplication).
+    const env = sessionStartEnvelope('gemini', 'CTX', 'DISP');
+    expect(env).toEqual({ hookSpecificOutput: { additionalContext: 'CTX' } });
+    expect(env.systemMessage).toBeUndefined();
   });
 });
 
