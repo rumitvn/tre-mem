@@ -54,7 +54,8 @@ Stripe webhook với JWT context. tre-mem xử lý điều đó:
 - **Backfill lịch sử** qua `git reflog` để observation cũ cũng có branch.
 - **Rerank 3-signal**: semantic (FTS5/BM25), branch locality, recency-trong-branch,
   cộng thêm pin boost cho fact muốn ghim vào branch.
-- **MCP server** expose 7 tool để Claude Code gọi retrieval branch-aware trực tiếp.
+- **MCP server** expose 9 tool để Claude Code gọi retrieval branch-aware, đồng thời
+  curate, công bố và thu hồi memory — trực tiếp.
 
 Trên chính repo tre-mem, rerank nâng precision@10 từ **0.19** (FTS5 baseline thuần)
 lên **0.97**. Xem [BENCHMARK.md](./docs/BENCHMARK.md) để biết chi tiết harness.
@@ -93,7 +94,7 @@ claude mcp add -s user tre-mem -- tre mcp
 Kiểm tra trong Claude Code bằng `/mcp`. Sẽ thấy:
 
 ```
-tre-mem · connected · 7 tools
+tre-mem · connected · 9 tools
 ```
 
 ## Đăng ký SessionStart hook (tùy chọn nhưng nên có)
@@ -205,21 +206,29 @@ tre-mem search "stripe webhook"
 
 ## MCP tools
 
-| Tool                  | Input                                | Output                                       |
-| --------------------- | ------------------------------------ | -------------------------------------------- |
-| `get_branch_context`  | `query`, `project?`, `branch?`, `k?` | Top-K observations, kèm breakdown rerank     |
-| `get_branch_timeline` | `branch`, `project?`, `limit?`       | Feed theo thời gian cho 1 branch             |
-| `list_branches`       | `project?`                           | Các branch kèm số lượng tag                  |
-| `pin_fact`            | `observation_id`, `branch?`, `note?` | Ghim fact vào branch (boost = 1.0)           |
-| `graduate_fact`       | `observation_id`                     | Promote fact từ branch lên scope project     |
-| `export_memory`       | `branch?`, `all?`, `force?`          | Ghi `.tre-mem/` + commit cục bộ (không push) |
-| `get_share_status`    | `project?`                           | Số lượng pending / shared / graduated        |
+| Tool                  | Input                                | Output                                         |
+| --------------------- | ------------------------------------ | ---------------------------------------------- |
+| `get_branch_context`  | `query`, `project?`, `branch?`, `k?` | Top-K observations, kèm breakdown rerank       |
+| `get_branch_timeline` | `branch`, `project?`, `limit?`       | Feed theo thời gian cho 1 branch               |
+| `list_branches`       | `project?`                           | Các branch kèm số lượng tag                    |
+| `pin_fact`            | `observation_id`, `branch?`, `note?` | Ghim fact vào branch (boost = 1.0)             |
+| `graduate_fact`       | `observation_id`                     | Promote fact từ branch lên scope project       |
+| `unpin_fact`          | `observation_id`, `branch?`          | Gỡ pin (ghi tombstone nếu đã chia sẻ)          |
+| `ungraduate_fact`     | `observation_id`                     | Gỡ fact đã graduate (tombstone nếu đã chia sẻ) |
+| `export_memory`       | `branch?`, `all?`, `force?`          | Ghi `.tre-mem/` + commit cục bộ (không push)   |
+| `get_share_status`    | `project?`                           | Số lượng pending / shared / graduated          |
 
 Sau khi assistant pin hoặc graduate một fact, nó có thể gọi **`export_memory`** để
 công bố: lệnh này ghi các file `.tre-mem/` và tạo một **commit git cục bộ** — nó
 **không bao giờ** push, nên bạn tự review rồi `git push` khi sẵn sàng (tool trả về
 đúng câu lệnh cần chạy). Lệnh fail-closed với secret: một lần export bị chặn chỉ báo
 _loại_ secret khớp, không bao giờ lộ giá trị.
+
+Khi một fact lỗi thời — feedback PR của leader, bug phát hiện ở QC — assistant gọi
+**`unpin_fact`** hoặc **`ungraduate_fact`** để thu hồi. Nếu fact đã được chia sẻ,
+lệnh này ghi một **tombstone** vào `.tre-mem/`; ở lần `git pull` kế tiếp mọi clone
+của đồng đội tự động bỏ nó. Để _sửa_ một fact, ungraduate cái cũ rồi `graduate_fact`
+observation đã sửa.
 
 ## Memory xuyên nhiều clone
 

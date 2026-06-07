@@ -6,7 +6,7 @@ import { branchAuthors } from '../git/identity.js';
 import { searchBranchContext } from '../retrieval/search.js';
 import type { BranchPin, Graduated, TreMemRepo } from '../store/repo.js';
 import { SYNC_DIR_NAME } from '../sync/layout.js';
-import { readSyncRecords } from '../sync/read.js';
+import { readLiveSyncRecords } from '../sync/read.js';
 
 import {
   aggregateContributors,
@@ -296,7 +296,7 @@ const ROUTES: Route[] = [
     handler: async (_req, res, ctx) => {
       const project = resolveProject(ctx);
       const dir = join(ctx.deps.cwd, SYNC_DIR_NAME);
-      const records = readSyncRecords(dir);
+      const records = readLiveSyncRecords(dir);
       const { contributors, attributed_total, unattributed_total } = aggregateContributors(
         records,
         project,
@@ -331,7 +331,7 @@ const ROUTES: Route[] = [
     handler: async (_req, res, ctx) => {
       const project = resolveProject(ctx);
       const dir = join(ctx.deps.cwd, SYNC_DIR_NAME);
-      const records = readSyncRecords(dir);
+      const records = readLiveSyncRecords(dir);
       const hasFacts = records.some((r) => r.project === project);
       if (!hasFacts && fallbackEnabled(ctx)) {
         const perBranch = await gitBranchAuthors(ctx.deps.repo, ctx.deps.cwd, project);

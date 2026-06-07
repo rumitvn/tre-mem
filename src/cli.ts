@@ -26,18 +26,26 @@ import { type UserPromptSubmitInput, runUserPromptSubmitHook } from './hooks/use
 import { log, logError, logFilePath } from './log/logger.js';
 import { readLogTail } from './log/read.js';
 import { runMcpServer } from './mcp/server.js';
-import { detectTools, installPostMergeHook, setupAll, setupTool } from './setup.js';
+import {
+  detectTools,
+  dedupeSessionStartHooks,
+  installPostMergeHook,
+  scanSessionStartHooks,
+  setupAll,
+  setupTool,
+} from './setup.js';
 import { searchBranchContext, type SearchHit } from './retrieval/search.js';
 import { migrate } from './store/migrate.js';
 import { SYNC_DIR_NAME, ensureSyncScaffold } from './sync/layout.js';
 import { exportSync, type SnapshotProvider } from './sync/export.js';
+import { forgetGraduated, forgetPin } from './sync/forget.js';
 import { graduateBranch } from './sync/graduate.js';
 import { importDir } from './sync/import.js';
 import { RedactionError } from './sync/redact.js';
 import { shareToGit, simpleGitShare } from './sync/share.js';
 import { loadShareignore } from './sync/shareignore.js';
 import { AdapterSnapshotProvider } from './sync/snapshot.js';
-import { TRE_MEM_DB_PATH, TRE_MEM_HOME } from './store/paths.js';
+import { CLAUDE_MEM_DB_PATH, TRE_MEM_DB_PATH, TRE_MEM_HOME } from './store/paths.js';
 import { resolveProjectIdentity } from './store/aliases.js';
 import { TreMemRepo } from './store/repo.js';
 import { VERSION } from './version.js';
@@ -98,73 +106,163 @@ function printNothingToExportHint(opts: {
 
 const cli = cac('tre');
 
-cli.command('init', 'Initialize ~/.tre-mem/ and run schema migrations').action(() => {
-  const result = migrate();
-  if (result.applied.length === 0) {
-    console.log(`tre-mem: already at schema v${result.toVersion} (${result.dbPath})`);
-  } else {
-    console.log(
-      `tre-mem: migrated ${result.dbPath} from v${result.fromVersion} -> v${result.toVersion}`,
-    );
-    console.log(`  applied: ${result.applied.join(', ')}`);
-  }
-  console.log(`  home: ${TRE_MEM_HOME}`);
-  console.log(`  db:   ${TRE_MEM_DB_PATH}`);
+cli
+  .command('init', 'Set up ~/.tre-mem/, run migrations, and (with --all) wire this repo')
+  .option('--all', 'Also wire every installed AI tool in this repo and backfill past observations')
+  .option('--verbose', 'Show raw paths and migration details')
+  .action(async (flags: { all?: boolean; verbose?: boolean }) => {
+    const cwd = process.cwd();
+    const result = migrate();
 
-  const cm = diagnoseClaudeMem();
-  if (!cm.installed || !cm.compatible) {
+    console.log(brand(theme)(`${BAMBOO} tre-mem`) + theme.dim(` v${VERSION}`));
+    console.log(
+      result.applied.length === 0
+        ? `  ${theme.green('✓')} schema up to date (v${result.toVersion})`
+        : `  ${theme.green('✓')} migrated schema → v${result.toVersion}`,
+    );
+    if (flags.verbose) {
+      console.log(theme.dim(`    home: ${TRE_MEM_HOME}`));
+      console.log(theme.dim(`    db:   ${TRE_MEM_DB_PATH}`));
+    }
+
+    const cm = diagnoseClaudeMem();
+    const ready = cm.installed && cm.compatible;
+    console.log(
+      ready
+        ? `  ${theme.green('✓')} claude-mem detected — full branch-aware mode`
+        : `  ${theme.yellow('•')} claude-mem not ready — tre-mem runs in shared-only mode`,
+    );
+    if (!ready) {
+      console.log('');
+      console.log(claudeMemGuidance(cm, theme.isColorSupported));
+    }
+
+    if (flags.all) {
+      console.log('');
+      console.log(theme.bold('Wiring this repo'));
+      for (const r of setupAll(cwd)) console.log(`  ${r.message.replace(/\n/g, '\n  ')}`);
+      if (ready) {
+        const adapter = new ClaudeMemAdapter();
+        const repo = new TreMemRepo();
+        try {
+          const cur = await currentBranch(cwd);
+          const bf = await backfill({
+            project: basename(cwd),
+            cwd,
+            adapter,
+            repo,
+            fallbackBranch: cur === NO_GIT || isDetached(cur) ? undefined : cur,
+          });
+          console.log(`  ${theme.green('✓')} backfilled ${bf.tagged} past observation(s)`);
+        } finally {
+          adapter.close();
+          repo.close();
+        }
+      }
+    }
+
+    console.log('');
+    console.log(theme.bold('Next steps'));
+    if (!ready) {
+      console.log(`  1. Install claude-mem, run one session, then ${theme.cyan('tre init')} again`);
+    } else if (!flags.all) {
+      console.log(
+        `  1. ${theme.cyan('tre init --all')} — wire your AI tools + backfill in one step`,
+      );
+      console.log(
+        `     (or ${theme.cyan('tre setup claude-code')} + ${theme.cyan('tre backfill')} manually)`,
+      );
+      console.log(`  2. ${theme.cyan('tre status')} — sanity check`);
+    } else {
+      console.log(
+        `  1. Start an AI coding session — tre-mem surfaces branch context automatically`,
+      );
+      console.log(
+        `  2. Curate: ${theme.cyan('pin_fact')} / ${theme.cyan('graduate_fact')}, then ${theme.cyan('tre share')}`,
+      );
+      console.log(`  3. ${theme.cyan('tre status')} — see what's wired and shared`);
+    }
+  });
+
+cli
+  .command('doctor', 'Diagnose claude-mem connectivity and tre-mem setup')
+  .option('--fix-hooks', 'Collapse duplicate SessionStart hooks so the banner shows once')
+  .option('--keep <scope>', 'Which copy to keep when fixing: project (default) | global')
+  .action((flags: { fixHooks?: boolean; keep?: string }) => {
+    console.log(brand(theme)(`${BAMBOO} tre-mem doctor`));
+    console.log(`  version: ${VERSION}`);
+    console.log(`  home:    ${TRE_MEM_HOME}`);
+    console.log(`  db:      ${TRE_MEM_DB_PATH}`);
+    const cm = diagnoseClaudeMem();
+    const mode = cm.installed && cm.compatible ? 'full' : 'shared-only';
+    console.log(
+      `  mode:    ${mode === 'full' ? theme.green('full') : theme.yellow('shared-only')}`,
+    );
     console.log('');
     console.log(claudeMemGuidance(cm, theme.isColorSupported));
-  } else {
-    console.log(`  ${claudeMemGuidance(cm, theme.isColorSupported)}`);
-    console.log(`  next: ${theme.cyan('tre backfill')} to branch-tag past observations`);
-  }
-});
 
-cli.command('doctor', 'Diagnose claude-mem connectivity and tre-mem setup').action(() => {
-  console.log(brand(theme)(`${BAMBOO} tre-mem doctor`));
-  console.log(`  version: ${VERSION}`);
-  console.log(`  home:    ${TRE_MEM_HOME}`);
-  console.log(`  db:      ${TRE_MEM_DB_PATH}`);
-  const cm = diagnoseClaudeMem();
-  const mode = cm.installed && cm.compatible ? 'full' : 'shared-only';
-  console.log(`  mode:    ${mode === 'full' ? theme.green('full') : theme.yellow('shared-only')}`);
-  console.log('');
-  console.log(claudeMemGuidance(cm, theme.isColorSupported));
+    // Ingest health — installed ≠ ingesting. claude-mem ingests from the harnesses
+    // it wired (Claude Code, Codex, Gemini, Cursor, Antigravity), into one shared DB;
+    // the DB can exist yet hold no observations, in which case tre-mem is shared-only.
+    if (cm.installed && cm.compatible) {
+      const ingest = probeClaudeMemIngest();
+      console.log('');
+      if (!ingest || ingest.health === 'none') {
+        console.log(
+          theme.yellow(
+            '  ⚠ claude-mem is installed but has no observations yet — tre-mem will run',
+          ),
+        );
+        console.log(
+          '    in shared-only mode until claude-mem ingests a session (any wired harness).',
+        );
+        console.log(
+          `    (claude-mem ingests from Claude Code, Codex, Gemini, Cursor, Antigravity. See ${theme.cyan('docs/CROSS-TOOL.md')}.)`,
+        );
+      } else if (ingest.health === 'stale') {
+        const days = Math.round(ingest.ageDays ?? 0);
+        console.log(
+          theme.yellow(
+            `  ⚠ ${ingest.observations} observations, but newest is ${days}d old — ingest may have stopped.`,
+          ),
+        );
+      } else {
+        const days = Math.round(ingest.ageDays ?? 0);
+        const when = days <= 0 ? 'today' : `${days}d ago`;
+        console.log(
+          theme.green(`  ✓ ingesting: ${ingest.observations} observations, newest ${when}.`),
+        );
+      }
+    }
 
-  // Ingest health — installed ≠ ingesting. claude-mem ingests from the harnesses
-  // it wired (Claude Code, Codex, Gemini, Cursor, Antigravity), into one shared DB;
-  // the DB can exist yet hold no observations, in which case tre-mem is shared-only.
-  if (cm.installed && cm.compatible) {
-    const ingest = probeClaudeMemIngest();
+    // Duplicate SessionStart hooks → the banner prints 2–3×. Detect + optionally fix.
+    const scans = scanSessionStartHooks(process.cwd()).filter((s) => s.count > 0);
+    const totalHooks = scans.reduce((n, s) => n + s.count, 0);
     console.log('');
-    if (!ingest || ingest.health === 'none') {
-      console.log(
-        theme.yellow('  ⚠ claude-mem is installed but has no observations yet — tre-mem will run'),
-      );
-      console.log(
-        '    in shared-only mode until claude-mem ingests a session (any wired harness).',
-      );
-      console.log(
-        `    (claude-mem ingests from Claude Code, Codex, Gemini, Cursor, Antigravity. See ${theme.cyan('docs/CROSS-TOOL.md')}.)`,
-      );
-    } else if (ingest.health === 'stale') {
-      const days = Math.round(ingest.ageDays ?? 0);
+    if (totalHooks <= 1) {
+      console.log(theme.green(`  ✓ SessionStart hook registered once (banner shows cleanly)`));
+    } else {
       console.log(
         theme.yellow(
-          `  ⚠ ${ingest.observations} observations, but newest is ${days}d old — ingest may have stopped.`,
+          `  ⚠ SessionStart hook registered ${totalHooks}× — the banner prints multiple times:`,
         ),
       );
-    } else {
-      const days = Math.round(ingest.ageDays ?? 0);
-      const when = days <= 0 ? 'today' : `${days}d ago`;
-      console.log(
-        theme.green(`  ✓ ingesting: ${ingest.observations} observations, newest ${when}.`),
-      );
+      for (const s of scans) console.log(`      ${s.scope}: ${s.path} (${s.count})`);
+      if (flags.fixHooks) {
+        const keep = flags.keep === 'global' ? 'global' : 'project';
+        const result = dedupeSessionStartHooks(process.cwd(), keep);
+        for (const r of result.removed)
+          console.log(theme.green(`    ✓ removed ${r.count} from ${r.path}`));
+        if (result.kept) console.log(`    kept: ${result.kept}`);
+      } else {
+        console.log(
+          `    → run ${theme.cyan('tre doctor --fix-hooks')} to collapse to one (keeps the project copy)`,
+        );
+      }
     }
-  }
-  process.exitCode = cm.installed && cm.compatible ? 0 : 1;
-});
+
+    process.exitCode = cm.installed && cm.compatible ? 0 : 1;
+  });
 
 cli
   .command(
@@ -175,91 +273,106 @@ cli
     const cwd = path ? resolve(path) : process.cwd();
     const project = basename(cwd);
     const branch = await currentBranch(cwd);
+    const section = (title: string): void => console.log(`\n${theme.bold(title)}`);
+    const row = (label: string, value: string): void =>
+      console.log(`  ${theme.dim(label.padEnd(9))} ${value}`);
 
     migrate();
+    const cm = diagnoseClaudeMem();
+    const ready = cm.installed && cm.compatible;
+    const modeLabel = ready ? theme.green('full') : theme.yellow('shared-only');
+    console.log(`${brand(theme)(`${BAMBOO} tre-mem`)} ${theme.dim('status ·')} ${modeLabel}`);
+
     const repo = new TreMemRepo();
     try {
       const identity = await resolveProjectIdentity(repo, cwd);
       const linked = identity.aliases.filter((p) => p !== identity.project);
 
-      console.log('tre-mem status:');
-      console.log(`  cwd:     ${cwd}`);
-      console.log(`  project: ${project}`);
-      if (identity.remote) console.log(`  remote:  ${identity.remote}`);
-      console.log(`  branch:  ${branch}`);
+      section('Identity');
+      row('project', project);
+      row('branch', branch);
+      if (identity.remote) row('remote', identity.remote);
       if (linked.length > 0) {
-        console.log(
-          `  linked clones (${identity.aliases.length}): ${identity.aliases.join(', ')} ${theme.dim('(memory unioned via shared remote)')}`,
-        );
+        row('clones', `${identity.aliases.length} linked: ${identity.aliases.join(', ')}`);
+        console.log(theme.dim('            (memory unioned across clones via shared remote)'));
       }
 
-      console.log(`  branch_tag rows (project): ${repo.countBranchTagsAcross(identity.aliases)}`);
+      section('Memory');
+      row('tags', `${repo.countBranchTagsAcross(identity.aliases)} tagged on this project`);
       const branches = repo.listBranchesForProjectAcross(identity.aliases);
       if (branches.length > 0) {
-        console.log('  branches with tags:');
-        for (const b of branches) {
-          console.log(`    - ${b.branch} (${b.count})`);
-        }
+        const shown = branches.slice(0, 6).map((b) => `${b.branch} (${b.count})`);
+        const more = branches.length > 6 ? ` … +${branches.length - 6} more` : '';
+        row('branches', shown.join(' · ') + more);
       }
 
-      // Sync (Phase 2) status.
       const pins = repo.listPinsForProject(project);
       const sharedPins = pins.filter((p) => p.shared_at_epoch !== null).length;
       const pendingPins = pins.length - sharedPins;
       const graduatedCount = repo.listGraduated(project).length;
-      const syncDir = resolve(cwd, SYNC_DIR_NAME);
-      const hasSyncDir = existsSync(syncDir);
+      const hasSyncDir = existsSync(resolve(cwd, SYNC_DIR_NAME));
       if (pins.length === 0 && graduatedCount === 0) {
-        console.log(
-          `  shared: nothing curated yet — ${theme.cyan('tre pin <id>')} / ${theme.cyan('tre graduate <id>')}, then ${theme.cyan('tre share')}`,
+        row(
+          'curated',
+          `nothing yet — ${theme.cyan('pin_fact')} / ${theme.cyan('graduate_fact')}, then ${theme.cyan('tre share')}`,
         );
       } else {
-        console.log(
-          `  shared to git: ${sharedPins} pin(s) shared · ${pendingPins} not shared yet · ${graduatedCount} graduated`,
+        row(
+          'curated',
+          `${sharedPins} shared · ${pendingPins} pending · ${graduatedCount} graduated`,
         );
         if (pendingPins > 0) {
           console.log(
-            `    → run ${theme.cyan('tre share')} to push ${pendingPins} unshared pin(s) to your team`,
+            theme.dim(`            → run `) +
+              theme.cyan('tre share') +
+              theme.dim(` to publish ${pendingPins} pending pin(s)`),
           );
         }
       }
-      console.log(
-        `  .tre-mem/: ${hasSyncDir ? `${syncDir} (travels through git)` : pins.length === 0 && graduatedCount === 0 ? '(not present — curate a fact first, then `tre share`)' : '(not present — run `tre share`)'}`,
+      row(
+        '.tre-mem/',
+        hasSyncDir
+          ? theme.dim('present (travels through git)')
+          : theme.dim(
+              pins.length === 0 && graduatedCount === 0
+                ? 'not present — curate a fact, then `tre share`'
+                : 'not present — run `tre share`',
+            ),
       );
 
-      // Cross-tool wiring (Phase 4): which harnesses are installed + wired.
       const present = detectTools(cwd).filter((t) => t.installed);
       if (present.length > 0) {
+        section('Tools');
         const summary = present.map((t) => `${t.tool}${t.wired ? '✓' : '·'}`).join('  ');
-        console.log(`  tools: ${summary}   ${theme.dim('(✓ wired · = run `tre setup <tool>`)')}`);
+        console.log(`  ${summary}   ${theme.dim('(✓ wired · = run `tre setup <tool>`)')}`);
       }
     } finally {
       repo.close();
     }
 
-    const cm = diagnoseClaudeMem();
-    if (!cm.installed || !cm.compatible) {
-      console.log('');
+    section('claude-mem');
+    if (!ready) {
       console.log(claudeMemGuidance(cm, theme.isColorSupported));
       return;
     }
+    const ingest = probeClaudeMemIngest();
     const schema = cm.schemaVersion !== null ? `v${cm.schemaVersion}` : 'unknown';
-    console.log(`  claude-mem: schema ${schema} (tested up to v${cm.testedSchema})`);
-    if (cm.newerThanTested) {
-      console.log(claudeMemGuidance(cm, theme.isColorSupported));
-    }
-    const adapter = new ClaudeMemAdapter();
-    try {
-      const obs = adapter.getObservations({ projects: [project], limit: 1 });
-      const head = obs[0];
+    if (!ingest || ingest.health === 'none') {
       console.log(
-        head
-          ? `  claude-mem observations: >=1 (newest at ${head.created_at})`
-          : '  claude-mem observations: 0',
+        `  ${theme.yellow('•')} schema ${schema} · no observations yet (shared-only until ingest)`,
       );
-    } finally {
-      adapter.close();
+    } else if (ingest.health === 'stale') {
+      const days = Math.round(ingest.ageDays ?? 0);
+      console.log(
+        `  ${theme.yellow('•')} schema ${schema} · ${ingest.observations} obs · newest ${days}d old`,
+      );
+    } else {
+      const days = Math.round(ingest.ageDays ?? 0);
+      console.log(
+        `  ${theme.green('✓')} schema ${schema} · ${ingest.observations} obs · newest ${days <= 0 ? 'today' : `${days}d ago`}`,
+      );
     }
+    if (cm.newerThanTested) console.log(claudeMemGuidance(cm, theme.isColorSupported));
   });
 
 cli
@@ -443,6 +556,95 @@ cli
       }
     },
   );
+
+cli
+  .command('unpin <observationId>', 'Remove a pin from a branch (writes a tombstone if shared)')
+  .option('--cwd <path>', 'Repo root to derive project + branch from')
+  .option('--project <slug>', 'Override project slug')
+  .option('--branch <name>', 'Override branch')
+  .action(
+    async (
+      observationIdRaw: string,
+      flags: { cwd?: string; project?: string; branch?: string },
+    ) => {
+      const observationId = Number.parseInt(observationIdRaw, 10);
+      if (!Number.isInteger(observationId) || observationId <= 0) {
+        process.stderr.write(`tre unpin: invalid observation id "${observationIdRaw}"\n`);
+        process.exit(2);
+      }
+      const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
+      const project = flags.project ?? basename(cwd);
+      const branch = flags.branch ?? (await currentBranch(cwd));
+
+      migrate();
+      const repo = new TreMemRepo();
+      try {
+        const result = forgetPin({
+          repo,
+          dir: resolve(cwd, SYNC_DIR_NAME),
+          project,
+          branch,
+          observation_id: observationId,
+          now: Math.floor(Date.now() / 1000),
+          author: await gitAuthor(cwd),
+        });
+        if (result.removed === 0) {
+          console.log(`tre-mem: no pin for observation ${observationId} on ${project}/${branch}.`);
+        } else {
+          console.log(
+            `tre-mem: unpinned observation ${observationId} on ${project}/${branch} (${result.removed} pin(s) removed)`,
+          );
+          if (result.tombstoned) {
+            console.log(
+              '  wrote a tombstone to .tre-mem/ — run `tre share` to publish the removal.',
+            );
+          }
+        }
+      } finally {
+        repo.close();
+      }
+    },
+  );
+
+cli
+  .command(
+    'ungraduate <observationId>',
+    'Remove a project-wide graduated fact (writes a tombstone if shared)',
+  )
+  .option('--cwd <path>', 'Repo root to derive project from')
+  .option('--project <slug>', 'Override project slug')
+  .action(async (observationIdRaw: string, flags: { cwd?: string; project?: string }) => {
+    const observationId = Number.parseInt(observationIdRaw, 10);
+    if (!Number.isInteger(observationId) || observationId <= 0) {
+      process.stderr.write(`tre ungraduate: invalid observation id "${observationIdRaw}"\n`);
+      process.exit(2);
+    }
+    const cwd = flags.cwd ? resolve(flags.cwd) : process.cwd();
+    const project = flags.project ?? basename(cwd);
+
+    migrate();
+    const repo = new TreMemRepo();
+    try {
+      const result = forgetGraduated({
+        repo,
+        dir: resolve(cwd, SYNC_DIR_NAME),
+        project,
+        observation_id: observationId,
+        now: Math.floor(Date.now() / 1000),
+        author: await gitAuthor(cwd),
+      });
+      if (result.removed === 0) {
+        console.log(`tre-mem: no graduated fact for observation ${observationId} in ${project}.`);
+      } else {
+        console.log(`tre-mem: ungraduated observation ${observationId} from ${project}.`);
+        if (result.tombstoned) {
+          console.log('  wrote a tombstone to .tre-mem/ — run `tre share` to publish the removal.');
+        }
+      }
+    } finally {
+      repo.close();
+    }
+  });
 
 cli
   .command('list-branches', 'List branches with tag counts for a project')
@@ -1163,6 +1365,21 @@ function pinnedFacts(repo: TreMemRepo, project: string, branch: string): PinnedF
   });
 }
 
+/**
+ * How long to defer emitting the SessionStart banner. claude-mem also prints at
+ * session start (Claude Code only); deferring briefly makes tre-mem render BELOW
+ * it instead of racing. Override with `TRE_MEM_HOOK_DELAY_MS` (0 disables).
+ * Default: 250ms when claude-mem is present on Claude Code, otherwise 0.
+ */
+function sessionHookDelayMs(format: HookFormat): number {
+  const raw = process.env.TRE_MEM_HOOK_DELAY_MS;
+  if (raw !== undefined && raw.trim() !== '') {
+    const n = Number.parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }
+  return format === 'claude' && existsSync(CLAUDE_MEM_DB_PATH) ? 250 : 0;
+}
+
 async function runSessionStartHookCli(format: HookFormat): Promise<void> {
   try {
     const input = await readStdinJson<SessionStartInput>();
@@ -1176,6 +1393,9 @@ async function runSessionStartHookCli(format: HookFormat): Promise<void> {
         pinned: ({ project, branch }) => pinnedFacts(repo, project, branch),
         dashboardUrl,
       });
+      // Defer so claude-mem's banner lands first (see sessionHookDelayMs).
+      const delay = sessionHookDelayMs(format);
+      if (delay > 0) await new Promise((r) => setTimeout(r, delay));
       process.stdout.write(
         `${JSON.stringify(sessionStartEnvelope(format, result.message, result.display))}\n`,
       );

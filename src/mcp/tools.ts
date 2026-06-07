@@ -10,6 +10,7 @@ import { searchBranchContext } from '../retrieval/search.js';
 import { resolveProjectIdentity } from '../store/aliases.js';
 import type { TreMemRepo } from '../store/repo.js';
 import { exportSync, type SnapshotProvider } from '../sync/export.js';
+import { forgetGraduated, forgetPin } from '../sync/forget.js';
 import { SYNC_DIR_NAME, ensureSyncScaffold } from '../sync/layout.js';
 import { RedactionError } from '../sync/redact.js';
 import { shareToGit, simpleGitShare } from '../sync/share.js';
@@ -120,6 +121,37 @@ export interface GraduateFactResult {
   graduated_from_branch: string;
   graduated_at_epoch: number;
   /** Workflow nudge: graduating only writes the sidecar; export to publish. */
+  hint: string;
+}
+
+export interface UnpinFactInput {
+  observation_id: number;
+  branch?: string;
+  project?: string;
+  cwd?: string;
+}
+
+export interface UnpinFactResult {
+  project: string;
+  branch: string;
+  observation_id: number;
+  removed_count: number;
+  /** True when a tombstone was written to propagate the removal to teammates. */
+  tombstoned: boolean;
+  hint: string;
+}
+
+export interface UngraduateFactInput {
+  observation_id: number;
+  project?: string;
+  cwd?: string;
+}
+
+export interface UngraduateFactResult {
+  project: string;
+  observation_id: number;
+  removed: boolean;
+  tombstoned: boolean;
   hint: string;
 }
 
@@ -262,6 +294,38 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
         },
         project: { type: 'string', description: 'Project slug (defaults to basename of cwd)' },
         cwd: { type: 'string', description: 'Working directory used to derive project + branch' },
+      },
+      required: ['observation_id'],
+    },
+  },
+  {
+    name: 'unpin_fact',
+    description:
+      'Remove a pin from a branch (the inverse of pin_fact). If the pin was already shared, writes a tombstone to .tre-mem/ so teammates lose it on their next import — call export_memory afterward to publish the removal.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        observation_id: { type: 'integer', minimum: 1 },
+        branch: {
+          type: 'string',
+          description: 'Branch to unpin from (defaults to current branch)',
+        },
+        project: { type: 'string', description: 'Project slug (defaults to basename of cwd)' },
+        cwd: { type: 'string', description: 'Working directory used to derive project + branch' },
+      },
+      required: ['observation_id'],
+    },
+  },
+  {
+    name: 'ungraduate_fact',
+    description:
+      'Remove a project-wide graduated fact (the inverse of graduate_fact). Use this when a fact becomes wrong after PR feedback or QC. If the fact was shared, writes a tombstone to .tre-mem/ so teammates lose it on their next import — call export_memory afterward to publish the removal. To correct a fact, ungraduate it then graduate_fact the corrected observation.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        observation_id: { type: 'integer', minimum: 1 },
+        project: { type: 'string', description: 'Project slug (defaults to basename of cwd)' },
+        cwd: { type: 'string', description: 'Working directory used to derive project' },
       },
       required: ['observation_id'],
     },
@@ -441,6 +505,74 @@ export async function graduateFact(
   };
 }
 
+export async function unpinFact(deps: ToolDeps, input: UnpinFactInput): Promise<UnpinFactResult> {
+  if (!Number.isInteger(input.observation_id) || input.observation_id <= 0) {
+    throw new Error(`unpin_fact: invalid observation_id "${String(input.observation_id)}"`);
+  }
+  const cwd = resolveCwd(deps, input.cwd);
+  const project = input.project ?? basename(cwd); // WRITE key — per-clone removal
+  const branch = input.branch ?? (await resolveBranch(deps, cwd));
+  const dir = resolve(cwd, SYNC_DIR_NAME);
+  const now = (deps.now ?? defaultNow)();
+  const author = await gitAuthor(cwd);
+
+  const result = forgetPin({
+    repo: deps.repo,
+    dir,
+    project,
+    branch,
+    observation_id: input.observation_id,
+    now,
+    author,
+  });
+
+  return {
+    project,
+    branch,
+    observation_id: input.observation_id,
+    removed_count: result.removed,
+    tombstoned: result.tombstoned,
+    hint: result.tombstoned
+      ? 'Removed locally and wrote a tombstone to .tre-mem/. Call export_memory to publish the removal to your team.'
+      : 'Removed locally. Nothing was shared, so no tombstone was needed.',
+  };
+}
+
+export async function ungraduateFact(
+  deps: ToolDeps,
+  input: UngraduateFactInput,
+): Promise<UngraduateFactResult> {
+  if (!Number.isInteger(input.observation_id) || input.observation_id <= 0) {
+    throw new Error(`ungraduate_fact: invalid observation_id "${String(input.observation_id)}"`);
+  }
+  const cwd = resolveCwd(deps, input.cwd);
+  const project = input.project ?? basename(cwd); // WRITE key — per-clone removal
+  const dir = resolve(cwd, SYNC_DIR_NAME);
+  const now = (deps.now ?? defaultNow)();
+  const author = await gitAuthor(cwd);
+
+  const result = forgetGraduated({
+    repo: deps.repo,
+    dir,
+    project,
+    observation_id: input.observation_id,
+    now,
+    author,
+  });
+
+  return {
+    project,
+    observation_id: input.observation_id,
+    removed: result.removed > 0,
+    tombstoned: result.tombstoned,
+    hint: result.tombstoned
+      ? 'Removed locally and wrote a tombstone to .tre-mem/. Call export_memory to publish the removal to your team.'
+      : result.removed > 0
+        ? 'Removed locally. Nothing was shared, so no tombstone was needed.'
+        : 'No graduated fact found for that observation_id.',
+  };
+}
+
 export async function exportMemory(
   deps: ToolDeps,
   input: ExportMemoryInput,
@@ -581,6 +713,10 @@ export async function callTool(
       return pinFact(deps, args as unknown as PinFactInput);
     case 'graduate_fact':
       return graduateFact(deps, args as unknown as GraduateFactInput);
+    case 'unpin_fact':
+      return unpinFact(deps, args as unknown as UnpinFactInput);
+    case 'ungraduate_fact':
+      return ungraduateFact(deps, args as unknown as UngraduateFactInput);
     default:
       throw new Error(`unknown tool "${name}"`);
   }

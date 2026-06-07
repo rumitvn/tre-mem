@@ -54,8 +54,8 @@ sees Stripe webhook chatter alongside JWT context. tre-mem fixes that:
 - **History backfill** via `git reflog` so existing observations get a branch.
 - **3-signal rerank**: semantic (FTS5/BM25), branch locality, recency-in-branch,
   plus a `pin` boost for facts you want pinned to a branch.
-- **MCP server** exposing 7 tools so Claude Code can call branch-aware
-  retrieval — and publish memory — directly.
+- **MCP server** exposing 9 tools so Claude Code can call branch-aware
+  retrieval — and curate, publish, and retract memory — directly.
 
 On the tre-mem repo itself the rerank lifts precision@10 from **0.19** (raw
 FTS5 baseline) to **0.97**. See [BENCHMARK.md](./docs/BENCHMARK.md) for the harness.
@@ -95,7 +95,7 @@ CLI directly: `claude mcp add -s user tre-mem -- node /abs/path/to/tre-mem/dist/
 Verify inside Claude Code with `/mcp`. You should see:
 
 ```
-tre-mem · connected · 7 tools
+tre-mem · connected · 9 tools
 ```
 
 ## Register the SessionStart hook (optional but recommended)
@@ -209,21 +209,29 @@ tre-mem search "stripe webhook"
 
 ## MCP tools
 
-| Tool                  | Input                                | Output                                        |
-| --------------------- | ------------------------------------ | --------------------------------------------- |
-| `get_branch_context`  | `query`, `project?`, `branch?`, `k?` | Top-K observations, rerank breakdown included |
-| `get_branch_timeline` | `branch`, `project?`, `limit?`       | Chronological feed for a branch               |
-| `list_branches`       | `project?`                           | Branches with tag counts                      |
-| `pin_fact`            | `observation_id`, `branch?`, `note?` | Pin a fact to a branch (boost = 1.0)          |
-| `graduate_fact`       | `observation_id`                     | Promote a branch fact to project scope        |
-| `export_memory`       | `branch?`, `all?`, `force?`          | Write `.tre-mem/` + local commit (no push)    |
-| `get_share_status`    | `project?`                           | Pending / shared / graduated counts           |
+| Tool                  | Input                                | Output                                         |
+| --------------------- | ------------------------------------ | ---------------------------------------------- |
+| `get_branch_context`  | `query`, `project?`, `branch?`, `k?` | Top-K observations, rerank breakdown included  |
+| `get_branch_timeline` | `branch`, `project?`, `limit?`       | Chronological feed for a branch                |
+| `list_branches`       | `project?`                           | Branches with tag counts                       |
+| `pin_fact`            | `observation_id`, `branch?`, `note?` | Pin a fact to a branch (boost = 1.0)           |
+| `graduate_fact`       | `observation_id`                     | Promote a branch fact to project scope         |
+| `unpin_fact`          | `observation_id`, `branch?`          | Remove a pin (tombstones it if shared)         |
+| `ungraduate_fact`     | `observation_id`                     | Remove a graduated fact (tombstones if shared) |
+| `export_memory`       | `branch?`, `all?`, `force?`          | Write `.tre-mem/` + local commit (no push)     |
+| `get_share_status`    | `project?`                           | Pending / shared / graduated counts            |
 
 After the assistant pins or graduates a fact, it can call **`export_memory`** to
 publish it: this writes the `.tre-mem/` files and makes a **local git commit** — it
 never pushes, so you review and `git push` when ready (the tool returns the exact
 command). It's fail-closed on secrets: a blocked export reports the matched secret
 _categories_, never the values.
+
+When a fact goes stale — a leader's PR feedback, a bug found in QC — the assistant
+calls **`unpin_fact`** or **`ungraduate_fact`** to take it back. If the fact was
+already shared, this writes a **tombstone** to `.tre-mem/`; on the next `git pull`
+every teammate's clone drops it automatically. To _correct_ a fact, ungraduate the
+old one and `graduate_fact` the fixed observation.
 
 ## Cross-clone memory
 

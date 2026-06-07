@@ -24,6 +24,9 @@ them on \`git clone\`.
 - \`graduated.jsonl\` — facts promoted to repo-wide knowledge
 - \`.shareignore\` — text patterns that block matching pins from being exported
 
+Removals travel too: forgetting a shared fact appends a \`tombstone\` line, and the
+next \`tre import\` (or \`git pull\`) drops the fact on every teammate's machine.
+
 ## Workflow
 
 \`\`\`bash

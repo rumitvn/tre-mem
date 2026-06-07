@@ -8,6 +8,7 @@ import {
   serializeSyncRecord,
   type GraduatedRecord,
   type PinRecord,
+  type TombstoneRecord,
 } from '../src/sync/format.js';
 
 function samplePin(overrides: Partial<PinRecord> = {}): PinRecord {
@@ -158,5 +159,62 @@ describe('serialize / parse round-trip', () => {
   test('parse rejects pin missing required field', () => {
     const line = JSON.stringify({ schema: 1, kind: 'pin', content_hash: 'x' });
     expect(() => parseSyncLine(line)).toThrow();
+  });
+});
+
+describe('tombstone records', () => {
+  function sampleTombstone(overrides: Partial<TombstoneRecord> = {}): TombstoneRecord {
+    return {
+      schema: SYNC_SCHEMA_VERSION,
+      kind: 'tombstone',
+      content_hash: 'a'.repeat(64),
+      target_kind: 'graduated',
+      project: 'tre-mem',
+      branch: null,
+      observation_id: 99,
+      author: 'alice',
+      tombstoned_at_epoch: 1_780_001_000,
+      ...overrides,
+    };
+  }
+
+  test('graduated tombstone round-trips through JSONL', () => {
+    const t = sampleTombstone();
+    const line = serializeSyncRecord(t);
+    expect(line).not.toContain('\n');
+    expect(parseSyncLine(line)).toEqual(t);
+  });
+
+  test('pin tombstone round-trips with branch set', () => {
+    const t = sampleTombstone({ target_kind: 'pin', branch: 'feature/payment' });
+    expect(parseSyncLine(serializeSyncRecord(t))).toEqual(t);
+  });
+
+  test('serialized tombstone keys are in a stable order', () => {
+    const line = serializeSyncRecord(sampleTombstone());
+    expect(line.indexOf('"schema"')).toBeLessThan(line.indexOf('"kind"'));
+    expect(line.indexOf('"content_hash"')).toBeLessThan(line.indexOf('"target_kind"'));
+  });
+
+  test('parse rejects tombstone with invalid target_kind', () => {
+    const line = JSON.stringify({
+      schema: 1,
+      kind: 'tombstone',
+      content_hash: 'x',
+      target_kind: 'bogus',
+      project: 'p',
+      branch: null,
+      observation_id: null,
+      author: null,
+      tombstoned_at_epoch: 1,
+    });
+    expect(() => parseSyncLine(line)).toThrow(/target_kind/);
+  });
+
+  test('back-compat: an unknown future kind still throws (caller skips the line)', () => {
+    // Old clients treat tombstone as unknown; new clients treat genuinely
+    // unknown kinds the same way — error-skip, never crash the import.
+    const line = JSON.stringify({ schema: 1, kind: 'future-thing', content_hash: 'x' });
+    expect(() => parseSyncLine(line)).toThrow(/kind/);
   });
 });

@@ -327,6 +327,80 @@ describe('TreMemRepo graduated', () => {
   });
 });
 
+describe('TreMemRepo removal (forget)', () => {
+  let tmp: string;
+  let repo: TreMemRepo;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), 'tre-mem-repo-del-'));
+    const dbPath = join(tmp, 'tre-mem.db');
+    migrate(dbPath);
+    repo = new TreMemRepo({ dbPath });
+  });
+
+  afterEach(() => {
+    repo.close();
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('deletePinById removes one pin and reports the change', () => {
+    const pin = repo.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: 1,
+      created_at_epoch: 1,
+    });
+    expect(repo.deletePinById(pin.id)).toBe(true);
+    expect(repo.getPinById(pin.id)).toBeNull();
+    expect(repo.deletePinById(pin.id)).toBe(false);
+  });
+
+  it('deletePinsByObservation removes every matching pin', () => {
+    repo.addPin({ project: 'p', branch: 'main', observation_id: 7, created_at_epoch: 1 });
+    repo.addPin({ project: 'p', branch: 'main', observation_id: 7, created_at_epoch: 2 });
+    repo.addPin({ project: 'p', branch: 'other', observation_id: 7, created_at_epoch: 3 });
+    expect(repo.deletePinsByObservation('p', 'main', 7)).toBe(2);
+    expect(repo.listPinsForBranch('p', 'main')).toHaveLength(0);
+    expect(repo.listPinsForBranch('p', 'other')).toHaveLength(1);
+  });
+
+  it('deletePinsByContentHash removes pins with that hash', () => {
+    const pin = repo.addPin({
+      project: 'p',
+      branch: 'main',
+      observation_id: 1,
+      created_at_epoch: 1,
+    });
+    repo.markPinShared(pin.id, 'hash-abc', 100);
+    expect(repo.deletePinsByContentHash('hash-abc')).toBe(1);
+    expect(repo.getPinById(pin.id)).toBeNull();
+  });
+
+  it('deleteGraduatedByObservation removes the fact', () => {
+    repo.graduateFact({
+      project: 'p',
+      observation_id: 9,
+      graduated_from_branch: 'b',
+      graduated_at_epoch: 1,
+    });
+    expect(repo.deleteGraduatedByObservation('p', 9)).toBe(true);
+    expect(repo.getGraduated('p', 9)).toBeNull();
+    expect(repo.deleteGraduatedByObservation('p', 9)).toBe(false);
+  });
+
+  it('deleteGraduatedByContentHash removes facts with that hash', () => {
+    const g = repo.graduateFact({
+      project: 'p',
+      observation_id: 9,
+      graduated_from_branch: 'b',
+      graduated_at_epoch: 1,
+    });
+    repo.markGraduatedShared(g.id, 'hash-xyz', 100);
+    expect(repo.deleteGraduatedByContentHash('hash-xyz')).toBe(1);
+    expect(repo.getGraduated('p', 9)).toBeNull();
+  });
+});
+
 describe('TreMemRepo cross-clone aliases', () => {
   let tmp: string;
   let repo: TreMemRepo;

@@ -36,12 +36,12 @@ a fixed order for stable, reviewable diffs.
 
 ### Common fields
 
-| Field          | Type                     | Notes                                                                                |
-| -------------- | ------------------------ | ------------------------------------------------------------------------------------ |
-| `schema`       | number                   | Format version. Currently `1`. A reader MUST reject versions it does not understand. |
-| `kind`         | `"pin"` \| `"graduated"` | Discriminates the row shape.                                                         |
-| `content_hash` | string                   | SHA-256 (64 hex chars) over the row's _semantic content only_. The dedupe key.       |
-| `author`       | string \| null           | Who exported the row (best-effort, from git config). Excluded from the hash.         |
+| Field          | Type                                      | Notes                                                                                |
+| -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------ |
+| `schema`       | number                                    | Format version. Currently `1`. A reader MUST reject versions it does not understand. |
+| `kind`         | `"pin"` \| `"graduated"` \| `"tombstone"` | Discriminates the row shape.                                                         |
+| `content_hash` | string                                    | SHA-256 (64 hex chars) over the row's _semantic content only_. The dedupe key.       |
+| `author`       | string \| null                            | Who exported the row (best-effort, from git config). Excluded from the hash.         |
 
 ### `pin` record
 
@@ -93,6 +93,44 @@ a fixed order for stable, reviewable diffs.
 | `graduated_from_branch` | string | Branch the fact was promoted from.                             |
 | `graduated_at_epoch`    | number | Graduation time (seconds). Excluded from the hash.             |
 
+### `tombstone` record (v0.11+)
+
+A removal marker. When a pin or graduated fact is forgotten (`unpin_fact` /
+`ungraduate_fact`, or `tre unpin` / `tre ungraduate`) after it was already shared,
+a tombstone is appended to the **same file** as the target — pin tombstones to
+`branches/<branch>.jsonl`, graduated tombstones to `graduated.jsonl`. It carries the
+`content_hash` of the fact to drop.
+
+```json
+{
+  "schema": 1,
+  "kind": "tombstone",
+  "content_hash": "<sha256 of the removed fact>",
+  "target_kind": "graduated",
+  "project": "tre-mem",
+  "branch": null,
+  "observation_id": 99,
+  "author": "bob",
+  "tombstoned_at_epoch": 1780001000
+}
+```
+
+| Field                 | Type                     |                                               |
+| --------------------- | ------------------------ | --------------------------------------------- |
+| `content_hash`        | string                   | Hash of the pin/graduated fact being removed. |
+| `target_kind`         | `"pin"` \| `"graduated"` | Which table the import should delete from.    |
+| `branch`              | string \| null           | Set for pin tombstones; `null` for graduated. |
+| `tombstoned_at_epoch` | number                   | When the fact was forgotten (seconds).        |
+
+On import, each file is processed in **two passes**: collect all tombstoned
+`content_hash`es first, then insert only non-tombstoned facts and delete any rows a
+tombstone targets. This makes removal order-independent within a file and idempotent
+across re-imports — a forgotten fact can never be resurrected by an earlier line.
+
+**Back-compat:** tombstones stay at `schema: 1`. Pre-v0.11 clients hit "unknown
+kind" and skip the line (counting it as a parse error), so the fact simply lingers
+for them; it disappears the moment they upgrade. No `SYNC_SCHEMA_VERSION` bump.
+
 ## Content hashing (dedupe semantics)
 
 `content_hash` is SHA-256 of the row's identity fields joined by the ASCII Unit Separator
@@ -115,6 +153,9 @@ left in the file (the file stays append-only; import resolves at read time).
 
 ## Versioning
 
-The `schema` field is per-row, not per-file, so a future v2 can introduce new record shapes
-incrementally. Readers reject unknown `schema` values loudly rather than silently dropping data. Any
-format change ships with a bump to `SYNC_SCHEMA_VERSION` and a note in `docs/MIGRATION-v1-v2.md`.
+The `schema` field is per-row, not per-file, so new record shapes can be introduced incrementally.
+Readers reject unknown `schema` values loudly rather than silently dropping data, but **unknown
+`kind` values at a known schema are skipped gracefully** (counted as a parse error, never fatal).
+That second rule is what lets the v0.11 `tombstone` kind ship _without_ a `SYNC_SCHEMA_VERSION` bump:
+old clients skip it, new clients honor it. A change that alters an existing row's shape — rather than
+adding a new kind — would still bump `SYNC_SCHEMA_VERSION`.
