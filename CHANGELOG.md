@@ -4,6 +4,20 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.3] — 2026-06-07
+
+### Changed
+
+- **SessionStart banner auto-defer is now Claude Code only.** Codex and Gemini
+  collect every session-start hook and emit them together in a fixed order they
+  choose (config-defined hooks before plugin hooks), independent of timing — so a
+  defer there was pure startup latency with no effect on ordering. Claude Code
+  still defers (it renders in completion order, so the wait lands tre-mem below
+  claude-mem). `TRE_MEM_HOOK_DELAY_MS` still forces a wait on any harness.
+- Documented the harness-controlled ordering (and that the duplicated claude-mem
+  block on Gemini is claude-mem's own double-emit, not tre-mem) in
+  `docs/CROSS-TOOL.md`.
+
 ## [0.11.2] — 2026-06-07
 
 ### Fixed
