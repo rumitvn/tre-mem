@@ -13,7 +13,7 @@ import {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..');
-const OUT_PATH = resolve(REPO_ROOT, 'BENCHMARK.md');
+const OUT_PATH = resolve(REPO_ROOT, 'docs', 'BENCHMARK.md');
 
 const PROJECT = process.env.TRE_BENCH_PROJECT ?? 'tre-mem';
 const BRANCH = process.env.TRE_BENCH_BRANCH ?? 'main';

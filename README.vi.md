@@ -57,7 +57,7 @@ Stripe webhook với JWT context. tre-mem xử lý điều đó:
 - **MCP server** expose 7 tool để Claude Code gọi retrieval branch-aware trực tiếp.
 
 Trên chính repo tre-mem, rerank nâng precision@10 từ **0.19** (FTS5 baseline thuần)
-lên **0.97**. Xem [BENCHMARK.md](./BENCHMARK.md) để biết chi tiết harness.
+lên **0.97**. Xem [BENCHMARK.md](./docs/BENCHMARK.md) để biết chi tiết harness.
 
 ## Cài đặt
 

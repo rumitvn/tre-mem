@@ -1,6 +1,6 @@
 # tre-mem Phase 6 — "The Grove" (contributor graph, leaderboard & viral share)
 
-> Sibling plan to [`PLAN.md`](./PLAN.md) (v0.1), [`PLAN-PHASE2.md`](./PLAN-PHASE2.md) (v0.2–v0.4),
+> Sibling plan to [`PLAN.md`](../../PLAN.md) (v0.1), [`PLAN-PHASE2.md`](./PLAN-PHASE2.md) (v0.2–v0.4),
 > [`PLAN-PHASE3.md`](./PLAN-PHASE3.md) (v0.5), [`PLAN-PHASE4.md`](./PLAN-PHASE4.md) (v0.6),
 > [`PLAN-PHASE5.md`](./PLAN-PHASE5.md) (v0.7.x). This file is the **Phase 6 SSOT** (v0.9.0;
 > rebased onto the v0.8.0 bamboo identity).

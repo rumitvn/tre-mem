@@ -1,6 +1,6 @@
 # tre-mem Phase 4 — "Memory for every harness" (Cross-Tool Port)
 
-> Sibling plan to [`PLAN.md`](./PLAN.md) (v0.1), [`PLAN-PHASE2.md`](./PLAN-PHASE2.md) (v0.2), [`PLAN-PHASE3.md`](./PLAN-PHASE3.md) (v0.5).
+> Sibling plan to [`PLAN.md`](../../PLAN.md) (v0.1), [`PLAN-PHASE2.md`](./PLAN-PHASE2.md) (v0.2), [`PLAN-PHASE3.md`](./PLAN-PHASE3.md) (v0.5).
 > This file is the **Phase 4 SSOT** (v0.6.x). Status: **planned** — starts after 0.5.x ships. Tick `- [x]` per task and commit with the code.
 
 ## Context

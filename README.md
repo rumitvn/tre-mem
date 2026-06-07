@@ -58,7 +58,7 @@ sees Stripe webhook chatter alongside JWT context. tre-mem fixes that:
   retrieval — and publish memory — directly.
 
 On the tre-mem repo itself the rerank lifts precision@10 from **0.19** (raw
-FTS5 baseline) to **0.97**. See [BENCHMARK.md](./BENCHMARK.md) for the harness.
+FTS5 baseline) to **0.97**. See [BENCHMARK.md](./docs/BENCHMARK.md) for the harness.
 
 ## Install
 

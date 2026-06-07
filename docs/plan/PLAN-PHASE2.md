@@ -1,6 +1,6 @@
 # tre-mem Phase 2 — "Git for AI Memory"
 
-> Sibling plan to [`PLAN.md`](./PLAN.md) (Phase 1 SSOT, v0.1.0 shipped).
+> Sibling plan to [`PLAN.md`](../../PLAN.md) (Phase 1 SSOT, v0.1.0 shipped).
 > This file is the Phase 2 SSOT. **Engineering complete (v0.2.0)** — all build tasks T3D1–T4D10 done, 165 tests green, two-dev sync verified E2E through real git. The only open items are human-gated: the 2-dev demo screen-record (T4D9) and the real-team adoption checkpoint (T4D10 / Checkpoint T4).
 
 ## Context

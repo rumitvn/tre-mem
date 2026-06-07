@@ -1,6 +1,6 @@
 # tre-mem Phase 3 — "See your shared roots" (Team Web Dashboard)
 
-> Sibling plan to [`PLAN.md`](./PLAN.md) (Phase 1 SSOT, v0.1.0) and [`PLAN-PHASE2.md`](./PLAN-PHASE2.md) (Phase 2 SSOT, v0.2.0).
+> Sibling plan to [`PLAN.md`](../../PLAN.md) (Phase 1 SSOT, v0.1.0) and [`PLAN-PHASE2.md`](./PLAN-PHASE2.md) (Phase 2 SSOT, v0.2.0).
 > This file is the **Phase 3 SSOT** (v0.5.x). Status: **planned** — not yet started. Tick `- [x]` per task and commit with the code, same as prior phases.
 
 ## Context
@@ -123,7 +123,7 @@ reduced-motion respected. Bundle target < 80kb JS gzipped (microsite budget).
 > (`--bark` → `--bamboo`, jade on green-tinted rice paper), not the original
 > amber/bark. `tre` = bamboo, so the identity reads green across both the
 > dashboard and the terminal. The full token contract moved to its own SSOT,
-> [`docs/BRAND.md`](./docs/BRAND.md).
+> [`docs/BRAND.md`](../BRAND.md).
 
 ### Daemon lifecycle (`tre web`)
 
