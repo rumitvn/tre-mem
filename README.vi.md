@@ -1,5 +1,9 @@
 # tre-mem 🎋
 
+[![CI](https://github.com/rumitvn/tre-mem/actions/workflows/ci.yml/badge.svg)](https://github.com/rumitvn/tre-mem/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/tre-mem?cacheSeconds=3600)](https://www.npmjs.com/package/tre-mem)
+[![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
+
 > _Tre — bộ rễ chung cho codebase của bạn._
 
 > 🇬🇧 English version: [README.md](./README.md)
@@ -23,6 +27,22 @@ chỉ thêm một adapter read-only, tag mọi observation theo git branch nó �
 ra, rồi expose API retrieval 3-signal (semantic + branch + recency) qua MCP để
 Claude Code / Cursor / Gemini CLI nhìn thấy context theo branch thay vì memory
 flat theo repo.
+
+> **Điểm nhấn:** pin một quyết định, chạy **một lệnh**, là nó đã nằm trong git của
+> cả team. Đồng đội chạy `git pull` và AI của họ đã biết — **không cần server,
+> không API key, không bắt buộc GitHub.** Nhảy thẳng tới [Memory nhóm](#memory-nhóm--đẩy-memory-của-bạn-lên-git-tính-năng-đinh).
+
+<p align="center">
+  <b><a href="#vì-sao-cần-tre-mem">Vì sao</a></b> ·
+  <b><a href="#cài-đặt">Cài đặt</a></b> ·
+  <b><a href="#dùng-từ-claude-code-luồng-thực-tế-hằng-ngày">Dùng hằng ngày</a></b> ·
+  <b><a href="#memory-nhóm--đẩy-memory-của-bạn-lên-git-tính-năng-đinh">Memory nhóm</a></b> ·
+  <b><a href="#xem-trực-quan--dashboard-nhóm-v05">Dashboard</a></b> ·
+  <b><a href="#vượt-ra-ngoài-claude-code--đa-công-cụ-v06">Đa công cụ</a></b> ·
+  <b><a href="#mcp-tools">MCP tools</a></b> ·
+  <b><a href="#bộ-lệnh-cli">CLI</a></b> ·
+  <b><a href="#license">License</a></b>
+</p>
 
 ## Vì sao cần tre-mem
 
@@ -156,8 +176,16 @@ tre pin <observation_id> [--note "..."]
 tre graduate <observation_id>           # promote fact từ branch → project-wide
 tre list-branches [--project SLUG]
 tre logs [--tail 50 | --all] [--level warn] [--path]  # log chẩn đoán cục bộ
-tre hook session-start                  # Claude Code gọi, đọc JSON qua stdin
 tre mcp                                 # khởi động MCP server (stdio)
+
+# --- chia sẻ cho nhóm ---
+tre share [--branch B | --all] [--message M] [--no-push] [--no-commit]  # đẩy memory lên git (một bước)
+tre export [--branch B | --all] [--force] [--dry-run]   # cấp thấp: chỉ ghi pin → .tre-mem/
+tre import [--from .tre-mem] [--force]                   # kéo pin của đồng đội về
+tre graduate-pr <PR# | branch> [--dry-run]               # graduate một branch đã merge (mọi provider)
+tre graduate-merge                                       # graduate branch vừa merge (hook post-merge)
+tre setup claude-code [--auto-inject] [--with-hook]      # nối hook (+ hook graduate-on-merge cục bộ)
+tre hook session-start | user-prompt-submit              # Claude Code gọi
 ```
 
 `tre search` in top-K kèm score breakdown để thấy rõ vì sao mỗi hit có rank đó:
@@ -177,13 +205,30 @@ tre-mem search "stripe webhook"
 
 ## MCP tools
 
-| Tool                  | Input                                | Output                                   |
-| --------------------- | ------------------------------------ | ---------------------------------------- |
-| `get_branch_context`  | `query`, `project?`, `branch?`, `k?` | Top-K observations, kèm breakdown rerank |
-| `get_branch_timeline` | `branch`, `project?`, `limit?`       | Feed theo thời gian cho 1 branch         |
-| `list_branches`       | `project?`                           | Các branch kèm số lượng tag              |
-| `pin_fact`            | `observation_id`, `branch?`, `note?` | Ghim fact vào branch (boost = 1.0)       |
-| `graduate_fact`       | `observation_id`                     | Promote fact từ branch lên scope project |
+| Tool                  | Input                                | Output                                       |
+| --------------------- | ------------------------------------ | -------------------------------------------- |
+| `get_branch_context`  | `query`, `project?`, `branch?`, `k?` | Top-K observations, kèm breakdown rerank     |
+| `get_branch_timeline` | `branch`, `project?`, `limit?`       | Feed theo thời gian cho 1 branch             |
+| `list_branches`       | `project?`                           | Các branch kèm số lượng tag                  |
+| `pin_fact`            | `observation_id`, `branch?`, `note?` | Ghim fact vào branch (boost = 1.0)           |
+| `graduate_fact`       | `observation_id`                     | Promote fact từ branch lên scope project     |
+| `export_memory`       | `branch?`, `all?`, `force?`          | Ghi `.tre-mem/` + commit cục bộ (không push) |
+| `get_share_status`    | `project?`                           | Số lượng pending / shared / graduated        |
+
+Sau khi assistant pin hoặc graduate một fact, nó có thể gọi **`export_memory`** để
+công bố: lệnh này ghi các file `.tre-mem/` và tạo một **commit git cục bộ** — nó
+**không bao giờ** push, nên bạn tự review rồi `git push` khi sẵn sàng (tool trả về
+đúng câu lệnh cần chạy). Lệnh fail-closed với secret: một lần export bị chặn chỉ báo
+_loại_ secret khớp, không bao giờ lộ giá trị.
+
+## Memory xuyên nhiều clone
+
+Nếu bạn clone cùng một repo vào nhiều thư mục (ví dụ `app`, `app-2`, `app-3`) để
+làm song song nhiều branch, tre-mem **hợp nhất memory của chúng** — chúng được nhận
+diện là một project nhờ chung `remote.origin.url`. `tre status` hiển thị `remote:`
+chuẩn và các `linked clones`. Mặc định bật; đặt `TRE_MEM_CROSS_CLONE=0` để giữ từng
+thư mục độc lập. Định dạng `.tre-mem/` được commit không đổi, nên đồng đội không bị
+ảnh hưởng.
 
 ## Log chẩn đoán
 
@@ -209,6 +254,57 @@ tre logs --clear         # xóa rỗng log (và xóa bản backup .1)
 | `TRE_MEM_LOG_FILE`  | `<TRE_MEM_HOME>/tre-mem.log` | ghi đè đường dẫn tuyệt đối                   |
 
 File tự xoay vòng sang `tre-mem.log.1` khi vượt 5 MB, nên không bao giờ phình vô hạn.
+
+## Memory nhóm — đẩy memory của bạn lên git (tính năng đinh)
+
+Đây chính là thứ tre-mem _sinh ra để làm_. Pin một quyết định, chạy **một lệnh**, là
+nó đã nằm trong git của cả team. Đồng đội chạy `git pull` và AI của họ đã biết —
+Claude Code, Codex, Gemini, Cursor, dùng gì cũng được. **Không cần server, không API
+key, không bắt buộc GitHub**: GitHub, GitLab, Bitbucket, hay một bare remote trần
+trụi — miễn là git thì chạy được.
+
+```
+   alice@laptop                          bob@laptop
+   ~/.tre-mem/  (private sidecar)         ~/.tre-mem/  (private sidecar)
+        │ tre share                             ▲ tre import (auto on SessionStart)
+        ▼                                       │
+   repo/.tre-mem/  ── git push ── git pull ── repo/.tre-mem/
+        (merge=union: two sharers never conflict — git keeps both)
+```
+
+```bash
+# alice, trên feature/payment
+tre pin 1234 --note "use Stripe webhook v3"
+tre share                                # export + git add + commit + push — một bước
+
+# bob
+git pull                                 # tre import tự chạy ở phiên kế tiếp của bob
+#   → AI của bob giờ hiện pin của alice, gắn nhãn [shared]
+```
+
+Đó là toàn bộ vòng lặp. `tre share` ghi các fact đã chọn lọc của bạn vào `.tre-mem/`,
+commit, rồi push; nếu branch chưa có upstream nó in ra đúng câu `git push -u …`.
+(`tre export` vẫn là primitive cấp thấp "chỉ ghi file" nếu bạn muốn tự lái git.)
+
+Các đặc điểm chính:
+
+- **Một lệnh, mọi git host.** `tre share` bên dưới chỉ là git thuần — chạy với
+  GitHub, GitLab, Bitbucket, hay một bare remote. Không khóa vào provider nào.
+- **Chỉ pin + fact đã graduated được chia sẻ.** Observation thô vẫn riêng tư trong
+  `~/.claude-mem/` của từng người.
+- **Redaction fail-closed.** Việc chia sẻ từ chối ghi secret phát hiện được (private
+  key, API token, JWT…) trừ khi bạn truyền `--force` (lúc đó thay chúng bằng
+  `[REDACTED:*]`). File `.tre-mem/.shareignore` theo từng repo thêm được glob.
+- **Xung đột "giữ cả hai".** `.tre-mem/.gitattributes` đặt `*.jsonl merge=union`, nên
+  hai đồng đội chia sẻ cùng lúc không bao giờ dính merge conflict — git giữ cả hai
+  phía và `tre import` khử trùng lặp khi đọc.
+- **Graduate khi merge, không cần CI.** `tre setup … --with-hook` cài một git hook
+  `post-merge` cục bộ, promote pin của branch đã merge thành fact phạm vi repo — trên
+  mọi provider. Thích CI hơn? Vài dòng YAML GitLab/Bitbucket/bất kỳ runner nào gọi
+  `tre graduate-pr` làm điều tương tự. Không có GitHub Action khóa vào vendor.
+
+Hướng dẫn đầy đủ: [docs/TEAM-WORKFLOW.md](./docs/TEAM-WORKFLOW.md). Nâng cấp từ v0.1 là
+tự động — xem [docs/MIGRATION-v1-v2.md](./docs/MIGRATION-v1-v2.md).
 
 ## Xem trực quan — dashboard nhóm (v0.5)
 
@@ -299,16 +395,28 @@ reflog), `store/` (sidecar DB + repo), `retrieval/` (3-signal + rerank),
 
 ## Trạng thái
 
-MVP — slice retrieval + MCP của Tuần 2 đã ship. E2E live verify trên một
-project đa-branch thật; cùng một query, top-1 đổi đúng theo branch như kỳ vọng.
-[CHANGELOG.md](./CHANGELOG.md) theo dõi release.
+**Hiện tại: v0.10.0 — export do agent điều khiển + memory xuyên nhiều clone.** Được
+phủ bởi **366 tests**, xanh trên Node 20 + 22. [CHANGELOG.md](./CHANGELOG.md) theo
+dõi từng release; [PLAN.md](./PLAN.md) là chỉ mục roadmap.
 
-Out of scope cho MVP (defer V2):
+Đã ship tới nay:
 
-- Team sync / cloud
-- Dashboard UI
-- Ingest độc lập từ Cursor / Gemini CLI / Codex
-- Auto graduate fact khi merge PR
+| Version    | Chủ đề                                                                              |
+| ---------- | ----------------------------------------------------------------------------------- |
+| **v0.10**  | `export_memory` do agent điều khiển + hợp nhất memory xuyên clone (theo git remote) |
+| **v0.9**   | "The Grove" — đồ thị contributor + bảng xếp hạng + i18n tiếng Việt đầy đủ           |
+| **v0.8**   | Bộ nhận diện xanh tre (web + terminal), `docs/BRAND.md` làm SSOT                    |
+| **v0.7**   | "Chia sẻ, rõ như ban ngày" — `tre share` một lệnh, graduate-on-merge cục bộ         |
+| **v0.6**   | Đa công cụ — Codex / Gemini / Cursor / Antigravity qua MCP                          |
+| **v0.5**   | Dashboard nhóm cục bộ (`tre web`) — branch graph + memory nhóm, live (SSE)          |
+| **v0.2–4** | Chia sẻ nhóm git-native — export/import, redaction, graduate branch                 |
+| **v0.1**   | Retrieval branch-aware (rerank 3-signal) + MCP server                               |
+
+Ngoài phạm vi (hiện tại):
+
+- Sync hosted / cloud (tre-mem giữ local-first; git là phương tiện vận chuyển)
+- Mã hóa memory cho repo nhạy cảm (BYO-key)
+- Ingest độc lập — ghi observation là việc của **claude-mem**, không phải của tre-mem
 
 ## License
 
