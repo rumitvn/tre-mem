@@ -1,6 +1,6 @@
 # PLAN — Phase 7 (v0.10.x): Agent-driven export + cross-clone memory
 
-> Phase SSOT, chained from [`PLAN.md`](./PLAN.md). Status: **done (v0.10.0)**.
+> Phase SSOT, chained from [`PLAN.md`](../../PLAN.md). Status: **done (v0.10.0)**.
 
 ## Why
 

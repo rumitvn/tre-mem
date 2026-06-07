@@ -1,6 +1,6 @@
 # tre-mem Phase 5 — "Share, made obvious" (git-native team memory, provider-agnostic)
 
-> Sibling plan to [`PLAN.md`](./PLAN.md) (v0.1), [`PLAN-PHASE2.md`](./PLAN-PHASE2.md) (v0.2–v0.4),
+> Sibling plan to [`PLAN.md`](../../PLAN.md) (v0.1), [`PLAN-PHASE2.md`](./PLAN-PHASE2.md) (v0.2–v0.4),
 > [`PLAN-PHASE3.md`](./PLAN-PHASE3.md) (v0.5), [`PLAN-PHASE4.md`](./PLAN-PHASE4.md) (v0.6).
 > This file is the **Phase 5 SSOT** (v0.7.x). Tick `- [x]` per task and commit with the code.
 

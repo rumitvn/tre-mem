@@ -435,7 +435,7 @@ Android project; A/B precision@10 lifts from 0.19 (FTS5 baseline) to 0.97
 - **`tre` CLI** (cac) with `init`, `status`, `backfill`, `search`, `pin`,
   `graduate`, `list-branches`, `hook`, `mcp` commands.
 - **A/B benchmark harness** at `scripts/benchmark.mjs` with results in
-  [BENCHMARK.md](./BENCHMARK.md).
+  [BENCHMARK.md](./docs/BENCHMARK.md).
 - **Docs**: README, [CLAUDE.md](./CLAUDE.md) codebase guide,
   [docs/HOOKS.md](./docs/HOOKS.md) hook registration guide,
   [PLAN.md](./PLAN.md) as single source of truth for design + roadmap.
