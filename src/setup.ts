@@ -205,12 +205,16 @@ export interface DedupeSessionHooksResult {
 
 /**
  * Collapse duplicate tre-mem SessionStart hooks down to one. Keeps the `keep`
- * scope's copy (default the global one — it covers every repo) and strips the
- * hook from the others, so the banner renders exactly once per session.
+ * scope's copy and strips the hook from the others, so the banner renders
+ * exactly once per session. Default keep is `project`: the repo-local
+ * `.claude/settings.json` is the canonical, committed, team-shared wiring that
+ * `tre setup` writes (and it uses the portable `tre` command). A global copy is
+ * usually a dev leftover — often an absolute `…/dist/cli.js` path that fires this
+ * one repo's build in every project — so removing it is the safe default.
  */
 export function dedupeSessionStartHooks(
   cwd: string,
-  keep: 'project' | 'global' = 'global',
+  keep: 'project' | 'global' = 'project',
   files: Array<{ path: string; scope: 'project' | 'global' }> = claudeSettingsFiles(cwd),
 ): DedupeSessionHooksResult {
   const present = scanSessionStartHooks(cwd, files).filter((s) => s.count > 0);
@@ -352,6 +356,20 @@ function configHasTreMem(path: string): boolean {
 }
 
 /**
+ * Claude Code is wired when its settings carry tre-mem's SessionStart hook.
+ * The hook command is `tre hook session-start` (no literal "tre-mem" string), so
+ * a plain substring check misses it — match the hook command instead.
+ */
+function claudeCodeWired(path: string): boolean {
+  if (!existsSync(path)) return false;
+  try {
+    return countSessionHooks(readSettings(path)) > 0 || configHasTreMem(path);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Detect which harnesses are installed on this machine and whether tre-mem is
  * already wired into each. `cwd` is used for the repo-local Claude Code config.
  */
@@ -364,7 +382,7 @@ export function detectTools(cwd: string): ToolPresence[] {
     {
       tool: 'claude-code',
       installed: existsSync(join(cwd, '.claude')) || existsSync(claudePath),
-      wired: configHasTreMem(claudePath),
+      wired: claudeCodeWired(claudePath),
       configPath: claudePath,
     },
     {

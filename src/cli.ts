@@ -187,7 +187,8 @@ cli
 cli
   .command('doctor', 'Diagnose claude-mem connectivity and tre-mem setup')
   .option('--fix-hooks', 'Collapse duplicate SessionStart hooks so the banner shows once')
-  .action((flags: { fixHooks?: boolean }) => {
+  .option('--keep <scope>', 'Which copy to keep when fixing: project (default) | global')
+  .action((flags: { fixHooks?: boolean; keep?: string }) => {
     console.log(brand(theme)(`${BAMBOO} tre-mem doctor`));
     console.log(`  version: ${VERSION}`);
     console.log(`  home:    ${TRE_MEM_HOME}`);
@@ -248,12 +249,15 @@ cli
       );
       for (const s of scans) console.log(`      ${s.scope}: ${s.path} (${s.count})`);
       if (flags.fixHooks) {
-        const result = dedupeSessionStartHooks(process.cwd(), 'global');
+        const keep = flags.keep === 'global' ? 'global' : 'project';
+        const result = dedupeSessionStartHooks(process.cwd(), keep);
         for (const r of result.removed)
           console.log(theme.green(`    ✓ removed ${r.count} from ${r.path}`));
         if (result.kept) console.log(`    kept: ${result.kept}`);
       } else {
-        console.log(`    → run ${theme.cyan('tre doctor --fix-hooks')} to collapse to one`);
+        console.log(
+          `    → run ${theme.cyan('tre doctor --fix-hooks')} to collapse to one (keeps the project copy)`,
+        );
       }
     }
 

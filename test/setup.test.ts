@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import {
   dedupeSessionStartHooks,
+  detectTools,
   scanSessionStartHooks,
   setupClaudeCode,
   setupTool,
@@ -118,15 +119,42 @@ describe('duplicate SessionStart hook detection', () => {
     expect(scans[0]?.count).toBe(0);
   });
 
-  test('dedupe keeps the global copy and strips the project one', () => {
+  test('dedupe defaults to keeping the project copy (canonical, committed)', () => {
+    const project = writeSettings('project.json', 'tre hook session-start');
+    const global = writeSettings('global.json', '/abs/dist/cli.js hook session-start');
+    const result = dedupeSessionStartHooks(tmp, undefined, [project, global]);
+
+    expect(result.kept).toBe(project.path);
+    expect(result.removed).toEqual([{ path: global.path, count: 1 }]);
+    // global leftover stripped; committed project hook untouched
+    expect(scanSessionStartHooks(tmp, [project, global]).map((s) => s.count)).toEqual([1, 0]);
+  });
+
+  test('dedupe can keep the global copy when asked', () => {
     const project = writeSettings('project.json', 'tre hook session-start');
     const global = writeSettings('global.json', '/abs/dist/cli.js hook session-start');
     const result = dedupeSessionStartHooks(tmp, 'global', [project, global]);
 
     expect(result.kept).toBe(global.path);
     expect(result.removed).toEqual([{ path: project.path, count: 1 }]);
-    // project file no longer has the hook; global still does
     expect(scanSessionStartHooks(tmp, [project, global]).map((s) => s.count)).toEqual([0, 1]);
+  });
+
+  test('detectTools marks claude-code wired from the session-start hook (no "tre-mem" literal)', () => {
+    mkdirSync(join(tmp, '.claude'), { recursive: true });
+    writeFileSync(
+      join(tmp, '.claude', 'settings.json'),
+      JSON.stringify({
+        hooks: {
+          SessionStart: [
+            { matcher: '*', hooks: [{ type: 'command', command: 'tre hook session-start' }] },
+          ],
+        },
+      }),
+      'utf8',
+    );
+    const claude = detectTools(tmp).find((t) => t.tool === 'claude-code');
+    expect(claude?.wired).toBe(true);
   });
 
   test('dedupe is a no-op when only one registration exists', () => {
