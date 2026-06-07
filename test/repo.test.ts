@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { migrate } from '../src/store/migrate.js';
+import { DB_BUSY_TIMEOUT_MS } from '../src/store/paths.js';
 import { TreMemRepo } from '../src/store/repo.js';
 
 describe('TreMemRepo branch_tag', () => {
@@ -20,6 +21,14 @@ describe('TreMemRepo branch_tag', () => {
   afterEach(() => {
     repo.close();
     rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('opens with a busy_timeout so concurrent tre processes wait for the lock', () => {
+    // Without this, the SessionStart hook, MCP server, and web daemon hitting the
+    // sidecar DB at once fail instantly with SQLITE_BUSY — dropping the banner and
+    // tripping the MCP "setup issue".
+    expect(repo.busyTimeoutMs()).toBe(DB_BUSY_TIMEOUT_MS);
+    expect(repo.busyTimeoutMs()).toBeGreaterThan(0);
   });
 
   it('upsertBranchTag inserts new rows and reports hasBranchTag', () => {

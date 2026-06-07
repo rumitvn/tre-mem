@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 
-import { TRE_MEM_DB_PATH } from './paths.js';
+import { DB_BUSY_TIMEOUT_MS, TRE_MEM_DB_PATH } from './paths.js';
 
 export interface BranchState {
   cwd: string;
@@ -73,6 +73,7 @@ export class TreMemRepo {
   constructor(opts: RepoOptions = {}) {
     this.dbPath = opts.dbPath ?? TRE_MEM_DB_PATH;
     this.db = new Database(this.dbPath);
+    this.db.pragma(`busy_timeout = ${DB_BUSY_TIMEOUT_MS}`);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
   }
@@ -81,6 +82,11 @@ export class TreMemRepo {
     if (this.closed) return;
     this.db.close();
     this.closed = true;
+  }
+
+  /** Effective `busy_timeout` (ms) on this connection — lets tests assert the lock-wait. */
+  busyTimeoutMs(): number {
+    return this.db.pragma('busy_timeout', { simple: true }) as number;
   }
 
   upsertBranchState(state: BranchState): void {

@@ -21,6 +21,7 @@ import {
   promptEnvelope,
   sessionStartEnvelope,
 } from './hooks/envelope.js';
+import { sessionDeferMs } from './hooks/defer.js';
 import { type SessionStartInput, runSessionStartHook } from './hooks/session-start.js';
 import { type UserPromptSubmitInput, runUserPromptSubmitHook } from './hooks/user-prompt-submit.js';
 import { log, logError, logFilePath } from './log/logger.js';
@@ -1366,18 +1367,23 @@ function pinnedFacts(repo: TreMemRepo, project: string, branch: string): PinnedF
 }
 
 /**
- * How long to defer emitting the SessionStart banner. claude-mem also prints at
- * session start (Claude Code only); deferring briefly makes tre-mem render BELOW
- * it instead of racing. Override with `TRE_MEM_HOOK_DELAY_MS` (0 disables).
- * Default: 250ms when claude-mem is present on Claude Code, otherwise 0.
+ * Does claude-mem already hold memory for this project? When it doesn't,
+ * claude-mem prints its longer first-run onboarding banner on SessionStart, which
+ * needs more defer time for tre-mem to land below it. Best-effort: any read
+ * failure maps to `true` (steady-state defer) and never throws.
  */
-function sessionHookDelayMs(format: HookFormat): number {
-  const raw = process.env.TRE_MEM_HOOK_DELAY_MS;
-  if (raw !== undefined && raw.trim() !== '') {
-    const n = Number.parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 0 ? n : 0;
+function claudeMemHasProject(project: string): boolean {
+  const cm = diagnoseClaudeMem();
+  if (!cm.installed || !cm.compatible) return true;
+  let adapter: ClaudeMemAdapter | null = null;
+  try {
+    adapter = new ClaudeMemAdapter();
+    return adapter.listProjects().includes(project);
+  } catch {
+    return true;
+  } finally {
+    adapter?.close();
   }
-  return format === 'claude' && existsSync(CLAUDE_MEM_DB_PATH) ? 250 : 0;
 }
 
 async function runSessionStartHookCli(format: HookFormat): Promise<void> {
@@ -1393,8 +1399,14 @@ async function runSessionStartHookCli(format: HookFormat): Promise<void> {
         pinned: ({ project, branch }) => pinnedFacts(repo, project, branch),
         dashboardUrl,
       });
-      // Defer so claude-mem's banner lands first (see sessionHookDelayMs).
-      const delay = sessionHookDelayMs(format);
+      // Defer so claude-mem's banner lands first — longer on the first session,
+      // whose onboarding banner is slower to render (see sessionDeferMs).
+      const delay = sessionDeferMs({
+        format,
+        claudeMemPresent: existsSync(CLAUDE_MEM_DB_PATH),
+        claudeMemHasProject: claudeMemHasProject(result.project),
+        envOverride: process.env.TRE_MEM_HOOK_DELAY_MS,
+      });
       if (delay > 0) await new Promise((r) => setTimeout(r, delay));
       process.stdout.write(
         `${JSON.stringify(sessionStartEnvelope(format, result.message, result.display))}\n`,

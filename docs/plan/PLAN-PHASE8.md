@@ -69,10 +69,16 @@ session-start`); `dedupeSessionStartHooks(cwd, keep, files?)` collapses to one
   (keeps the global copy by default). Both take an injectable file list for tests.
 - **`tre doctor [--fix-hooks]`** — reports the duplicate (naming each file) and, with
   the flag, collapses it.
-- **Ordering** (`src/cli.ts` `runSessionStartHookCli`) — defers the banner by
-  `sessionHookDelayMs(format)`: env `TRE_MEM_HOOK_DELAY_MS`, default **250 ms** when
-  claude-mem is present on Claude Code, else 0. Best-effort so tre-mem renders below
-  claude-mem (which renders in completion order); fully tunable.
+- **Ordering** (`src/hooks/defer.ts` `sessionDeferMs`, wired in `src/cli.ts`
+  `runSessionStartHookCli`) — defers the banner so tre-mem renders below claude-mem
+  (which renders in completion order). On Claude Code with claude-mem present:
+  **250 ms** steady state, but **1200 ms** on a project's first session — claude-mem's
+  longer first-run onboarding banner is slower to render, so the steady delay let
+  tre-mem race _above_ it (the v0.11.x edge case). "First session" = the project has
+  no claude-mem memory yet (`ClaudeMemAdapter.listProjects()`). 0 on non-Claude
+  harnesses or when claude-mem is absent. Env `TRE_MEM_HOOK_DELAY_MS` overrides all
+  (0 disables). The decision function is pure (probes injected) and unit-tested in
+  `test/hook-defer.test.ts`.
 
 ## Compatibility
 
