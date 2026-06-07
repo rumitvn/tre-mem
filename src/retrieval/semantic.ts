@@ -7,7 +7,7 @@ export interface SemanticHit {
 
 export interface SemanticSearchQuery {
   query: string;
-  project: string;
+  projects: string[];
   k: number;
 }
 
@@ -34,7 +34,7 @@ export class Fts5SemanticSearcher implements SemanticSearcher {
     if (match === null) return [];
     const rows = this.adapter.fts5SearchObservations({
       match,
-      project: opts.project,
+      projects: opts.projects,
       k: opts.k,
     });
     if (rows.length === 0) return [];

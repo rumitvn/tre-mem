@@ -55,6 +55,7 @@ describe('runSessionStartHook', () => {
       project: 'workrepo',
       current_branch: 'main',
       updated_at_epoch: 5000,
+      remote: null,
     });
   });
 

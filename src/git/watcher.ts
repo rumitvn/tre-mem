@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import type { TreMemRepo } from '../store/repo.js';
 
+import { remoteSlug } from './remote.js';
 import { currentBranch } from './resolver.js';
 
 export interface WatcherOptions {
@@ -39,11 +40,13 @@ export class GitWatcher {
 
   async sync(): Promise<string> {
     const branch = await currentBranch(this.opts.cwd);
+    const remote = await remoteSlug(this.opts.cwd);
     this.opts.repo.upsertBranchState({
       cwd: this.opts.cwd,
       project: this.opts.project,
       current_branch: branch,
       updated_at_epoch: this.now(),
+      remote,
     });
     this.opts.onSync?.(branch);
     return branch;

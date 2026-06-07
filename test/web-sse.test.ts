@@ -90,6 +90,8 @@ describe('GET /api/events live stream', () => {
       adapter: null,
       cwd: tmp,
       project: 'demo',
+      remote: null,
+      aliases: ['demo'],
       staticDir: join(tmp, 'no-static'),
       version: '0.0.0',
       now: () => 1,

@@ -10,6 +10,8 @@ export interface Health {
   mode: Mode;
   project: string;
   cwd: string;
+  remote: string | null;
+  linked_clones: string[];
 }
 
 export interface BranchInfo {
@@ -23,6 +25,7 @@ export interface BranchesResponse {
   project: string;
   current_branch: string | null;
   branches: BranchInfo[];
+  linked_clones: string[];
 }
 
 export interface Pin {

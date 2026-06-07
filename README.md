@@ -38,8 +38,8 @@ sees Stripe webhook chatter alongside JWT context. tre-mem fixes that:
 - **History backfill** via `git reflog` so existing observations get a branch.
 - **3-signal rerank**: semantic (FTS5/BM25), branch locality, recency-in-branch,
   plus a `pin` boost for facts you want pinned to a branch.
-- **MCP server** exposing 5 tools so Claude Code can call branch-aware
-  retrieval directly.
+- **MCP server** exposing 7 tools so Claude Code can call branch-aware
+  retrieval — and publish memory — directly.
 
 On the tre-mem repo itself the rerank lifts precision@10 from **0.19** (raw
 FTS5 baseline) to **0.97**. See [BENCHMARK.md](./BENCHMARK.md) for the harness.
@@ -79,7 +79,7 @@ CLI directly: `claude mcp add -s user tre-mem -- node /abs/path/to/tre-mem/dist/
 Verify inside Claude Code with `/mcp`. You should see:
 
 ```
-tre-mem · connected · 5 tools
+tre-mem · connected · 7 tools
 ```
 
 ## Register the SessionStart hook (optional but recommended)
@@ -200,6 +200,23 @@ tre-mem search "stripe webhook"
 | `list_branches`       | `project?`                           | Branches with tag counts                      |
 | `pin_fact`            | `observation_id`, `branch?`, `note?` | Pin a fact to a branch (boost = 1.0)          |
 | `graduate_fact`       | `observation_id`                     | Promote a branch fact to project scope        |
+| `export_memory`       | `branch?`, `all?`, `force?`          | Write `.tre-mem/` + local commit (no push)    |
+| `get_share_status`    | `project?`                           | Pending / shared / graduated counts           |
+
+After the assistant pins or graduates a fact, it can call **`export_memory`** to
+publish it: this writes the `.tre-mem/` files and makes a **local git commit** — it
+never pushes, so you review and `git push` when ready (the tool returns the exact
+command). It's fail-closed on secrets: a blocked export reports the matched secret
+_categories_, never the values.
+
+## Cross-clone memory
+
+If you clone the same repo into several directories (e.g. `app`, `app-2`, `app-3`)
+to work branches in parallel, tre-mem **unions their memory** — they're recognized
+as one project by a shared `remote.origin.url`. `tre status` shows the canonical
+`remote:` and the `linked clones`. This is on by default; set
+`TRE_MEM_CROSS_CLONE=0` to keep each directory isolated. The committed `.tre-mem/`
+format is unchanged, so teammates are unaffected.
 
 ## Diagnostics log
 

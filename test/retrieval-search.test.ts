@@ -39,7 +39,7 @@ describe('searchBranchContext', () => {
       { adapter, repo },
       {
         query: 'stripe webhook',
-        project: 'proj-a',
+        projects: ['proj-a'],
         branch: 'feature/payment',
         k: 5,
         nowEpoch: NOW,
@@ -62,7 +62,7 @@ describe('searchBranchContext', () => {
       { adapter, repo },
       {
         query: 'stripe',
-        project: 'proj-a',
+        projects: ['proj-a'],
         branch: 'feature/payment',
         k: 5,
         nowEpoch: NOW,
@@ -77,7 +77,7 @@ describe('searchBranchContext', () => {
       { adapter, repo },
       {
         query: 'anything',
-        project: 'proj-empty',
+        projects: ['proj-empty'],
         branch: 'main',
         k: 5,
         nowEpoch: NOW,
@@ -102,7 +102,7 @@ describe('searchBranchContext', () => {
 
     const hits = searchBranchContext(
       { adapter, repo },
-      { query: 'anything', project: 'proj-a', branch: 'feature/payment', k: 10, nowEpoch: NOW },
+      { query: 'anything', projects: ['proj-a'], branch: 'feature/payment', k: 10, nowEpoch: NOW },
     );
     const shared = hits.find((h) => h.observation.id === 9001);
     expect(shared).toBeDefined();
@@ -121,7 +121,7 @@ describe('searchBranchContext', () => {
     });
     const hits = searchBranchContext(
       { adapter, repo },
-      { query: 'anything', project: 'proj-a', branch: 'feature/payment', k: 10, nowEpoch: NOW },
+      { query: 'anything', projects: ['proj-a'], branch: 'feature/payment', k: 10, nowEpoch: NOW },
     );
     const freeText = hits.find((h) => h.source === 'shared-pin' && h.observation.id < 0);
     expect(freeText).toBeDefined();
@@ -141,7 +141,13 @@ describe('searchBranchContext', () => {
     });
     const hits = searchBranchContext(
       { adapter, repo },
-      { query: 'anything', project: 'proj-a', branch: 'some/other-branch', k: 10, nowEpoch: NOW },
+      {
+        query: 'anything',
+        projects: ['proj-a'],
+        branch: 'some/other-branch',
+        k: 10,
+        nowEpoch: NOW,
+      },
     );
     const grad = hits.find((h) => h.observation.id === 9002);
     expect(grad).toBeDefined();

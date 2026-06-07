@@ -38,6 +38,7 @@ import { shareToGit, simpleGitShare } from './sync/share.js';
 import { loadShareignore } from './sync/shareignore.js';
 import { AdapterSnapshotProvider } from './sync/snapshot.js';
 import { TRE_MEM_DB_PATH, TRE_MEM_HOME } from './store/paths.js';
+import { resolveProjectIdentity } from './store/aliases.js';
 import { TreMemRepo } from './store/repo.js';
 import { VERSION } from './version.js';
 import { clearDaemon, reconcileDaemon, stopDaemon, writeDaemon } from './web/daemon.js';
@@ -175,16 +176,25 @@ cli
     const project = basename(cwd);
     const branch = await currentBranch(cwd);
 
-    console.log('tre-mem status:');
-    console.log(`  cwd:     ${cwd}`);
-    console.log(`  project: ${project}`);
-    console.log(`  branch:  ${branch}`);
-
     migrate();
     const repo = new TreMemRepo();
     try {
-      console.log(`  branch_tag rows (project): ${repo.countBranchTags(project)}`);
-      const branches = repo.listBranchesForProject(project);
+      const identity = await resolveProjectIdentity(repo, cwd);
+      const linked = identity.aliases.filter((p) => p !== identity.project);
+
+      console.log('tre-mem status:');
+      console.log(`  cwd:     ${cwd}`);
+      console.log(`  project: ${project}`);
+      if (identity.remote) console.log(`  remote:  ${identity.remote}`);
+      console.log(`  branch:  ${branch}`);
+      if (linked.length > 0) {
+        console.log(
+          `  linked clones (${identity.aliases.length}): ${identity.aliases.join(', ')} ${theme.dim('(memory unioned via shared remote)')}`,
+        );
+      }
+
+      console.log(`  branch_tag rows (project): ${repo.countBranchTagsAcross(identity.aliases)}`);
+      const branches = repo.listBranchesForProjectAcross(identity.aliases);
       if (branches.length > 0) {
         console.log('  branches with tags:');
         for (const b of branches) {
@@ -240,7 +250,7 @@ cli
     }
     const adapter = new ClaudeMemAdapter();
     try {
-      const obs = adapter.getObservations({ project, limit: 1 });
+      const obs = adapter.getObservations({ projects: [project], limit: 1 });
       const head = obs[0];
       console.log(
         head
@@ -337,7 +347,11 @@ cli
       const adapter = new ClaudeMemAdapter();
       const repo = new TreMemRepo();
       try {
-        const hits = searchBranchContext({ adapter, repo }, { query, project, branch, k });
+        const identity = await resolveProjectIdentity(repo, cwd, { project: flags.project });
+        const hits = searchBranchContext(
+          { adapter, repo },
+          { query, projects: identity.aliases, branch, k },
+        );
         printSearchHeader({ project, branch, query, k, hitCount: hits.length });
         if (hits.length === 0) {
           console.log('  (no matches)');
@@ -1187,7 +1201,12 @@ async function runUserPromptSubmitHookCli(format: HookFormat): Promise<void> {
     const repo = new TreMemRepo();
     try {
       const result = await runUserPromptSubmitHook(input, {
-        getHits: (args) => searchBranchContext({ adapter, repo }, { ...args, k: 5 }),
+        getHits: (args) =>
+          searchBranchContext(
+            { adapter, repo },
+            { query: args.query, projects: args.projects, branch: args.branch, k: 5 },
+          ),
+        resolveProjects: async (c) => (await resolveProjectIdentity(repo, c)).aliases,
       });
       process.stdout.write(`${JSON.stringify(promptEnvelope(format, result.context))}\n`);
     } finally {

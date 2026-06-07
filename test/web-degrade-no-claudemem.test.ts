@@ -63,6 +63,8 @@ describe('web degrade — no claude-mem adapter', () => {
       adapter: null,
       cwd: tmp,
       project: PROJECT,
+      remote: null,
+      aliases: [PROJECT],
       staticDir: join(tmp, 'no-static'),
       version: '0.0.0',
       now: () => 1000,

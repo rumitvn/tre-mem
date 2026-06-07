@@ -24,6 +24,18 @@ function resolveProject(ctx: RouteCtx): string {
   return q && q.trim() !== '' ? q.trim() : ctx.deps.project;
 }
 
+/**
+ * Cross-clone alias set for a requested project. For the daemon's home project we
+ * reuse the precomputed `deps.aliases`; for any other project picked in the UI we
+ * resolve its remote from `branch_state` so its clones union too. Returns
+ * `[project]` when no remote is recorded.
+ */
+function aliasesFor(ctx: RouteCtx, project: string): string[] {
+  if (project === ctx.deps.project) return ctx.deps.aliases;
+  const remote = ctx.deps.repo.remoteForProject(project);
+  return ctx.deps.repo.projectAliases(project, remote);
+}
+
 /** Branch from `?branch=`, else the live branch_state for cwd, else first branch. */
 function resolveBranch(ctx: RouteCtx, project: string): string {
   const q = ctx.query.get('branch');
@@ -109,6 +121,8 @@ const ROUTES: Route[] = [
         mode: webMode(ctx.deps),
         project: ctx.deps.project,
         cwd: ctx.deps.cwd,
+        remote: ctx.deps.remote,
+        linked_clones: ctx.deps.aliases,
       });
     },
   },
@@ -128,13 +142,14 @@ const ROUTES: Route[] = [
     handler: (_req, res, ctx) => {
       const project = resolveProject(ctx);
       const { repo } = ctx.deps;
+      const projects = aliasesFor(ctx, project);
       const pinsByBranch = new Map<string, number>();
-      for (const p of repo.listPinsForProject(project)) {
+      for (const p of repo.listPinsForProjectAcross(projects)) {
         pinsByBranch.set(p.branch, (pinsByBranch.get(p.branch) ?? 0) + 1);
       }
       const state = repo.getBranchState(ctx.deps.cwd);
-      const branches = repo.listBranchesForProject(project).map((b) => {
-        const newest = repo.listBranchTagsForBranch(project, b.branch, 1)[0];
+      const branches = repo.listBranchesForProjectAcross(projects).map((b) => {
+        const newest = repo.listBranchTagsForBranchAcross(projects, b.branch, 1)[0];
         return {
           branch: b.branch,
           count: b.count,
@@ -146,6 +161,7 @@ const ROUTES: Route[] = [
         project,
         current_branch: state && state.project === project ? state.current_branch : null,
         branches,
+        linked_clones: projects,
       });
     },
   },
@@ -156,7 +172,8 @@ const ROUTES: Route[] = [
       const project = resolveProject(ctx);
       const branch = decodeURIComponent(ctx.params.branch ?? '');
       const { repo, adapter } = ctx.deps;
-      const tags = repo.listBranchTagsForBranch(project, branch);
+      const projects = aliasesFor(ctx, project);
+      const tags = repo.listBranchTagsForBranchAcross(projects, branch);
       const byId = new Map<number, Observation>();
       if (adapter && tags.length > 0) {
         for (const o of adapter.getObservationsByIds(tags.map((t) => t.observation_id))) {
@@ -177,9 +194,9 @@ const ROUTES: Route[] = [
         project,
         branch,
         timeline,
-        pins: repo.listPinsForBranch(project, branch).map(pinView),
+        pins: repo.listPinsForBranchAcross(projects, branch).map(pinView),
         graduated: repo
-          .listGraduated(project)
+          .listGraduatedAcross(projects)
           .filter((g) => g.graduated_from_branch === branch)
           .map(graduatedView),
       });
@@ -192,7 +209,7 @@ const ROUTES: Route[] = [
       const project = resolveProject(ctx);
       sendJson(res, 200, {
         project,
-        pins: ctx.deps.repo.listPinsForProject(project).map(pinView),
+        pins: ctx.deps.repo.listPinsForProjectAcross(aliasesFor(ctx, project)).map(pinView),
       });
     },
   },
@@ -203,7 +220,7 @@ const ROUTES: Route[] = [
       const project = resolveProject(ctx);
       sendJson(res, 200, {
         project,
-        graduated: ctx.deps.repo.listGraduated(project).map(graduatedView),
+        graduated: ctx.deps.repo.listGraduatedAcross(aliasesFor(ctx, project)).map(graduatedView),
       });
     },
   },
@@ -252,7 +269,7 @@ const ROUTES: Route[] = [
       if (ctx.deps.adapter) {
         const hits = searchBranchContext(
           { adapter: ctx.deps.adapter, repo: ctx.deps.repo },
-          { query, project, branch, k, nowEpoch: ctx.deps.now() },
+          { query, projects: aliasesFor(ctx, project), branch, k, nowEpoch: ctx.deps.now() },
         ).map((h) => ({
           observation_id: h.observation.id,
           title: h.observation.title,

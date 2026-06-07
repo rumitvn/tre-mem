@@ -4,6 +4,41 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] — 2026-06-07
+
+**The agent shares for you, and memory crosses your clones.** Two workflow gaps
+close: the assistant can now publish curated memory itself (no terminal hop), and
+multiple local clones of the same repo finally share one memory.
+
+### Added
+
+- **`export_memory` MCP tool** — the assistant writes `.tre-mem/` and makes a
+  **local git commit** (never pushes; you push when ready). The result carries the
+  exact `git push…` command. Reuses the same `exportSync` + `shareToGit` pipeline
+  as `tre share`, so behavior never drifts. Fail-closed on secrets: a blocked
+  export returns the matched secret _categories_ and a fix instruction, never the
+  secret values.
+- **`get_share_status` MCP tool** — lets the assistant see unshared pins / shared
+  pins / graduated counts so it can proactively offer to export.
+- **Cross-clone memory by git remote** — clones that share an identical
+  `remote.origin.url` (e.g. `app`, `app-2`, `app-3`) now **union** their memory
+  (branch tags, pins, graduated facts, and claude-mem observations). Identity is a
+  read-time alias set, so the on-disk `.tre-mem/` format is unchanged and teammates
+  are unaffected. Default-on; disable with `TRE_MEM_CROSS_CLONE=0`.
+- **`tre status`** now prints the canonical `remote:` and, when more than one clone
+  shares it, a `linked clones (N): …` line. The dashboard topbar shows a
+  `🔗 N clones` chip.
+- **`graduate_fact`** result now includes a `hint` nudging the assistant to call
+  `export_memory` to publish.
+
+### Changed
+
+- Sidecar schema **v3** (additive): a nullable `remote` column on `branch_state`,
+  recorded on every session-start / git-watch. No backfill; existing rows behave
+  exactly as before until their clone is next opened.
+- Retrieval and the claude-mem adapter now query an `IN (…)` set of project labels
+  internally; a single-element set is identical to prior behavior.
+
 ## [0.9.0] — 2026-06-07
 
 **The Grove — a second-brain contributor graph, plus a Vietnamese dashboard.** A new

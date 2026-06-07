@@ -53,13 +53,15 @@ describe('MCP tools', () => {
     rmSync(tmp, { recursive: true, force: true });
   });
 
-  it('exposes exactly 5 tool definitions with required fields', () => {
+  it('exposes exactly 7 tool definitions with required fields', () => {
     expect(TOOL_DEFINITIONS.map((t) => t.name)).toEqual([
       'get_branch_context',
       'get_branch_timeline',
       'list_branches',
       'pin_fact',
       'graduate_fact',
+      'export_memory',
+      'get_share_status',
     ]);
     for (const t of TOOL_DEFINITIONS) {
       expect(t.description.length).toBeGreaterThan(0);
@@ -100,8 +102,8 @@ describe('MCP tools', () => {
     expect(result.entries[0]!.tagged_at_epoch).toBeGreaterThan(result.entries[1]!.tagged_at_epoch);
   });
 
-  it('list_branches: groups tag counts per branch', () => {
-    const result = listBranches(deps, { project: PROJECT });
+  it('list_branches: groups tag counts per branch', async () => {
+    const result = await listBranches(deps, { project: PROJECT });
     const map = new Map(result.branches.map((b) => [b.branch, b.count]));
     expect(map.get(FEATURE)).toBe(2);
     expect(map.get(FIX)).toBe(1);

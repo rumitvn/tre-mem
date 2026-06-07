@@ -97,20 +97,20 @@ observation timeline.)
 The SPA is served over a dependency-light `node:http` server. Endpoints, all
 `GET`, all returning JSON:
 
-| Route                    | Purpose                                         |
-| ------------------------ | ----------------------------------------------- |
-| `/api/health`            | version, mode (`full` / `shared-only`), project |
-| `/api/projects`          | known projects + the launched one               |
-| `/api/branches`          | branch graph (counts, pins, last-active)        |
-| `/api/branch/:branch`    | timeline + pins + graduated for a branch        |
-| `/api/pins`              | all pins for the project                        |
-| `/api/graduated`         | all graduated facts for the project             |
-| `/api/share-status`      | pending export / shared / graduated counts      |
-| `/api/contributors`      | contributor leaderboard (value score + badges)  |
-| `/api/graph`             | force-graph nodes + edges for the Grove view    |
-| `/api/search?q=&branch=` | branch-aware search (full or degraded)          |
-| `/api/observation/:id`   | observation detail (`full` mode only)           |
-| `/api/events`            | SSE live-update stream                          |
+| Route                    | Purpose                                        |
+| ------------------------ | ---------------------------------------------- |
+| `/api/health`            | version, mode, project, remote + linked clones |
+| `/api/projects`          | known projects + the launched one              |
+| `/api/branches`          | branch graph (counts, pins, last-active)       |
+| `/api/branch/:branch`    | timeline + pins + graduated for a branch       |
+| `/api/pins`              | all pins for the project                       |
+| `/api/graduated`         | all graduated facts for the project            |
+| `/api/share-status`      | pending export / shared / graduated counts     |
+| `/api/contributors`      | contributor leaderboard (value score + badges) |
+| `/api/graph`             | force-graph nodes + edges for the Grove view   |
+| `/api/search?q=&branch=` | branch-aware search (full or degraded)         |
+| `/api/observation/:id`   | observation detail (`full` mode only)          |
+| `/api/events`            | SSE live-update stream                         |
 
 All routes accept `?project=` to scope to a project other than the one the server
 was launched in.

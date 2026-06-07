@@ -11,6 +11,10 @@ export interface WebDeps {
   adapter: ClaudeMemAdapter | null;
   cwd: string;
   project: string;
+  /** Canonical git remote slug (null when no origin / cross-clone disabled). */
+  remote: string | null;
+  /** Cross-clone alias set to union reads over (always includes `project`). */
+  aliases: string[];
   staticDir: string;
   version: string;
   now: () => number;

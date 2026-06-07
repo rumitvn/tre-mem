@@ -26,7 +26,7 @@ describe('Fts5SemanticSearcher', () => {
 
   it('returns observations matching a single token, scoped to project', () => {
     const searcher = new Fts5SemanticSearcher(adapter);
-    const hits = searcher.search({ query: 'stripe', project: 'proj-a', k: 10 });
+    const hits = searcher.search({ query: 'stripe', projects: ['proj-a'], k: 10 });
     const ids = hits.map((h) => h.observationId).sort((a, b) => a - b);
     expect(ids).toEqual([1, 3]);
     for (const h of hits) {
@@ -37,7 +37,7 @@ describe('Fts5SemanticSearcher', () => {
 
   it('orders results by similarity DESC (best match first)', () => {
     const searcher = new Fts5SemanticSearcher(adapter);
-    const hits = searcher.search({ query: 'stripe webhook', project: 'proj-a', k: 10 });
+    const hits = searcher.search({ query: 'stripe webhook', projects: ['proj-a'], k: 10 });
     expect(hits.length).toBeGreaterThanOrEqual(2);
     for (let i = 1; i < hits.length; i++) {
       expect(hits[i - 1]!.similarity).toBeGreaterThanOrEqual(hits[i]!.similarity);
@@ -47,24 +47,24 @@ describe('Fts5SemanticSearcher', () => {
 
   it('respects the k limit', () => {
     const searcher = new Fts5SemanticSearcher(adapter);
-    const hits = searcher.search({ query: 'auth', project: 'proj-a', k: 1 });
+    const hits = searcher.search({ query: 'auth', projects: ['proj-a'], k: 1 });
     expect(hits).toHaveLength(1);
   });
 
   it('returns an empty array for queries with no matches', () => {
     const searcher = new Fts5SemanticSearcher(adapter);
-    expect(searcher.search({ query: 'kubernetes', project: 'proj-a', k: 10 })).toEqual([]);
+    expect(searcher.search({ query: 'kubernetes', projects: ['proj-a'], k: 10 })).toEqual([]);
   });
 
   it('returns an empty array for a blank query (no FTS injection)', () => {
     const searcher = new Fts5SemanticSearcher(adapter);
-    expect(searcher.search({ query: '   ', project: 'proj-a', k: 10 })).toEqual([]);
+    expect(searcher.search({ query: '   ', projects: ['proj-a'], k: 10 })).toEqual([]);
   });
 
   it('isolates results to the requested project', () => {
     const searcher = new Fts5SemanticSearcher(adapter);
-    const hitsA = searcher.search({ query: 'stripe', project: 'proj-a', k: 10 });
-    const hitsB = searcher.search({ query: 'stripe', project: 'proj-b', k: 10 });
+    const hitsA = searcher.search({ query: 'stripe', projects: ['proj-a'], k: 10 });
+    const hitsB = searcher.search({ query: 'stripe', projects: ['proj-b'], k: 10 });
     expect(hitsA.every((h) => h.observationId !== 4)).toBe(true);
     expect(hitsB.map((h) => h.observationId)).toEqual([4]);
   });
@@ -74,7 +74,7 @@ describe('Fts5SemanticSearcher', () => {
     expect(() =>
       searcher.search({
         query: 'stripe AND OR "*foo" NEAR(',
-        project: 'proj-a',
+        projects: ['proj-a'],
         k: 5,
       }),
     ).not.toThrow();

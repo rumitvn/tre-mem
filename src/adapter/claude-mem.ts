@@ -109,6 +109,7 @@ export class ClaudeMemAdapter {
   }
 
   getObservations(query: ListQuery): Observation[] {
+    if (query.projects.length === 0) return [];
     const { sql, params } = this.buildRangeQuery(
       `SELECT id, memory_session_id, project, text, type, title, subtitle,
               facts, narrative, concepts, files_read, files_modified,
@@ -121,6 +122,7 @@ export class ClaudeMemAdapter {
   }
 
   getSessionSummaries(query: ListQuery): SessionSummary[] {
+    if (query.projects.length === 0) return [];
     const { sql, params } = this.buildRangeQuery(
       `SELECT id, memory_session_id, project, request, investigated, learned,
               completed, next_steps, files_read, files_edited, notes,
@@ -149,28 +151,28 @@ export class ClaudeMemAdapter {
 
   fts5SearchObservations(opts: {
     match: string;
-    project: string;
+    projects: string[];
     k: number;
   }): Array<{ id: number; rank: number }> {
+    if (opts.projects.length === 0) return [];
+    const params: Record<string, unknown> = { match: opts.match, k: opts.k };
+    const inClause = bindList(params, 'p', opts.projects);
     const sql = `
       SELECT o.id AS id, bm25(observations_fts) AS rank
         FROM observations_fts
         JOIN observations o ON o.id = observations_fts.rowid
        WHERE observations_fts MATCH @match
-         AND o.project = @project
+         AND o.project IN (${inClause})
        ORDER BY rank ASC
        LIMIT @k
     `;
-    return this.db.prepare(sql).all({
-      match: opts.match,
-      project: opts.project,
-      k: opts.k,
-    }) as Array<{ id: number; rank: number }>;
+    return this.db.prepare(sql).all(params) as Array<{ id: number; rank: number }>;
   }
 
   getPendingMessages(query: ListQuery): PendingMessage[] {
-    const where: string[] = ['s.project = @project'];
-    const params: Record<string, unknown> = { project: query.project };
+    if (query.projects.length === 0) return [];
+    const params: Record<string, unknown> = {};
+    const where: string[] = [`s.project IN (${bindList(params, 'proj', query.projects)})`];
     if (query.sinceEpoch !== undefined) {
       where.push('p.created_at_epoch >= @sinceEpoch');
       params.sinceEpoch = this.toUpstreamEpoch(query.sinceEpoch);
@@ -200,8 +202,8 @@ export class ClaudeMemAdapter {
     selectClause: string,
     query: ListQuery,
   ): { sql: string; params: Record<string, unknown> } {
-    const where: string[] = ['project = @project'];
-    const params: Record<string, unknown> = { project: query.project };
+    const params: Record<string, unknown> = {};
+    const where: string[] = [`project IN (${bindList(params, 'proj', query.projects)})`];
     if (query.sinceEpoch !== undefined) {
       where.push('created_at_epoch >= @sinceEpoch');
       params.sinceEpoch = this.toUpstreamEpoch(query.sinceEpoch);
@@ -221,6 +223,20 @@ export class ClaudeMemAdapter {
   private toUpstreamEpoch(secondsEpoch: number): number {
     return this.upstreamEpochUnit === 'milliseconds' ? secondsEpoch * 1000 : secondsEpoch;
   }
+}
+
+/**
+ * Bind a list of values as named params (`@prefix0`, `@prefix1`, ...) and return
+ * the comma-joined placeholder string for an `IN (...)` clause. Mutates `params`.
+ */
+function bindList(params: Record<string, unknown>, prefix: string, values: string[]): string {
+  return values
+    .map((v, i) => {
+      const key = `${prefix}${i}`;
+      params[key] = v;
+      return `@${key}`;
+    })
+    .join(', ');
 }
 
 function detectEpochUnit(db: Database.Database): EpochUnit {
