@@ -28,6 +28,22 @@ authored on, and serves a 3-signal retrieval API (semantic + branch + recency)
 over MCP so Claude Code / Cursor / Gemini CLI all see branch-scoped context
 instead of flat per-repo memory.
 
+> **The headline:** pin a decision, run **one command**, and it's in your team's
+> git. Your teammate runs `git pull` and their AI already knows — **no server, no
+> API keys, no GitHub required.** Jump straight to [Team memory](#team-memory--push-your-memory-to-git-the-headline-feature).
+
+<p align="center">
+  <b><a href="#why">Why</a></b> ·
+  <b><a href="#install">Install</a></b> ·
+  <b><a href="#using-it-from-claude-code-the-everyday-path">Everyday use</a></b> ·
+  <b><a href="#team-memory--push-your-memory-to-git-the-headline-feature">Team memory</a></b> ·
+  <b><a href="#see-it--the-team-dashboard-v05">Dashboard</a></b> ·
+  <b><a href="#beyond-claude-code--cross-tool-v06">Cross-tool</a></b> ·
+  <b><a href="#mcp-tools">MCP tools</a></b> ·
+  <b><a href="#cli-surface">CLI</a></b> ·
+  <b><a href="#license">License</a></b>
+</p>
+
 ## Why
 
 claude-mem ingests sessions beautifully but indexes them flat per project.
@@ -403,18 +419,28 @@ for the full design.
 
 ## Status
 
-**v0.2 — team-shared memory via git.** Phase 1 (branch-aware retrieval + MCP)
-and Phase 2 (export/import, redaction, branch graduation, retrieval-v2, hooks)
-are shipped and covered by 165 tests. The two-dev sync path is verified
-end-to-end through a real git remote in `scripts/two-dev-e2e.sh`.
-[CHANGELOG.md](./CHANGELOG.md) tracks releases.
+**Current: v0.10.0 — agent-driven export + cross-clone memory.** Covered by
+**366 tests**, green on Node 20 + 22. [CHANGELOG.md](./CHANGELOG.md) tracks every
+release; [PLAN.md](./PLAN.md) is the roadmap index.
 
-Out of scope (deferred to V3):
+Shipped so far:
 
-- GitLab / Bitbucket equivalents of the graduate Action
-- Dashboard / memory observability UI
-- Full independent ingest from Cursor / Gemini CLI / Codex (`tre setup` stubs exist)
+| Version    | Theme                                                                     |
+| ---------- | ------------------------------------------------------------------------- |
+| **v0.10**  | Agent-driven `export_memory` + cross-clone memory union (by git remote)   |
+| **v0.9**   | "The Grove" — contributor graph + leaderboard + full Vietnamese i18n      |
+| **v0.8**   | Bamboo-green design identity (web + terminal), `docs/BRAND.md` SSOT       |
+| **v0.7**   | "Share, made obvious" — one-command `tre share`, local graduate-on-merge  |
+| **v0.6**   | Cross-tool — Codex / Gemini / Cursor / Antigravity via MCP                |
+| **v0.5**   | Local team dashboard (`tre web`) — branch graph + team memory, live (SSE) |
+| **v0.2–4** | Git-native team share — export/import, redaction, branch graduation       |
+| **v0.1**   | Branch-aware retrieval (3-signal rerank) + MCP server                     |
+
+Out of scope (for now):
+
+- Hosted / cloud sync (tre-mem stays local-first; git is the transport)
 - Encrypted memory for sensitive repos (BYO-key)
+- Independent ingest — recording observations is **claude-mem's** job, not ours
 
 ## License
 
