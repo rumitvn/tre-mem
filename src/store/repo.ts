@@ -365,6 +365,38 @@ export class TreMemRepo {
       .run(contentHash, sharedAtEpoch, id);
   }
 
+  // --- Removal (forget / tombstone) ---
+
+  deletePinById(id: number): boolean {
+    return this.db.prepare(`DELETE FROM branch_pin WHERE id = ?`).run(id).changes > 0;
+  }
+
+  /** Remove every pin matching (project, branch, observation_id). Returns rows removed. */
+  deletePinsByObservation(project: string, branch: string, observationId: number): number {
+    return this.db
+      .prepare(`DELETE FROM branch_pin WHERE project = ? AND branch = ? AND observation_id = ?`)
+      .run(project, branch, observationId).changes;
+  }
+
+  /** Used by import to honor a teammate's pin tombstone. Returns rows removed. */
+  deletePinsByContentHash(contentHash: string): number {
+    return this.db.prepare(`DELETE FROM branch_pin WHERE content_hash = ?`).run(contentHash)
+      .changes;
+  }
+
+  deleteGraduatedByObservation(project: string, observationId: number): boolean {
+    return (
+      this.db
+        .prepare(`DELETE FROM graduated WHERE project = ? AND observation_id = ?`)
+        .run(project, observationId).changes > 0
+    );
+  }
+
+  /** Used by import to honor a teammate's graduated tombstone. Returns rows removed. */
+  deleteGraduatedByContentHash(contentHash: string): number {
+    return this.db.prepare(`DELETE FROM graduated WHERE content_hash = ?`).run(contentHash).changes;
+  }
+
   countUnsharedPins(project: string): number {
     const row = this.db
       .prepare(`SELECT COUNT(*) AS n FROM branch_pin WHERE project = ? AND shared_at_epoch IS NULL`)

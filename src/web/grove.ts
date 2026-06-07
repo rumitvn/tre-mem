@@ -1,4 +1,7 @@
-import type { SyncRecord } from '../sync/format.js';
+import type { GraduatedRecord, PinRecord } from '../sync/format.js';
+
+/** Live facts only — grove never operates on tombstone records. */
+type LiveRecord = PinRecord | GraduatedRecord;
 
 /**
  * Grove = the contributor view of a repo's shared memory. Pure, HTTP-free
@@ -89,11 +92,11 @@ interface Acc {
   epochs: number[];
 }
 
-function recordEpoch(r: SyncRecord): number {
+function recordEpoch(r: LiveRecord): number {
   return r.kind === 'pin' ? r.tagged_at_epoch : r.graduated_at_epoch;
 }
 
-function recordBranch(r: SyncRecord): string {
+function recordBranch(r: LiveRecord): string {
   return r.kind === 'pin' ? r.branch : r.graduated_from_branch;
 }
 
@@ -116,7 +119,7 @@ function longestStreakDays(epochs: number[]): number {
  * value_score desc, tie-broken by most-recent activity.
  */
 export function aggregateContributors(
-  records: SyncRecord[],
+  records: LiveRecord[],
   project: string,
   now: number,
 ): { contributors: ContributorStat[]; attributed_total: number; unattributed_total: number } {
@@ -217,7 +220,7 @@ function assignBadges(contributors: ContributorStat[], accs: Map<string, Acc>, n
  * and how branches graduate into the trunk.
  */
 export function buildGraph(
-  records: SyncRecord[],
+  records: LiveRecord[],
   extraBranches: string[],
   project: string,
 ): { nodes: GraphNode[]; edges: GraphEdge[] } {

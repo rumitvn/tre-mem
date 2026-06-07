@@ -14,20 +14,21 @@
 
 ## Current status
 
-**Shipped: v0.10.0** — agent-driven export + cross-clone memory. Covered by
-**366 tests**, green on Node 20 + 22. Releases are tracked in
-[CHANGELOG.md](./CHANGELOG.md).
+**Shipped: v0.11.0** — forget/correct facts (propagating tombstones) + onboarding
+& banner polish. Covered by **400+ tests**, green on Node 20 + 22. Releases are
+tracked in [CHANGELOG.md](./CHANGELOG.md).
 
-| Version    | Theme                                                                     | Phase SSOT                                   |
-| ---------- | ------------------------------------------------------------------------- | -------------------------------------------- |
-| **v0.10**  | Agent-driven `export_memory` + cross-clone memory union (by git remote)   | [PLAN-PHASE7.md](./docs/plan/PLAN-PHASE7.md) |
-| **v0.9**   | "The Grove" — contributor graph + leaderboard + full Vietnamese i18n      | [PLAN-PHASE6.md](./docs/plan/PLAN-PHASE6.md) |
-| **v0.8**   | Bamboo-green design identity (web + terminal), `docs/BRAND.md` SSOT       | [PLAN-PHASE6.md](./docs/plan/PLAN-PHASE6.md) |
-| **v0.7**   | "Share, made obvious" — one-command `tre share`, local graduate-on-merge  | [PLAN-PHASE5.md](./docs/plan/PLAN-PHASE5.md) |
-| **v0.6**   | Cross-tool — Codex / Gemini / Cursor / Antigravity via MCP                | [PLAN-PHASE4.md](./docs/plan/PLAN-PHASE4.md) |
-| **v0.5**   | Local team dashboard (`tre web`) — branch graph + team memory, live (SSE) | [PLAN-PHASE3.md](./docs/plan/PLAN-PHASE3.md) |
-| **v0.2–4** | Git-native team share — export/import, redaction, branch graduation       | [PLAN-PHASE2.md](./docs/plan/PLAN-PHASE2.md) |
-| **v0.1**   | Branch-aware retrieval (3-signal rerank) + MCP server                     | Phase 1 (this file, § Phase 1 recap)         |
+| Version    | Theme                                                                      | Phase SSOT                                   |
+| ---------- | -------------------------------------------------------------------------- | -------------------------------------------- |
+| **v0.11**  | Forget/correct facts via propagating tombstones + onboarding/banner polish | [PLAN-PHASE8.md](./docs/plan/PLAN-PHASE8.md) |
+| **v0.10**  | Agent-driven `export_memory` + cross-clone memory union (by git remote)    | [PLAN-PHASE7.md](./docs/plan/PLAN-PHASE7.md) |
+| **v0.9**   | "The Grove" — contributor graph + leaderboard + full Vietnamese i18n       | [PLAN-PHASE6.md](./docs/plan/PLAN-PHASE6.md) |
+| **v0.8**   | Bamboo-green design identity (web + terminal), `docs/BRAND.md` SSOT        | [PLAN-PHASE6.md](./docs/plan/PLAN-PHASE6.md) |
+| **v0.7**   | "Share, made obvious" — one-command `tre share`, local graduate-on-merge   | [PLAN-PHASE5.md](./docs/plan/PLAN-PHASE5.md) |
+| **v0.6**   | Cross-tool — Codex / Gemini / Cursor / Antigravity via MCP                 | [PLAN-PHASE4.md](./docs/plan/PLAN-PHASE4.md) |
+| **v0.5**   | Local team dashboard (`tre web`) — branch graph + team memory, live (SSE)  | [PLAN-PHASE3.md](./docs/plan/PLAN-PHASE3.md) |
+| **v0.2–4** | Git-native team share — export/import, redaction, branch graduation        | [PLAN-PHASE2.md](./docs/plan/PLAN-PHASE2.md) |
+| **v0.1**   | Branch-aware retrieval (3-signal rerank) + MCP server                      | Phase 1 (this file, § Phase 1 recap)         |
 
 ---
 

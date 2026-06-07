@@ -13,6 +13,8 @@ import {
   graduateFact,
   listBranches,
   pinFact,
+  ungraduateFact,
+  unpinFact,
   type ToolDeps,
 } from '../src/mcp/tools.js';
 import { migrate } from '../src/store/migrate.js';
@@ -53,13 +55,15 @@ describe('MCP tools', () => {
     rmSync(tmp, { recursive: true, force: true });
   });
 
-  it('exposes exactly 7 tool definitions with required fields', () => {
+  it('exposes exactly 9 tool definitions with required fields', () => {
     expect(TOOL_DEFINITIONS.map((t) => t.name)).toEqual([
       'get_branch_context',
       'get_branch_timeline',
       'list_branches',
       'pin_fact',
       'graduate_fact',
+      'unpin_fact',
+      'ungraduate_fact',
       'export_memory',
       'get_share_status',
     ]);
@@ -138,6 +142,38 @@ describe('MCP tools', () => {
     const all = repo.listGraduated(PROJECT);
     expect(all.length).toBe(1);
     expect(all[0]!.graduated_from_branch).toBe('main');
+  });
+
+  it('unpin_fact: removes a pin locally (unshared → no tombstone)', async () => {
+    await pinFact(deps, { observation_id: 3, note: 'temp' });
+    expect(repo.listPinsForBranch(PROJECT, FEATURE)).toHaveLength(1);
+
+    const result = await unpinFact(deps, { observation_id: 3 });
+    expect(result.removed_count).toBe(1);
+    expect(result.tombstoned).toBe(false);
+    expect(repo.listPinsForBranch(PROJECT, FEATURE)).toHaveLength(0);
+  });
+
+  it('unpin_fact: rejects bad observation ids', async () => {
+    await expect(unpinFact(deps, { observation_id: 0 })).rejects.toThrow(/invalid observation_id/);
+  });
+
+  it('ungraduate_fact: removes a graduated fact locally', async () => {
+    await graduateFact(deps, { observation_id: 3 });
+    expect(repo.listGraduated(PROJECT)).toHaveLength(1);
+
+    const result = await ungraduateFact(deps, { observation_id: 3 });
+    expect(result.removed).toBe(true);
+    expect(repo.listGraduated(PROJECT)).toHaveLength(0);
+
+    const missing = await ungraduateFact(deps, { observation_id: 3 });
+    expect(missing.removed).toBe(false);
+  });
+
+  it('ungraduate_fact: rejects bad observation ids', async () => {
+    await expect(ungraduateFact(deps, { observation_id: -1 })).rejects.toThrow(
+      /invalid observation_id/,
+    );
   });
 
   it('callTool: dispatches by name and rejects unknown tools', async () => {

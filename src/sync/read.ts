@@ -44,11 +44,35 @@ export function readSyncRecords(dir: string): SyncRecord[] {
   return records;
 }
 
-/** Same read, split into the two record kinds for callers that want them apart. */
+/**
+ * Read the *live* facts from a `.tre-mem/` directory: every pin + graduated
+ * record minus the ones a tombstone removed (and minus the tombstones
+ * themselves). The web layer uses this so it never surfaces a fact a teammate
+ * already forgot.
+ */
+export function readLiveSyncRecords(dir: string): Array<PinRecord | GraduatedRecord> {
+  const records = readSyncRecords(dir);
+  const tombstoned = new Set<string>();
+  for (const record of records) {
+    if (record.kind === 'tombstone') tombstoned.add(record.content_hash);
+  }
+  const live: Array<PinRecord | GraduatedRecord> = [];
+  for (const record of records) {
+    if (record.kind === 'tombstone') continue;
+    if (tombstoned.has(record.content_hash)) continue;
+    live.push(record);
+  }
+  return live;
+}
+
+/**
+ * Same read, split into the two record kinds for callers that want them apart.
+ * Tombstones are applied (a forgotten fact never surfaces).
+ */
 export function readSyncDir(dir: string): { pins: PinRecord[]; graduated: GraduatedRecord[] } {
   const pins: PinRecord[] = [];
   const graduated: GraduatedRecord[] = [];
-  for (const record of readSyncRecords(dir)) {
+  for (const record of readLiveSyncRecords(dir)) {
     if (record.kind === 'pin') pins.push(record);
     else graduated.push(record);
   }

@@ -4,4 +4,4 @@
  * Imported by the CLI (`tre --version`), the MCP server handshake, and the
  * session digest's compatibility warnings.
  */
-export const VERSION = '0.10.0';
+export const VERSION = '0.11.0';

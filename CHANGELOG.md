@@ -4,6 +4,41 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] — 2026-06-07
+
+**Facts you can take back.** Memory was append-only — a graduated or pinned fact
+could never be removed, even after PR feedback or QC proved it wrong. Now the
+assistant (or you) can forget a fact, and the removal **propagates to the whole
+team** through git. Plus a smoother first run and a SessionStart banner that shows
+once, below claude-mem.
+
+### Added
+
+- **`unpin_fact` / `ungraduate_fact` MCP tools** (now **9** tools total) — the
+  inverse of `pin_fact` / `graduate_fact`. Removing a fact that was already shared
+  writes a **tombstone** to `.tre-mem/` so every teammate's clone drops it on the
+  next import. Correcting a fact = `ungraduate_fact` then `graduate_fact` the fixed
+  observation. Same model as before: removal is local + pending until
+  `export_memory` (or `tre share`) publishes it.
+- **`tre unpin` / `tre ungraduate` CLI** — terminal parity with the MCP tools.
+- **Tombstone sync record** — a new append-only `.tre-mem/` line kind that carries
+  the `content_hash` of the removed fact. Kept at sync schema v1: pre-v0.11 clients
+  skip it gracefully (the fact simply lingers for them). Import applies tombstones
+  in a two-pass per file so a removal can never be resurrected by an earlier line.
+- **`tre init --all`** — guided first run that wires every installed AI tool and
+  backfills past observations in one step, then prints clear next steps.
+- **`tre doctor --fix-hooks`** — detects a tre-mem SessionStart hook registered in
+  more than one settings file (the cause of duplicate banners) and collapses it to
+  one.
+
+### Changed
+
+- **`tre status`** — regrouped into scannable **Identity / Memory / Tools /
+  claude-mem** sections with a headline `full` / `shared-only` mode.
+- **SessionStart banner** — defers briefly (env-tunable `TRE_MEM_HOOK_DELAY_MS`,
+  default 250 ms when claude-mem is present) so it renders **below** claude-mem
+  instead of racing it. Combined with `--fix-hooks`, the banner shows exactly once.
+
 ## [0.10.0] — 2026-06-07
 
 **The agent shares for you, and memory crosses your clones.** Two workflow gaps

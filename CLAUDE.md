@@ -1,6 +1,6 @@
 # CLAUDE.md — Codebase Guide for Claude Code
 
-> **Always read `PLAN.md` first.** It is the roadmap & status index — current version, what shipped, and the phase-SSOT chain. This file gives Claude orientation; `PLAN.md` gives the work. Current: **v0.10.0**. Phase SSOTs: `docs/plan/PLAN-PHASE2.md` (v0.2–0.4 team share), `docs/plan/PLAN-PHASE3.md` (v0.5 web dashboard), `docs/plan/PLAN-PHASE4.md` (v0.6 cross-tool), `docs/plan/PLAN-PHASE5.md` (v0.7 "share, made obvious"), `docs/plan/PLAN-PHASE6.md` (v0.8–0.9 bamboo identity + the Grove), `docs/plan/PLAN-PHASE7.md` (v0.10 agent-driven export + cross-clone memory).
+> **Always read `PLAN.md` first.** It is the roadmap & status index — current version, what shipped, and the phase-SSOT chain. This file gives Claude orientation; `PLAN.md` gives the work. Current: **v0.11.0**. Phase SSOTs: `docs/plan/PLAN-PHASE2.md` (v0.2–0.4 team share), `docs/plan/PLAN-PHASE3.md` (v0.5 web dashboard), `docs/plan/PLAN-PHASE4.md` (v0.6 cross-tool), `docs/plan/PLAN-PHASE5.md` (v0.7 "share, made obvious"), `docs/plan/PLAN-PHASE6.md` (v0.8–0.9 bamboo identity + the Grove), `docs/plan/PLAN-PHASE7.md` (v0.10 agent-driven export + cross-clone memory), `docs/plan/PLAN-PHASE8.md` (v0.11 forget/correct facts via tombstones + onboarding/banner polish).
 
 ## What this project is
 

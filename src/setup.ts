@@ -1,4 +1,5 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { antigravityMcpPaths, registerAntigravityMcp } from './tooling/antigravity.js';
@@ -124,6 +125,108 @@ export function setupClaudeCode(cwd: string, opts: SetupOptions = {}): SetupResu
     hookAdded: added,
     message: `tre-mem: ${parts.join('; ')}.`,
   };
+}
+
+// --- Duplicate SessionStart hook detection (banner shows once, below claude-mem) ---
+
+/** tre-mem's SessionStart hook always runs `… hook session-start`; nothing else does. */
+const SESSION_HOOK_RE = /hook session-start/;
+
+export interface SessionHookScan {
+  path: string;
+  /** Where this file sits — used to decide which copy to keep when deduping. */
+  scope: 'project' | 'global';
+  count: number;
+}
+
+/** The Claude Code settings files that can carry a tre-mem SessionStart hook. */
+export function claudeSettingsFiles(
+  cwd: string,
+): Array<{ path: string; scope: 'project' | 'global' }> {
+  return [
+    { path: join(cwd, '.claude', 'settings.json'), scope: 'project' },
+    { path: join(homedir(), '.claude', 'settings.json'), scope: 'global' },
+  ];
+}
+
+function countSessionHooks(settings: ClaudeSettings): number {
+  let n = 0;
+  for (const entry of settings.hooks?.SessionStart ?? []) {
+    for (const h of entry.hooks ?? []) {
+      if (typeof h.command === 'string' && SESSION_HOOK_RE.test(h.command)) n += 1;
+    }
+  }
+  return n;
+}
+
+/**
+ * Count tre-mem SessionStart hooks in each known settings file (0 when absent).
+ * `files` is injectable for tests; production passes the resolved cwd-based set.
+ */
+export function scanSessionStartHooks(
+  cwd: string,
+  files: Array<{ path: string; scope: 'project' | 'global' }> = claudeSettingsFiles(cwd),
+): SessionHookScan[] {
+  return files.map(({ path, scope }) => {
+    if (!existsSync(path)) return { path, scope, count: 0 };
+    try {
+      return { path, scope, count: countSessionHooks(readSettings(path)) };
+    } catch {
+      return { path, scope, count: 0 };
+    }
+  });
+}
+
+function stripSessionHooks(settings: ClaudeSettings): { next: ClaudeSettings; removed: number } {
+  const entries = settings.hooks?.SessionStart;
+  if (!entries) return { next: settings, removed: 0 };
+  let removed = 0;
+  const nextEntries = entries
+    .map((entry) => ({
+      ...entry,
+      hooks: (entry.hooks ?? []).filter((h) => {
+        const match = typeof h.command === 'string' && SESSION_HOOK_RE.test(h.command);
+        if (match) removed += 1;
+        return !match;
+      }),
+    }))
+    .filter((entry) => (entry.hooks?.length ?? 0) > 0);
+  if (removed === 0) return { next: settings, removed: 0 };
+  return {
+    next: { ...settings, hooks: { ...settings.hooks, SessionStart: nextEntries } },
+    removed,
+  };
+}
+
+export interface DedupeSessionHooksResult {
+  kept: string | null;
+  removed: Array<{ path: string; count: number }>;
+}
+
+/**
+ * Collapse duplicate tre-mem SessionStart hooks down to one. Keeps the `keep`
+ * scope's copy (default the global one — it covers every repo) and strips the
+ * hook from the others, so the banner renders exactly once per session.
+ */
+export function dedupeSessionStartHooks(
+  cwd: string,
+  keep: 'project' | 'global' = 'global',
+  files: Array<{ path: string; scope: 'project' | 'global' }> = claudeSettingsFiles(cwd),
+): DedupeSessionHooksResult {
+  const present = scanSessionStartHooks(cwd, files).filter((s) => s.count > 0);
+  if (present.length <= 1) return { kept: present[0]?.path ?? null, removed: [] };
+
+  const keepScan = present.find((s) => s.scope === keep) ?? present[0];
+  const removed: Array<{ path: string; count: number }> = [];
+  for (const scan of present) {
+    if (scan.path === keepScan?.path) continue;
+    const { next, removed: n } = stripSessionHooks(readSettings(scan.path));
+    if (n > 0) {
+      writeFileSync(scan.path, JSON.stringify(next, null, 2) + '\n', 'utf8');
+      removed.push({ path: scan.path, count: n });
+    }
+  }
+  return { kept: keepScan?.path ?? null, removed };
 }
 
 const CONSUME_NOTE =

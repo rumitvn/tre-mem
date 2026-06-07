@@ -5,7 +5,7 @@ import { basename, join } from 'node:path';
 import { log } from '../log/logger.js';
 import type { TreMemRepo } from '../store/repo.js';
 
-import { parseSyncLine } from './format.js';
+import { parseSyncLine, type SyncRecord, type TombstoneRecord } from './format.js';
 import { graduatedFilePath } from './layout.js';
 
 export interface ImportOptions {
@@ -20,6 +20,8 @@ export interface ImportFileResult {
   file: string;
   inserted: number;
   duplicates: number;
+  /** Rows removed because a tombstone in this file matched them. */
+  tombstoned: number;
   errors: number;
   /** True when the file was skipped because its SHA matched the last import. */
   unchanged: boolean;
@@ -29,6 +31,8 @@ export interface ImportResult {
   dir: string;
   pins: number;
   graduated: number;
+  /** Total rows removed by tombstones across all files. */
+  tombstoned: number;
   files: ImportFileResult[];
 }
 
@@ -61,7 +65,14 @@ function importFile(
   const prior = repo.getImportState(filePath);
   if (!force && prior !== null && prior.last_sha === sha) {
     return {
-      result: { file: filePath, inserted: 0, duplicates: 0, errors: 0, unchanged: true },
+      result: {
+        file: filePath,
+        inserted: 0,
+        duplicates: 0,
+        tombstoned: 0,
+        errors: 0,
+        unchanged: true,
+      },
       pins: 0,
       graduated: 0,
     };
@@ -69,19 +80,37 @@ function importFile(
 
   let inserted = 0;
   let duplicates = 0;
+  let tombstoned = 0;
   let errors = 0;
   let pins = 0;
   let graduated = 0;
 
+  // Pass 1: parse every line; gather tombstoned content_hashes up front so an
+  // insert can never resurrect a fact a later line removes (order-independent).
+  const records: SyncRecord[] = [];
+  const tombstones: TombstoneRecord[] = [];
+  const tombstonedHashes = new Set<string>();
   for (const line of content.split('\n')) {
     if (line.trim() === '') continue;
-    let record;
+    let record: SyncRecord;
     try {
       record = parseSyncLine(line);
     } catch {
       errors++;
       continue;
     }
+    if (record.kind === 'tombstone') {
+      tombstones.push(record);
+      tombstonedHashes.add(record.content_hash);
+    } else {
+      records.push(record);
+    }
+  }
+
+  // Pass 2: insert facts that are not tombstoned in this file.
+  for (const record of records) {
+    if (record.kind === 'tombstone') continue; // already split out; keeps types narrow
+    if (tombstonedHashes.has(record.content_hash)) continue;
     if (record.kind === 'pin') {
       const added = repo.importPin({
         project: record.project,
@@ -120,9 +149,18 @@ function importFile(
     }
   }
 
+  // Apply tombstones last: remove any row (this file's or a prior import's) the
+  // tombstone targets. Idempotent — re-running removes nothing extra.
+  for (const t of tombstones) {
+    tombstoned +=
+      t.target_kind === 'pin'
+        ? repo.deletePinsByContentHash(t.content_hash)
+        : repo.deleteGraduatedByContentHash(t.content_hash);
+  }
+
   repo.upsertImportState(filePath, sha, now);
   return {
-    result: { file: filePath, inserted, duplicates, errors, unchanged: false },
+    result: { file: filePath, inserted, duplicates, tombstoned, errors, unchanged: false },
     pins,
     graduated,
   };
@@ -137,7 +175,7 @@ function importFile(
 export function importDir(opts: ImportOptions): ImportResult {
   const { repo, dir, now, force = false } = opts;
   if (!existsSync(dir)) {
-    return { dir, pins: 0, graduated: 0, files: [] };
+    return { dir, pins: 0, graduated: 0, tombstoned: 0, files: [] };
   }
 
   const files: ImportFileResult[] = [];
@@ -149,15 +187,16 @@ export function importDir(opts: ImportOptions): ImportResult {
     pins += p;
     graduated += g;
   }
+  const tombstoned = files.reduce((sum, f) => sum + f.tombstoned, 0);
   const errors = files.reduce((sum, f) => sum + f.errors, 0);
   // Only log when something actually moved — keeps the per-session import quiet.
-  if (pins > 0 || graduated > 0 || errors > 0) {
+  if (pins > 0 || graduated > 0 || tombstoned > 0 || errors > 0) {
     log({
       level: errors > 0 ? 'warn' : 'info',
       component: 'sync',
       event: 'import',
-      fields: { dir: basename(dir), pins, graduated, files: files.length, errors },
+      fields: { dir: basename(dir), pins, graduated, tombstoned, files: files.length, errors },
     });
   }
-  return { dir, pins, graduated, files };
+  return { dir, pins, graduated, tombstoned, files };
 }

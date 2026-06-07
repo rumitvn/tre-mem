@@ -12,7 +12,7 @@ export const SYNC_SCHEMA_VERSION = 1;
 
 const UNIT = '\x1f'; // ASCII Unit Separator — safe payload delimiter for hashing.
 
-export type SyncKind = 'pin' | 'graduated';
+export type SyncKind = 'pin' | 'graduated' | 'tombstone';
 
 export interface PinRecord {
   schema: number;
@@ -41,7 +41,29 @@ export interface GraduatedRecord {
   graduated_at_epoch: number;
 }
 
-export type SyncRecord = PinRecord | GraduatedRecord;
+/**
+ * A removal marker. Travels through git like a pin/graduated row and tells every
+ * clone to delete the fact whose `content_hash` it carries on the next import.
+ * Kept at schema v1 deliberately: pre-tombstone clients hit "unknown kind" in
+ * `parseSyncLine`, count an error, and skip it — graceful degradation, no break.
+ * Lives in the SAME jsonl file as its target so per-file import resolves cleanly
+ * (pin → branches/<branch>.jsonl, graduated → graduated.jsonl).
+ */
+export interface TombstoneRecord {
+  schema: number;
+  kind: 'tombstone';
+  /** content_hash of the pin/graduated fact being removed. */
+  content_hash: string;
+  target_kind: 'pin' | 'graduated';
+  project: string;
+  /** Set for pin tombstones; null for graduated. Human-readable diff aid. */
+  branch: string | null;
+  observation_id: number | null;
+  author: string | null;
+  tombstoned_at_epoch: number;
+}
+
+export type SyncRecord = PinRecord | GraduatedRecord | TombstoneRecord;
 
 // Fixed key orders → deterministic serialization (stable git diffs).
 const PIN_KEYS: ReadonlyArray<keyof PinRecord> = [
@@ -69,6 +91,18 @@ const GRADUATED_KEYS: ReadonlyArray<keyof GraduatedRecord> = [
   'body',
   'author',
   'graduated_at_epoch',
+];
+
+const TOMBSTONE_KEYS: ReadonlyArray<keyof TombstoneRecord> = [
+  'schema',
+  'kind',
+  'content_hash',
+  'target_kind',
+  'project',
+  'branch',
+  'observation_id',
+  'author',
+  'tombstoned_at_epoch',
 ];
 
 export interface PinHashInput {
@@ -125,6 +159,9 @@ export function graduatedContentHash(input: GraduatedHashInput): string {
 export function serializeSyncRecord(record: SyncRecord): string {
   if (record.kind === 'pin') {
     return JSON.stringify(record, PIN_KEYS as string[]);
+  }
+  if (record.kind === 'tombstone') {
+    return JSON.stringify(record, TOMBSTONE_KEYS as string[]);
   }
   return JSON.stringify(record, GRADUATED_KEYS as string[]);
 }
@@ -201,6 +238,23 @@ export function parseSyncLine(line: string): SyncRecord {
       body: asNullableString(obj.body, 'body'),
       author: asNullableString(obj.author, 'author'),
       graduated_at_epoch: asNumber(obj.graduated_at_epoch, 'graduated_at_epoch'),
+    };
+  }
+  if (kind === 'tombstone') {
+    const targetKind = obj.target_kind;
+    if (targetKind !== 'pin' && targetKind !== 'graduated') {
+      throw new Error(`sync record: tombstone target_kind must be "pin" or "graduated"`);
+    }
+    return {
+      schema,
+      kind: 'tombstone',
+      content_hash: asString(obj.content_hash, 'content_hash'),
+      target_kind: targetKind,
+      project: asString(obj.project, 'project'),
+      branch: asNullableString(obj.branch, 'branch'),
+      observation_id: asNullableNumber(obj.observation_id, 'observation_id'),
+      author: asNullableString(obj.author, 'author'),
+      tombstoned_at_epoch: asNumber(obj.tombstoned_at_epoch, 'tombstoned_at_epoch'),
     };
   }
   throw new Error(`sync record: unknown kind "${String(kind)}"`);
