@@ -4,6 +4,21 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **SessionStart banner no longer vanishes on a project's first session.** Two
+  causes, both fixed: (1) the sidecar DB opened with no `busy_timeout`, so when the
+  hook, the MCP server, and the background web daemon all touched
+  `~/.tre-mem/tre-mem.db` at once on the seeding first session, SQLite failed
+  _instantly_ with `SQLITE_BUSY` — silently dropping the banner and tripping the
+  MCP "setup issue". All connections now wait up to 5 s for the lock. (2) The
+  banner defer (so tre-mem renders below claude-mem) was a fixed 250 ms, too short
+  for claude-mem's slower first-run onboarding banner; it now defers longer
+  (1200 ms) on the first session and 250 ms once a project has memory. Override
+  with `TRE_MEM_HOOK_DELAY_MS`.
+
 ## [0.11.0] — 2026-06-07
 
 **Facts you can take back.** Memory was append-only — a graduated or pinned fact

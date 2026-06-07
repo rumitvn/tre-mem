@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { TRE_MEM_DB_PATH } from './paths.js';
+import { DB_BUSY_TIMEOUT_MS, TRE_MEM_DB_PATH } from './paths.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -124,6 +124,7 @@ export function migrate(dbPath: string = TRE_MEM_DB_PATH): MigrateResult {
 
   const db = new Database(dbPath);
   try {
+    db.pragma(`busy_timeout = ${DB_BUSY_TIMEOUT_MS}`);
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
 

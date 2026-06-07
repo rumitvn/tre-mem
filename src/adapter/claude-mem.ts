@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { existsSync } from 'node:fs';
 
 import { log } from '../log/logger.js';
-import { CLAUDE_MEM_DB_PATH } from '../store/paths.js';
+import { CLAUDE_MEM_DB_PATH, DB_BUSY_TIMEOUT_MS } from '../store/paths.js';
 
 import type { ListQuery, Observation, PendingMessage, SessionSummary } from './types.js';
 import { toSecondsEpoch } from './types.js';
@@ -42,6 +42,7 @@ export class ClaudeMemAdapter {
       );
     }
     this.db = new Database(this.dbPath, { readonly: true, fileMustExist: true });
+    this.db.pragma(`busy_timeout = ${DB_BUSY_TIMEOUT_MS}`);
     this.db.pragma('query_only = ON');
     this.assertSchema();
     this.assertColumns();
