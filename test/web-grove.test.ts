@@ -159,6 +159,8 @@ describe('web API — grove endpoints', () => {
       adapter: null,
       cwd: tmp,
       project: PROJECT,
+      remote: null,
+      aliases: [PROJECT],
       staticDir: join(tmp, 'no-static'),
       version: '9.9.9',
       now: () => 1000,

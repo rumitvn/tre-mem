@@ -326,3 +326,159 @@ describe('TreMemRepo graduated', () => {
     expect(out.map((g) => g.observation_id)).toEqual([2, 1]);
   });
 });
+
+describe('TreMemRepo cross-clone aliases', () => {
+  let tmp: string;
+  let repo: TreMemRepo;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), 'tre-mem-alias-'));
+    const dbPath = join(tmp, 'tre-mem.db');
+    migrate(dbPath);
+    repo = new TreMemRepo({ dbPath });
+  });
+
+  afterEach(() => {
+    repo.close();
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('upsertBranchState round-trips the remote column', () => {
+    repo.upsertBranchState({
+      cwd: '/a/app',
+      project: 'app',
+      current_branch: 'main',
+      updated_at_epoch: 1,
+      remote: 'github.com/org/app',
+    });
+    expect(repo.getBranchState('/a/app')?.remote).toBe('github.com/org/app');
+  });
+
+  it('defaults remote to null when omitted', () => {
+    repo.upsertBranchState({
+      cwd: '/a/app',
+      project: 'app',
+      current_branch: 'main',
+      updated_at_epoch: 1,
+    });
+    expect(repo.getBranchState('/a/app')?.remote).toBeNull();
+  });
+
+  it('projectAliases returns [project] when remote is null/empty', () => {
+    expect(repo.projectAliases('app', null)).toEqual(['app']);
+    expect(repo.projectAliases('app', '')).toEqual(['app']);
+    expect(repo.projectAliases('app', undefined)).toEqual(['app']);
+  });
+
+  it('projectAliases unions clones sharing a remote and isolates others', () => {
+    const r = 'github.com/org/app';
+    repo.upsertBranchState({
+      cwd: '/a/app',
+      project: 'app',
+      current_branch: 'main',
+      updated_at_epoch: 1,
+      remote: r,
+    });
+    repo.upsertBranchState({
+      cwd: '/a/app-2',
+      project: 'app-2',
+      current_branch: 'dev',
+      updated_at_epoch: 1,
+      remote: r,
+    });
+    repo.upsertBranchState({
+      cwd: '/a/other',
+      project: 'other',
+      current_branch: 'main',
+      updated_at_epoch: 1,
+      remote: 'github.com/org/other',
+    });
+
+    expect(repo.projectAliases('app', r)).toEqual(['app', 'app-2']);
+    expect(repo.projectAliases('other', 'github.com/org/other')).toEqual(['other']);
+  });
+
+  it('setRemoteForCwd updates an existing row and remoteForProject reads it back', () => {
+    repo.upsertBranchState({
+      cwd: '/a/app',
+      project: 'app',
+      current_branch: 'main',
+      updated_at_epoch: 1,
+    });
+    expect(repo.remoteForProject('app')).toBeNull();
+    repo.setRemoteForCwd('/a/app', 'github.com/org/app');
+    expect(repo.getBranchState('/a/app')?.remote).toBe('github.com/org/app');
+    expect(repo.remoteForProject('app')).toBe('github.com/org/app');
+  });
+
+  it('setRemoteForCwd is a no-op when the row does not exist', () => {
+    expect(() => repo.setRemoteForCwd('/nope', 'github.com/org/app')).not.toThrow();
+    expect(repo.getBranchState('/nope')).toBeNull();
+  });
+
+  it('projectAliases always includes the current project even if unregistered', () => {
+    const r = 'github.com/org/app';
+    repo.upsertBranchState({
+      cwd: '/a/app-2',
+      project: 'app-2',
+      current_branch: 'dev',
+      updated_at_epoch: 1,
+      remote: r,
+    });
+    expect(repo.projectAliases('app', r)).toEqual(['app', 'app-2']);
+  });
+
+  it('*Across methods union pins, graduated and tags across projects', () => {
+    repo.addPin({
+      project: 'app',
+      branch: 'feat',
+      observation_id: 1,
+      note: 'a',
+      created_at_epoch: 10,
+    });
+    repo.addPin({
+      project: 'app-2',
+      branch: 'feat',
+      observation_id: 2,
+      note: 'b',
+      created_at_epoch: 20,
+    });
+    repo.graduateFact({
+      project: 'app',
+      observation_id: 1,
+      graduated_from_branch: 'feat',
+      graduated_at_epoch: 10,
+    });
+    repo.graduateFact({
+      project: 'app-2',
+      observation_id: 2,
+      graduated_from_branch: 'feat',
+      graduated_at_epoch: 20,
+    });
+    repo.upsertBranchTag({
+      observation_id: 1,
+      project: 'app',
+      branch: 'feat',
+      tagged_at_epoch: 10,
+      source: 'manual',
+    });
+    repo.upsertBranchTag({
+      observation_id: 2,
+      project: 'app-2',
+      branch: 'feat',
+      tagged_at_epoch: 20,
+      source: 'manual',
+    });
+
+    const union = ['app', 'app-2'];
+    expect(repo.listPinsForBranchAcross(union, 'feat').map((p) => p.observation_id)).toEqual([
+      2, 1,
+    ]);
+    expect(repo.listGraduatedAcross(union).map((g) => g.observation_id)).toEqual([2, 1]);
+    expect(repo.countBranchTagsAcross(union, 'feat')).toBe(2);
+    expect(repo.listBranchesForProjectAcross(union)).toEqual([{ branch: 'feat', count: 2 }]);
+
+    // single-element array == old single-project behavior (regression guard)
+    expect(repo.listPinsForBranchAcross(['app'], 'feat').map((p) => p.observation_id)).toEqual([1]);
+  });
+});

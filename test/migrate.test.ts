@@ -24,7 +24,7 @@ describe('migrate', () => {
 
     expect(result.fromVersion).toBe(0);
     expect(result.toVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(result.applied).toEqual([1, 2]);
+    expect(result.applied).toEqual([1, 2, 3]);
 
     const db = new Database(dbPath, { readonly: true });
     try {
@@ -48,6 +48,7 @@ describe('migrate', () => {
           'idx_branch_pin_branch',
           'idx_graduated_project',
           'idx_branch_state_project',
+          'idx_branch_state_remote',
         ]),
       );
 
@@ -130,8 +131,8 @@ describe('migrate', () => {
 
     const result = migrate(dbPath);
     expect(result.fromVersion).toBe(1);
-    expect(result.toVersion).toBe(2);
-    expect(result.applied).toEqual([2]);
+    expect(result.toVersion).toBe(3);
+    expect(result.applied).toEqual([2, 3]);
 
     const verify = new Database(dbPath, { readonly: true });
     try {
@@ -146,6 +147,87 @@ describe('migrate', () => {
       expect(columnNames(verify, 'graduated')).toEqual(
         expect.arrayContaining(['content_hash', 'shared_at_epoch']),
       );
+    } finally {
+      verify.close();
+    }
+  });
+
+  it('upgrades a v2 database to v3 adding branch_state.remote without data loss', () => {
+    // Simulate a v2 install: apply v1+v2 schema, seed a branch_state row.
+    const db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+    db.exec(`
+      CREATE TABLE schema_versions (version INTEGER PRIMARY KEY, applied_at_epoch INTEGER NOT NULL);
+      CREATE TABLE branch_state (
+        cwd TEXT PRIMARY KEY, project TEXT NOT NULL, current_branch TEXT NOT NULL,
+        updated_at_epoch INTEGER NOT NULL
+      );
+      CREATE TABLE branch_pin (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, project TEXT NOT NULL, branch TEXT NOT NULL,
+        observation_id INTEGER, note TEXT, created_at_epoch INTEGER NOT NULL,
+        content_hash TEXT, shared_at_epoch INTEGER, title TEXT, body TEXT
+      );
+      CREATE TABLE graduated (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, project TEXT NOT NULL, observation_id INTEGER NOT NULL,
+        graduated_from_branch TEXT NOT NULL, graduated_at_epoch INTEGER NOT NULL,
+        content_hash TEXT, shared_at_epoch INTEGER, title TEXT, body TEXT,
+        UNIQUE(project, observation_id)
+      );
+      INSERT INTO schema_versions (version, applied_at_epoch) VALUES (1, 0), (2, 0);
+      INSERT INTO branch_state (cwd, project, current_branch, updated_at_epoch)
+        VALUES ('/repo', 'app', 'main', 100);
+    `);
+    db.close();
+
+    const result = migrate(dbPath);
+    expect(result.fromVersion).toBe(2);
+    expect(result.toVersion).toBe(3);
+    expect(result.applied).toEqual([3]);
+
+    const verify = new Database(dbPath, { readonly: true });
+    try {
+      expect(columnNames(verify, 'branch_state')).toEqual(expect.arrayContaining(['remote']));
+      const row = verify
+        .prepare('SELECT project, remote FROM branch_state WHERE cwd = ?')
+        .get('/repo') as { project: string; remote: string | null };
+      expect(row.project).toBe('app');
+      expect(row.remote).toBeNull();
+    } finally {
+      verify.close();
+    }
+  });
+
+  it('self-heals a db recorded at v3 before the remote column existed', () => {
+    const db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+    db.exec(`
+      CREATE TABLE schema_versions (version INTEGER PRIMARY KEY, applied_at_epoch INTEGER NOT NULL);
+      CREATE TABLE branch_state (
+        cwd TEXT PRIMARY KEY, project TEXT NOT NULL, current_branch TEXT NOT NULL,
+        updated_at_epoch INTEGER NOT NULL
+      );
+      CREATE TABLE branch_pin (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, project TEXT NOT NULL, branch TEXT NOT NULL,
+        observation_id INTEGER, note TEXT, created_at_epoch INTEGER NOT NULL,
+        content_hash TEXT, shared_at_epoch INTEGER, title TEXT, body TEXT
+      );
+      CREATE TABLE graduated (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, project TEXT NOT NULL, observation_id INTEGER NOT NULL,
+        graduated_from_branch TEXT NOT NULL, graduated_at_epoch INTEGER NOT NULL,
+        content_hash TEXT, shared_at_epoch INTEGER, title TEXT, body TEXT,
+        UNIQUE(project, observation_id)
+      );
+      INSERT INTO schema_versions (version, applied_at_epoch) VALUES (1, 0), (2, 0), (3, 0);
+    `);
+    db.close();
+
+    const result = migrate(dbPath);
+    expect(result.toVersion).toBe(3);
+    expect(result.applied).toEqual([]); // version unchanged — column reconciled in place
+
+    const verify = new Database(dbPath, { readonly: true });
+    try {
+      expect(columnNames(verify, 'branch_state')).toEqual(expect.arrayContaining(['remote']));
     } finally {
       verify.close();
     }
@@ -176,8 +258,8 @@ describe('migrate', () => {
 
     const result = migrate(dbPath);
     expect(result.fromVersion).toBe(2);
-    expect(result.toVersion).toBe(2);
-    expect(result.applied).toEqual([]); // version unchanged — columns reconciled in place
+    expect(result.toVersion).toBe(3);
+    expect(result.applied).toEqual([3]); // title/body reconciled in place; v3 column added
 
     const verify = new Database(dbPath, { readonly: true });
     try {

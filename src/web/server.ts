@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { ClaudeMemAdapter } from '../adapter/claude-mem.js';
 import { diagnoseClaudeMem } from '../adapter/preflight.js';
 import { log, logError } from '../log/logger.js';
+import { resolveProjectIdentity } from '../store/aliases.js';
 import { migrate } from '../store/migrate.js';
 import { TreMemRepo } from '../store/repo.js';
 import { VERSION } from '../version.js';
@@ -160,11 +161,14 @@ export async function runWebServer(opts: RunWebOptions = {}): Promise<RunningWeb
 
   const repo = new TreMemRepo();
   const sse = new SseHub();
+  const identity = await resolveProjectIdentity(repo, cwd);
   const deps: WebDeps = {
     repo,
     adapter,
     cwd,
-    project,
+    project: identity.project,
+    remote: identity.remote,
+    aliases: identity.aliases,
     staticDir: opts.staticDir ?? defaultStaticDir(),
     version: VERSION,
     now: () => Math.floor(Date.now() / 1000),

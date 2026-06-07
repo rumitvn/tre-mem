@@ -12,7 +12,9 @@ export interface UserPromptSubmitInput {
 
 export interface UserPromptSubmitDeps {
   /** Branch-aware retrieval, injected so the handler stays testable. */
-  getHits: (args: { query: string; project: string; branch: string }) => SearchHit[];
+  getHits: (args: { query: string; projects: string[]; branch: string }) => SearchHit[];
+  /** Resolve the cross-clone alias set for a cwd; defaults to `[basename(cwd)]`. */
+  resolveProjects?: (cwd: string) => Promise<string[]>;
   k?: number;
 }
 
@@ -50,7 +52,8 @@ export async function runUserPromptSubmitHook(
 
   if (prompt === '') return { project, branch, injected: 0, context: '' };
 
-  const hits = deps.getHits({ query: prompt, project, branch }).slice(0, deps.k ?? DEFAULT_K);
+  const projects = deps.resolveProjects ? await deps.resolveProjects(cwd) : [project];
+  const hits = deps.getHits({ query: prompt, projects, branch }).slice(0, deps.k ?? DEFAULT_K);
   if (hits.length === 0) return { project, branch, injected: 0, context: '' };
 
   const context =

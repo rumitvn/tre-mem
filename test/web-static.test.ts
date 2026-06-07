@@ -34,6 +34,8 @@ describe('static serving + SPA fallback', () => {
       adapter: null,
       cwd: tmp,
       project: 'demo',
+      remote: null,
+      aliases: ['demo'],
       staticDir,
       version: '0.0.0',
       now: () => 1,

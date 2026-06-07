@@ -51,6 +51,9 @@ export function App() {
   }, []);
 
   const mode = health.data?.mode;
+  // Clones of the *selected* project (from /api/branches), falling back to the
+  // daemon's home project (from /api/health) before branches load.
+  const linkedClones = branches.data?.linked_clones ?? health.data?.linked_clones ?? [];
 
   return (
     <div className="shell">
@@ -61,6 +64,14 @@ export function App() {
           <span>{t('wordmark.tagline')}</span>
         </div>
         <div className="topbar-spacer" />
+        {linkedClones.length > 1 ? (
+          <span
+            className="mode-badge"
+            title={`Memory unioned across clones of this repo: ${linkedClones.join(', ')}`}
+          >
+            {`🔗 ${linkedClones.length} clones`}
+          </span>
+        ) : null}
         {mode ? <span className="mode-badge">{mode}</span> : null}
         {projects.data && projects.data.projects.length > 1 ? (
           <select

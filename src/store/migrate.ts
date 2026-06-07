@@ -7,7 +7,7 @@ import { TRE_MEM_DB_PATH } from './paths.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 const V1_SCHEMA_FILE = join(__dirname, 'schema.sql');
 
@@ -52,6 +52,43 @@ const V2_IMPORT_STATE = `
     imported_at_epoch INTEGER NOT NULL
   );
 `;
+
+/**
+ * Schema v3 (Phase 7 — cross-clone memory). Additive only: a single nullable
+ * `remote` column on `branch_state` recording the canonical git remote slug of
+ * each working directory. Lets reads union memory across clones that share a
+ * remote. No backfill — existing rows stay `NULL` (single-project behavior) and
+ * self-heal on the next session-start write.
+ */
+const V3_COLUMNS: ReadonlyArray<{ table: string; column: string; ddl: string }> = [
+  {
+    table: 'branch_state',
+    column: 'remote',
+    ddl: 'ALTER TABLE branch_state ADD COLUMN remote TEXT',
+  },
+];
+
+/**
+ * Reconcile the additive v3 column + index. Idempotent (guarded by `columnExists`
+ * / `IF NOT EXISTS`), mirroring `ensureSyncColumns` so a database that recorded
+ * `schema_versions = 3` under an earlier, incomplete build self-heals.
+ */
+function ensureRemoteColumn(db: Database.Database): void {
+  // branch_state is a v1 table, but guard anyway so a partially-seeded database
+  // self-heals rather than throwing on a missing table.
+  if (!tableExists(db, 'branch_state')) return;
+  for (const { table, column, ddl } of V3_COLUMNS) {
+    if (!columnExists(db, table, column)) db.exec(ddl);
+  }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_branch_state_remote ON branch_state(remote)');
+}
+
+function tableExists(db: Database.Database, table: string): boolean {
+  const row = db
+    .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`)
+    .get(table);
+  return row !== undefined;
+}
 
 function columnExists(db: Database.Database, table: string, column: string): boolean {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
@@ -128,6 +165,21 @@ export function migrate(dbPath: string = TRE_MEM_DB_PATH): MigrateResult {
       // full column set existed. Reconcile unconditionally — idempotent, so a
       // complete database is a no-op and `applied` stays empty.
       db.transaction(() => ensureSyncColumns(db))();
+    }
+
+    if (currentVersion(db) < 3) {
+      const recordVersion = db.prepare(
+        'INSERT OR IGNORE INTO schema_versions (version, applied_at_epoch) VALUES (?, ?)',
+      );
+      const tx = db.transaction(() => {
+        ensureRemoteColumn(db);
+        recordVersion.run(3, Math.floor(Date.now() / 1000));
+      });
+      tx();
+      applied.push(3);
+    } else {
+      // Self-heal: reconcile the v3 column/index even if v3 was recorded early.
+      db.transaction(() => ensureRemoteColumn(db))();
     }
 
     const toVersion = currentVersion(db);

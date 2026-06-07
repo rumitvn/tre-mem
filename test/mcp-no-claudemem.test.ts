@@ -67,8 +67,8 @@ describe('MCP tools in shared-memory-only mode (adapter: null)', () => {
     expect(top?.title).toContain('stripe');
   });
 
-  it('list_branches works without an adapter', () => {
-    const res = listBranches(deps(), { project: 'demo' });
+  it('list_branches works without an adapter', async () => {
+    const res = await listBranches(deps(), { project: 'demo' });
     expect(res.branches.map((b) => b.branch)).toContain('feature/pay');
   });
 

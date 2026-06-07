@@ -79,7 +79,8 @@ tre mcp             # start by hand; without claude-mem it prints "shared-memory
 ```
 
 In the tool, list MCP tools — you should see `get_branch_context`,
-`get_branch_timeline`, `list_branches`, `pin_fact`, `graduate_fact`. Ask:
+`get_branch_timeline`, `list_branches`, `pin_fact`, `graduate_fact`,
+`export_memory`, `get_share_status`. Ask:
 _"what has the team pinned on this branch?"_
 
 ## Notes

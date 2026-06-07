@@ -9,6 +9,7 @@ import {
 } from '../format/digest.js';
 import { currentBranch } from '../git/resolver.js';
 import { log, logError } from '../log/logger.js';
+import { resolveProjectIdentity } from '../store/aliases.js';
 import { TreMemRepo } from '../store/repo.js';
 import { importDir } from '../sync/import.js';
 import { SYNC_DIR_NAME } from '../sync/layout.js';
@@ -30,6 +31,8 @@ export interface SessionStartOptions {
   now?: () => number;
   /** Skip the auto-import of the committed `.tre-mem/` directory. */
   skipImport?: boolean;
+  /** Injectable git-remote resolver for cross-clone identity (tests override). */
+  resolveRemote?: (cwd: string) => Promise<string | null>;
   /**
    * Resolve the most-recent branch-tagged observations for the digest. May
    * throw (e.g. claude-mem missing) — the hook then renders an empty list plus
@@ -81,14 +84,18 @@ export async function runSessionStartHook(
   const ownsRepo = !opts.repo;
   const repo = opts.repo ?? new TreMemRepo();
   try {
+    const identity = await resolveProjectIdentity(repo, cwd, {
+      resolveRemote: opts.resolveRemote,
+    });
     repo.upsertBranchState({
       cwd,
       project,
       current_branch: branch,
       updated_at_epoch: tagged_at_epoch,
+      remote: identity.remote,
     });
-    const tagged_count_for_branch = repo.countBranchTags(project, branch);
-    const tagged_count_for_project = repo.countBranchTags(project);
+    const tagged_count_for_branch = repo.countBranchTagsAcross(identity.aliases, branch);
+    const tagged_count_for_project = repo.countBranchTagsAcross(identity.aliases);
 
     // Auto-import teammates' shared memory. Cheap + idempotent: unchanged
     // files are skipped via import_state SHA tracking. Never blocks a session.

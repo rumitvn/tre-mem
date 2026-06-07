@@ -50,7 +50,7 @@ Stripe webhook với JWT context. tre-mem xử lý điều đó:
 - **Backfill lịch sử** qua `git reflog` để observation cũ cũng có branch.
 - **Rerank 3-signal**: semantic (FTS5/BM25), branch locality, recency-trong-branch,
   cộng thêm pin boost cho fact muốn ghim vào branch.
-- **MCP server** expose 5 tool để Claude Code gọi retrieval branch-aware trực tiếp.
+- **MCP server** expose 7 tool để Claude Code gọi retrieval branch-aware trực tiếp.
 
 Trên chính repo tre-mem, rerank nâng precision@10 từ **0.19** (FTS5 baseline thuần)
 lên **0.97**. Xem [BENCHMARK.md](./BENCHMARK.md) để biết chi tiết harness.
@@ -89,7 +89,7 @@ claude mcp add -s user tre-mem -- tre mcp
 Kiểm tra trong Claude Code bằng `/mcp`. Sẽ thấy:
 
 ```
-tre-mem · connected · 5 tools
+tre-mem · connected · 7 tools
 ```
 
 ## Đăng ký SessionStart hook (tùy chọn nhưng nên có)

@@ -43,10 +43,13 @@ CREATE TABLE IF NOT EXISTS branch_state (
   cwd               TEXT    PRIMARY KEY,
   project           TEXT    NOT NULL,
   current_branch    TEXT    NOT NULL,
-  updated_at_epoch  INTEGER NOT NULL
+  updated_at_epoch  INTEGER NOT NULL,
+  remote            TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_branch_state_project
   ON branch_state(project);
+CREATE INDEX IF NOT EXISTS idx_branch_state_remote
+  ON branch_state(remote);
 
 CREATE TABLE IF NOT EXISTS schema_versions (
   version          INTEGER PRIMARY KEY,

@@ -96,7 +96,7 @@ describe('ClaudeMemAdapter', () => {
     it('returns observations for a project ordered by created_at_epoch DESC', () => {
       const adapter = new ClaudeMemAdapter({ dbPath });
       try {
-        const rows = adapter.getObservations({ project: 'proj-a' });
+        const rows = adapter.getObservations({ projects: ['proj-a'] });
         expect(rows.map((r) => r.id)).toEqual([3, 2, 1]);
         expect(rows[0]).toMatchObject({
           project: 'proj-a',
@@ -111,17 +111,17 @@ describe('ClaudeMemAdapter', () => {
     it('filters observations by sinceEpoch / untilEpoch and limit', () => {
       const adapter = new ClaudeMemAdapter({ dbPath });
       try {
-        const since = adapter.getObservations({ project: 'proj-a', sinceEpoch: 2000 });
+        const since = adapter.getObservations({ projects: ['proj-a'], sinceEpoch: 2000 });
         expect(since.map((r) => r.id)).toEqual([3, 2]);
 
         const range = adapter.getObservations({
-          project: 'proj-a',
+          projects: ['proj-a'],
           sinceEpoch: 1000,
           untilEpoch: 2000,
         });
         expect(range.map((r) => r.id)).toEqual([2, 1]);
 
-        const limited = adapter.getObservations({ project: 'proj-a', limit: 1 });
+        const limited = adapter.getObservations({ projects: ['proj-a'], limit: 1 });
         expect(limited.map((r) => r.id)).toEqual([3]);
       } finally {
         adapter.close();
@@ -131,7 +131,7 @@ describe('ClaudeMemAdapter', () => {
     it('scopes observations by project', () => {
       const adapter = new ClaudeMemAdapter({ dbPath });
       try {
-        const rows = adapter.getObservations({ project: 'proj-b' });
+        const rows = adapter.getObservations({ projects: ['proj-b'] });
         expect(rows.map((r) => r.id)).toEqual([4]);
       } finally {
         adapter.close();
@@ -141,7 +141,7 @@ describe('ClaudeMemAdapter', () => {
     it('returns session_summaries scoped by project, newest first', () => {
       const adapter = new ClaudeMemAdapter({ dbPath });
       try {
-        const rows = adapter.getSessionSummaries({ project: 'proj-a' });
+        const rows = adapter.getSessionSummaries({ projects: ['proj-a'] });
         expect(rows.map((r) => r.id)).toEqual([2, 1]);
         expect(rows[0]).toMatchObject({ request: 'second request', project: 'proj-a' });
       } finally {
@@ -152,7 +152,7 @@ describe('ClaudeMemAdapter', () => {
     it('returns pending_messages joined with sdk_sessions for project + cwd', () => {
       const adapter = new ClaudeMemAdapter({ dbPath });
       try {
-        const rows = adapter.getPendingMessages({ project: 'proj-a' });
+        const rows = adapter.getPendingMessages({ projects: ['proj-a'] });
         expect(rows.map((r) => r.id)).toEqual([2, 1]);
         expect(rows[0]).toMatchObject({
           project: 'proj-a',
@@ -198,7 +198,7 @@ describe('ClaudeMemAdapter', () => {
         const fresh = new ClaudeMemAdapter({ dbPath });
         try {
           expect(
-            fresh.getObservations({ project: 'proj-a', sinceEpoch: 9999 }).map((r) => r.id),
+            fresh.getObservations({ projects: ['proj-a'], sinceEpoch: 9999 }).map((r) => r.id),
           ).toEqual([999]);
         } finally {
           fresh.close();

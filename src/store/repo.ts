@@ -7,6 +7,8 @@ export interface BranchState {
   project: string;
   current_branch: string;
   updated_at_epoch: number;
+  /** Canonical git remote slug (host/org/repo), null when there's no origin. */
+  remote?: string | null;
 }
 
 export type BranchTagSource = 'live' | 'reflog-backfill' | 'manual';
@@ -84,20 +86,21 @@ export class TreMemRepo {
   upsertBranchState(state: BranchState): void {
     this.db
       .prepare(
-        `INSERT INTO branch_state (cwd, project, current_branch, updated_at_epoch)
-         VALUES (@cwd, @project, @current_branch, @updated_at_epoch)
+        `INSERT INTO branch_state (cwd, project, current_branch, updated_at_epoch, remote)
+         VALUES (@cwd, @project, @current_branch, @updated_at_epoch, @remote)
          ON CONFLICT(cwd) DO UPDATE SET
            project          = excluded.project,
            current_branch   = excluded.current_branch,
-           updated_at_epoch = excluded.updated_at_epoch`,
+           updated_at_epoch = excluded.updated_at_epoch,
+           remote           = excluded.remote`,
       )
-      .run(state);
+      .run({ ...state, remote: state.remote ?? null });
   }
 
   getBranchState(cwd: string): BranchState | null {
     const row = this.db
       .prepare(
-        `SELECT cwd, project, current_branch, updated_at_epoch
+        `SELECT cwd, project, current_branch, updated_at_epoch, remote
            FROM branch_state
           WHERE cwd = ?`,
       )
@@ -108,11 +111,43 @@ export class TreMemRepo {
   listBranchStates(): BranchState[] {
     return this.db
       .prepare(
-        `SELECT cwd, project, current_branch, updated_at_epoch
+        `SELECT cwd, project, current_branch, updated_at_epoch, remote
            FROM branch_state
           ORDER BY project, cwd`,
       )
       .all() as BranchState[];
+  }
+
+  /** Update the remote slug for a known cwd. No-op if the row doesn't exist yet
+   *  (session-start / the git watcher create it). Lets any tre invocation register
+   *  the current clone's remote so cross-clone siblings can find each other. */
+  setRemoteForCwd(cwd: string, remote: string | null): void {
+    this.db.prepare(`UPDATE branch_state SET remote = ? WHERE cwd = ?`).run(remote, cwd);
+  }
+
+  /** The remote slug recorded for any clone of `project`, or null if none known. */
+  remoteForProject(project: string): string | null {
+    const row = this.db
+      .prepare(`SELECT remote FROM branch_state WHERE project = ? AND remote IS NOT NULL LIMIT 1`)
+      .get(project) as { remote: string } | undefined;
+    return row?.remote ?? null;
+  }
+
+  /**
+   * The set of project labels (directory basenames) that share a git remote with
+   * `project`, always including `project` itself. This is the cross-clone read
+   * key: when several local clones of one repo report the same `remote`, their
+   * memory is unioned. Returns `[project]` when `remote` is null/empty (no origin
+   * or cross-clone disabled) — i.e. single-project behavior.
+   */
+  projectAliases(project: string, remote: string | null | undefined): string[] {
+    if (remote === null || remote === undefined || remote === '') return [project];
+    const rows = this.db
+      .prepare(`SELECT DISTINCT project FROM branch_state WHERE remote = ?`)
+      .all(remote) as Array<{ project: string }>;
+    const set = new Set(rows.map((r) => r.project));
+    set.add(project);
+    return [...set].sort();
   }
 
   upsertBranchTag(tag: BranchTag): void {
@@ -149,24 +184,35 @@ export class TreMemRepo {
   }
 
   countBranchTags(project: string, branch?: string): number {
+    return this.countBranchTagsAcross([project], branch);
+  }
+
+  countBranchTagsAcross(projects: string[], branch?: string): number {
+    if (projects.length === 0) return 0;
+    const ph = placeholders(projects.length);
     if (branch !== undefined) {
       const row = this.db
-        .prepare('SELECT COUNT(*) AS n FROM branch_tag WHERE project = ? AND branch = ?')
-        .get(project, branch) as { n: number };
+        .prepare(`SELECT COUNT(*) AS n FROM branch_tag WHERE project IN (${ph}) AND branch = ?`)
+        .get(...projects, branch) as { n: number };
       return row.n;
     }
     const row = this.db
-      .prepare('SELECT COUNT(*) AS n FROM branch_tag WHERE project = ?')
-      .get(project) as { n: number };
+      .prepare(`SELECT COUNT(*) AS n FROM branch_tag WHERE project IN (${ph})`)
+      .get(...projects) as { n: number };
     return row.n;
   }
 
   listBranchTagsForBranch(project: string, branch: string, limit?: number): BranchTag[] {
+    return this.listBranchTagsForBranchAcross([project], branch, limit);
+  }
+
+  listBranchTagsForBranchAcross(projects: string[], branch: string, limit?: number): BranchTag[] {
+    if (projects.length === 0) return [];
     let sql = `SELECT observation_id, project, branch, tagged_at_epoch, source
                  FROM branch_tag
-                WHERE project = ? AND branch = ?
+                WHERE project IN (${placeholders(projects.length)}) AND branch = ?
                 ORDER BY tagged_at_epoch DESC`;
-    const params: unknown[] = [project, branch];
+    const params: unknown[] = [...projects, branch];
     if (limit !== undefined) {
       sql += ' LIMIT ?';
       params.push(limit);
@@ -202,25 +248,35 @@ export class TreMemRepo {
   }
 
   listPinsForBranch(project: string, branch: string): BranchPin[] {
+    return this.listPinsForBranchAcross([project], branch);
+  }
+
+  listPinsForBranchAcross(projects: string[], branch: string): BranchPin[] {
+    if (projects.length === 0) return [];
     return this.db
       .prepare(
         `SELECT id, project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch, title, body
            FROM branch_pin
-          WHERE project = ? AND branch = ?
+          WHERE project IN (${placeholders(projects.length)}) AND branch = ?
           ORDER BY created_at_epoch DESC, id DESC`,
       )
-      .all(project, branch) as BranchPin[];
+      .all(...projects, branch) as BranchPin[];
   }
 
   listPinsForProject(project: string): BranchPin[] {
+    return this.listPinsForProjectAcross([project]);
+  }
+
+  listPinsForProjectAcross(projects: string[]): BranchPin[] {
+    if (projects.length === 0) return [];
     return this.db
       .prepare(
         `SELECT id, project, branch, observation_id, note, created_at_epoch, content_hash, shared_at_epoch, title, body
            FROM branch_pin
-          WHERE project = ?
+          WHERE project IN (${placeholders(projects.length)})
           ORDER BY created_at_epoch DESC, id DESC`,
       )
-      .all(project) as BranchPin[];
+      .all(...projects) as BranchPin[];
   }
 
   graduateFact(input: GraduatedInsert): Graduated {
@@ -248,35 +304,52 @@ export class TreMemRepo {
   }
 
   listGraduated(project: string): Graduated[] {
+    return this.listGraduatedAcross([project]);
+  }
+
+  listGraduatedAcross(projects: string[]): Graduated[] {
+    if (projects.length === 0) return [];
     return this.db
       .prepare(
         `SELECT id, project, observation_id, graduated_from_branch, graduated_at_epoch, content_hash, shared_at_epoch, title, body
            FROM graduated
-          WHERE project = ?
+          WHERE project IN (${placeholders(projects.length)})
           ORDER BY graduated_at_epoch DESC, id DESC`,
       )
-      .all(project) as Graduated[];
+      .all(...projects) as Graduated[];
   }
 
   listBranchesForProject(project: string): Array<{ branch: string; count: number }> {
+    return this.listBranchesForProjectAcross([project]);
+  }
+
+  listBranchesForProjectAcross(projects: string[]): Array<{ branch: string; count: number }> {
+    if (projects.length === 0) return [];
     return this.db
       .prepare(
         `SELECT branch, COUNT(*) AS count
            FROM branch_tag
-          WHERE project = ?
+          WHERE project IN (${placeholders(projects.length)})
           GROUP BY branch
           ORDER BY count DESC, branch ASC`,
       )
-      .all(project) as Array<{ branch: string; count: number }>;
+      .all(...projects) as Array<{ branch: string; count: number }>;
   }
 
   // --- Phase 2 sync (schema v2) ---
 
   listPinBranches(project: string): string[] {
+    return this.listPinBranchesAcross([project]);
+  }
+
+  listPinBranchesAcross(projects: string[]): string[] {
+    if (projects.length === 0) return [];
     return (
       this.db
-        .prepare(`SELECT DISTINCT branch FROM branch_pin WHERE project = ? ORDER BY branch ASC`)
-        .all(project) as Array<{ branch: string }>
+        .prepare(
+          `SELECT DISTINCT branch FROM branch_pin WHERE project IN (${placeholders(projects.length)}) ORDER BY branch ASC`,
+        )
+        .all(...projects) as Array<{ branch: string }>
     ).map((r) => r.branch);
   }
 
@@ -397,4 +470,9 @@ export class TreMemRepo {
       });
     return true;
   }
+}
+
+/** Comma-separated `?` placeholders for an `IN (...)` clause of length `n`. */
+function placeholders(n: number): string {
+  return new Array(n).fill('?').join(', ');
 }

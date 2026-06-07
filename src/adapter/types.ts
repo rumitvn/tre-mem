@@ -49,7 +49,8 @@ export interface PendingMessage {
 }
 
 export interface ListQuery {
-  project: string;
+  /** One or more project labels to union over (cross-clone alias set). */
+  projects: string[];
   sinceEpoch?: number;
   untilEpoch?: number;
   limit?: number;

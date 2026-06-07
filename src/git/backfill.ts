@@ -33,7 +33,7 @@ export interface BackfillResult {
 export async function backfill(opts: BackfillOptions): Promise<BackfillResult> {
   const transitions = await readHeadReflog(opts.cwd);
   const observations = opts.adapter.getObservations({
-    project: opts.project,
+    projects: [opts.project],
     sinceEpoch: opts.sinceEpoch,
     limit: opts.limit,
   });

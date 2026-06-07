@@ -21,7 +21,8 @@ export interface SearchHit {
 
 export interface SearchOptions {
   query: string;
-  project: string;
+  /** Project alias set to union over (cross-clone). Use `[project]` for one repo. */
+  projects: string[];
   branch: string;
   k?: number;
   weights?: Partial<RerankWeights>;
@@ -98,23 +99,23 @@ export function searchBranchContext(deps: SearchDeps, opts: SearchOptions): Sear
   const searcher = opts.semantic ?? (deps.adapter ? new Fts5SemanticSearcher(deps.adapter) : null);
 
   const semHits = searcher
-    ? searcher.search({ query: opts.query, project: opts.project, k: fetchK })
+    ? searcher.search({ query: opts.query, projects: opts.projects, k: fetchK })
     : [];
-  const branchTags = deps.repo.listBranchTagsForBranch(opts.project, opts.branch, fetchK);
+  const branchTags = deps.repo.listBranchTagsForBranchAcross(opts.projects, opts.branch, fetchK);
   const recentObs = deps.adapter
-    ? deps.adapter.getObservations({ project: opts.project, sinceEpoch, limit: fetchK })
+    ? deps.adapter.getObservations({ projects: opts.projects, sinceEpoch, limit: fetchK })
     : [];
 
   // Pins: a free-text pin (no observation) still surfaces, via a stable
   // negative synthetic id so it flows through the id-keyed reranker.
-  const pins = deps.repo.listPinsForBranch(opts.project, opts.branch);
+  const pins = deps.repo.listPinsForBranchAcross(opts.projects, opts.branch);
   const pinEntries = pins.map((pin) => ({ id: pin.observation_id ?? -pin.id, pin }));
   const pinById = new Map(pinEntries.map((e) => [e.id, e.pin]));
 
   // Cap the always-on graduated boost to the most-recent fetchK (listGraduated
   // is ordered newest-first) so a repo with many merged PRs can't crowd out
   // query-relevant observations from the k result slots.
-  const graduated = deps.repo.listGraduated(opts.project).slice(0, fetchK);
+  const graduated = deps.repo.listGraduatedAcross(opts.projects).slice(0, fetchK);
   const gradByObsId = new Map(graduated.map((g) => [g.observation_id, g]));
 
   const ranked = rerank(

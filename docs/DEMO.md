@@ -148,7 +148,7 @@ Claude Code session in the same repo.
 
 **Expected**: Claude calls the `tre-mem.get_branch_context` MCP tool and
 answers in terms of **BMOtpTextView**, not AccountManager. (Check `/mcp` shows
-`tre-mem · connected · 5 tools` before recording.)
+`tre-mem · connected · 7 tools` before recording.)
 
 Then `git checkout feature/test_tre_mem` in the terminal, ask the same
 question again, and watch Claude switch to **AccountManager**.
