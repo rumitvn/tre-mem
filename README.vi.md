@@ -239,31 +239,6 @@ chuẩn và các `linked clones`. Mặc định bật; đặt `TRE_MEM_CROSS_CLO
 thư mục độc lập. Định dạng `.tre-mem/` được commit không đổi, nên đồng đội không bị
 ảnh hưởng.
 
-## Log chẩn đoán
-
-tre-mem ghi một file log JSONL nhỏ (chỉ ghi nối thêm) tại `~/.tre-mem/tre-mem.log` để
-bạn xem nó đã làm gì trên máy và chia sẻ khi cần gỡ lỗi. File **chỉ chứa số liệu và
-metadata** — tên branch/project, số lượng sự kiện, id, thời lượng, lớp + thông điệp lỗi.
-Nó **không bao giờ** ghi nội dung query, prompt, hay nội dung pin/note, nên file an toàn
-để gửi đi.
-
-```bash
-tre logs                 # 50 dòng JSONL gần nhất
-tre logs --all           # toàn bộ file (tiện để thu thập cuối ngày)
-tre logs --level warn    # chỉ cảnh báo + lỗi
-tre logs --component mcp # chỉ sự kiện MCP
-tre logs --path          # in đường dẫn file (để cat / copy)
-tre logs --clear         # xóa rỗng log (và xóa bản backup .1)
-```
-
-| Biến môi trường     | Mặc định                     | Ý nghĩa                                      |
-| ------------------- | ---------------------------- | -------------------------------------------- |
-| `TRE_MEM_LOG`       | bật                          | đặt `0`/`false`/`off` để tắt logging         |
-| `TRE_MEM_LOG_LEVEL` | `info`                       | mức tối thiểu: `debug`/`info`/`warn`/`error` |
-| `TRE_MEM_LOG_FILE`  | `<TRE_MEM_HOME>/tre-mem.log` | ghi đè đường dẫn tuyệt đối                   |
-
-File tự xoay vòng sang `tre-mem.log.1` khi vượt 5 MB, nên không bao giờ phình vô hạn.
-
 ## Memory nhóm — đẩy memory của bạn lên git (tính năng đinh)
 
 Đây chính là thứ tre-mem _sinh ra để làm_. Pin một quyết định, chạy **một lệnh**, là
@@ -369,6 +344,31 @@ claude-mem v13+ ingest từ Claude Code, Codex, Gemini, Cursor, Antigravity vào
 DB chung. Vì vậy tìm kiếm branch-aware đầy đủ có sẵn ở bất cứ máy nào đã cài +
 đang ingest claude-mem — chạy `tre doctor` để xem chế độ máy này (`full` /
 `shared-only`) và tình trạng ingest. Hướng dẫn: [docs/CROSS-TOOL.md](./docs/CROSS-TOOL.md).
+
+## Log chẩn đoán
+
+tre-mem ghi một file log JSONL nhỏ (chỉ ghi nối thêm) tại `~/.tre-mem/tre-mem.log` để
+bạn xem nó đã làm gì trên máy và chia sẻ khi cần gỡ lỗi. File **chỉ chứa số liệu và
+metadata** — tên branch/project, số lượng sự kiện, id, thời lượng, lớp + thông điệp lỗi.
+Nó **không bao giờ** ghi nội dung query, prompt, hay nội dung pin/note, nên file an toàn
+để gửi đi.
+
+```bash
+tre logs                 # 50 dòng JSONL gần nhất
+tre logs --all           # toàn bộ file (tiện để thu thập cuối ngày)
+tre logs --level warn    # chỉ cảnh báo + lỗi
+tre logs --component mcp # chỉ sự kiện MCP
+tre logs --path          # in đường dẫn file (để cat / copy)
+tre logs --clear         # xóa rỗng log (và xóa bản backup .1)
+```
+
+| Biến môi trường     | Mặc định                     | Ý nghĩa                                      |
+| ------------------- | ---------------------------- | -------------------------------------------- |
+| `TRE_MEM_LOG`       | bật                          | đặt `0`/`false`/`off` để tắt logging         |
+| `TRE_MEM_LOG_LEVEL` | `info`                       | mức tối thiểu: `debug`/`info`/`warn`/`error` |
+| `TRE_MEM_LOG_FILE`  | `<TRE_MEM_HOME>/tre-mem.log` | ghi đè đường dẫn tuyệt đối                   |
+
+File tự xoay vòng sang `tre-mem.log.1` khi vượt 5 MB, nên không bao giờ phình vô hạn.
 
 ## Kiến trúc
 

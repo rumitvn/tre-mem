@@ -1,6 +1,6 @@
 {
   "name": "tre-mem",
-  "version": "0.11.1",
+  "version": "0.11.2",
   "description": "Branch-aware shared memory layer for AI coding tools. Sidecar on top of claude-mem.",
   "keywords": [
     "claude-code",
@@ -45,6 +45,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.web.json",
+    "demo:seed": "node scripts/seed-demo.mjs",
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {

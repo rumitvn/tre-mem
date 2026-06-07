@@ -3,13 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { FIRST_SESSION_DEFER_MS, STEADY_DEFER_MS, sessionDeferMs } from '../src/hooks/defer.js';
 
 const base = {
-  format: 'claude' as const,
   claudeMemPresent: true,
   claudeMemHasProject: true,
 };
 
 describe('sessionDeferMs', () => {
-  it('defers the steady delay on Claude Code once a project has claude-mem memory', () => {
+  it('defers the steady delay once a project has claude-mem memory', () => {
     expect(sessionDeferMs(base)).toBe(STEADY_DEFER_MS);
   });
 
@@ -24,9 +23,11 @@ describe('sessionDeferMs', () => {
     );
   });
 
-  it('does not defer on non-Claude harnesses (codex/gemini have no racing banner)', () => {
-    expect(sessionDeferMs({ ...base, format: 'codex' })).toBe(0);
-    expect(sessionDeferMs({ ...base, format: 'gemini', claudeMemHasProject: false })).toBe(0);
+  it('defers on every harness with claude-mem present — Codex/Gemini race too', () => {
+    // The defer is format-agnostic: claude-mem runs its SessionStart hook on
+    // Claude Code, Codex, and Gemini alike, so tre-mem must wait on all three.
+    expect(sessionDeferMs(base)).toBe(STEADY_DEFER_MS);
+    expect(sessionDeferMs({ ...base, claudeMemHasProject: false })).toBe(FIRST_SESSION_DEFER_MS);
   });
 
   it('honours an explicit TRE_MEM_HOOK_DELAY_MS override over every heuristic', () => {

@@ -242,50 +242,6 @@ as one project by a shared `remote.origin.url`. `tre status` shows the canonical
 `TRE_MEM_CROSS_CLONE=0` to keep each directory isolated. The committed `.tre-mem/`
 format is unchanged, so teammates are unaffected.
 
-## Diagnostics log
-
-tre-mem writes a small append-only JSONL log to `~/.tre-mem/tre-mem.log` so you can
-see what it did on a machine and share it for troubleshooting. It records **counts and
-metadata only** — branch/project names, event counts, ids, durations, and error
-class+message. It never logs raw query text, prompt text, or pin/note bodies, so the
-file is safe to hand off.
-
-```bash
-tre logs                 # last 50 lines of JSONL
-tre logs --all           # whole file (good for collecting end-of-day)
-tre logs --level warn    # only warnings + errors
-tre logs --component mcp # only MCP events
-tre logs --path          # print the file path (e.g. to cat / copy it)
-tre logs --clear         # truncate the log (and remove the rotated .1 backup)
-```
-
-Each line looks like:
-
-```json
-{
-  "ts": "2026-06-04T09:12:03.144Z",
-  "t": 1780989123144,
-  "level": "info",
-  "component": "hook",
-  "event": "session_start",
-  "fields": {
-    "project": "shop",
-    "branch": "feature/payment",
-    "tagged_branch": 12,
-    "imported_pins": 2,
-    "ms": 31
-  }
-}
-```
-
-| Env var             | Default                      | Meaning                                  |
-| ------------------- | ---------------------------- | ---------------------------------------- |
-| `TRE_MEM_LOG`       | enabled                      | set `0`/`false`/`off` to disable logging |
-| `TRE_MEM_LOG_LEVEL` | `info`                       | min level: `debug`/`info`/`warn`/`error` |
-| `TRE_MEM_LOG_FILE`  | `<TRE_MEM_HOME>/tre-mem.log` | absolute path override                   |
-
-The file rotates to `tre-mem.log.1` once it passes 5 MB, so it never grows unbounded.
-
 ## Team memory — push your memory to git (the headline feature)
 
 This is what tre-mem is _for_. Pin a decision, run **one command**, and it's in
@@ -392,6 +348,50 @@ into one shared DB. So full branch-aware search is available wherever claude-mem
 is installed + ingesting — run `tre doctor` to see this machine's mode
 (`full` / `shared-only`) and ingest health. Full guide:
 [docs/CROSS-TOOL.md](./docs/CROSS-TOOL.md).
+
+## Diagnostics log
+
+tre-mem writes a small append-only JSONL log to `~/.tre-mem/tre-mem.log` so you can
+see what it did on a machine and share it for troubleshooting. It records **counts and
+metadata only** — branch/project names, event counts, ids, durations, and error
+class+message. It never logs raw query text, prompt text, or pin/note bodies, so the
+file is safe to hand off.
+
+```bash
+tre logs                 # last 50 lines of JSONL
+tre logs --all           # whole file (good for collecting end-of-day)
+tre logs --level warn    # only warnings + errors
+tre logs --component mcp # only MCP events
+tre logs --path          # print the file path (e.g. to cat / copy it)
+tre logs --clear         # truncate the log (and remove the rotated .1 backup)
+```
+
+Each line looks like:
+
+```json
+{
+  "ts": "2026-06-04T09:12:03.144Z",
+  "t": 1780989123144,
+  "level": "info",
+  "component": "hook",
+  "event": "session_start",
+  "fields": {
+    "project": "shop",
+    "branch": "feature/payment",
+    "tagged_branch": 12,
+    "imported_pins": 2,
+    "ms": 31
+  }
+}
+```
+
+| Env var             | Default                      | Meaning                                  |
+| ------------------- | ---------------------------- | ---------------------------------------- |
+| `TRE_MEM_LOG`       | enabled                      | set `0`/`false`/`off` to disable logging |
+| `TRE_MEM_LOG_LEVEL` | `info`                       | min level: `debug`/`info`/`warn`/`error` |
+| `TRE_MEM_LOG_FILE`  | `<TRE_MEM_HOME>/tre-mem.log` | absolute path override                   |
+
+The file rotates to `tre-mem.log.1` once it passes 5 MB, so it never grows unbounded.
 
 ## Architecture
 

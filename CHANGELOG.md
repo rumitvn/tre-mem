@@ -4,6 +4,32 @@ All notable changes to **tre-mem** are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.2] — 2026-06-07
+
+### Fixed
+
+- **Cleaner SessionStart banner on Codex & Gemini CLI.** Gemini was printing the
+  banner's ANSI color codes _literally_ (`[1m…`) and showing it twice, because
+  it surfaces both `systemMessage` and `additionalContext`. The colored display
+  now goes to Claude Code only; Codex and Gemini get the plain-text
+  `additionalContext` (single, readable block).
+- **Banner ordering on Codex & Gemini.** The defer that makes tre-mem render
+  _below_ claude-mem now applies on every harness (it only ran on Claude Code
+  before), so the tre-mem banner no longer races above claude-mem's on Codex and
+  Gemini.
+
+### Added
+
+- **`pnpm demo:seed` (`scripts/seed-demo.mjs`)** — builds a fully isolated demo
+  environment (its own `.tre-mem` + `.claude-mem`) with a believable "shop"
+  project for screenshots and video guides. Never touches your real install.
+
+### Changed
+
+- **README** — moved the "Diagnostics log" section out of the feature flow into
+  the reference zone (after cross-tool, before Architecture), in both `README.md`
+  and `README.vi.md`.
+
 ## [0.11.1] — 2026-06-07
 
 ### Fixed

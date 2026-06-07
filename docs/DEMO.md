@@ -3,6 +3,35 @@
 > Goal: prove "same question, different branch, different context" in **120
 > seconds** using a real Android project. This is the T2D10 demo deliverable.
 
+## Mock environment for screenshots / video (recommended)
+
+For polished captures you don't need a real project or your live memory — seed a
+**fully isolated** demo env that never touches `~/.tre-mem` or `~/.claude-mem`:
+
+```bash
+pnpm build                 # the seeder imports the compiled store from dist/
+pnpm demo:seed             # → ./demo-env   (add --force to rebuild)
+# or a throwaway path:  node scripts/seed-demo.mjs --home /tmp/tre-demo --force
+```
+
+It writes a believable "shop" e-commerce project: 15 observations across 4
+branches (`main`, `feature/payment`, `feature/search`, `fix/cart-flicker`),
+5 curated pins (3 shared), 3 graduated facts, a linked clone (cross-clone union),
+and a small git repo with three authors (Alice/Bob/Carol) so the contributor
+view lights up. Then point any `tre` command at it with two env vars:
+
+```bash
+export TRE_MEM_HOME="$PWD/demo-env/.tre-mem"
+export CLAUDE_MEM_HOME="$PWD/demo-env/.claude-mem"
+
+tre status                              # overview (run from demo-env/repos/shop for branch view)
+cd demo-env/repos/shop && tre web       # dashboard — run web FROM the repo so git contributors show
+```
+
+Tips: run `tre status` / `tre web` **from `demo-env/repos/shop`** (its basename
+is the project, and git-based contributors read that repo). Throw it all away
+with `rm -rf demo-env`. The rest of this doc is the original real-repo script.
+
 ## What we show
 
 A developer asks the same question on two branches of the same repo. With raw
